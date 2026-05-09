@@ -73,7 +73,7 @@ Tracked/adopted sources are checked weekly. If upstream changed, the agent analy
 - Default sections: Result, Verification, Notes.
 - Maximum 4 short bullets per section unless detail is requested.
 - Keep code creation/modification/deletion details folded by default using `<details><summary>작업 상세</summary>...</details>` only when useful.
-- Use confidence labels `High`, `Medium`, `Low`; in terminal/UI contexts render them as white-text badges on green/yellow/red backgrounds.
+- Use confidence labels `High`, `Medium`, `Low`; in terminal/UI contexts render them as white-text ANSI badges on green/yellow/red backgrounds. Do not use HTML badge tags in final Markdown because Pi prints them literally.
 
 ## Approval boundaries
 
@@ -95,7 +95,8 @@ Before committing:
 - Exclude unnecessary development analysis files, Superpowers runtime artifacts, private/personal files, secrets, generated output, caches, logs, and unneeded dotfiles.
 - Include intentional config dotfiles only when they are part of the project contract.
 - Run version sync before lint/typecheck/test.
-- If package/dependency/lockfile/plugin version information changes, update all corresponding version-bearing areas in the same commit.
+- Do not bump versions for every commit. Choose no bump/patch/minor/major autonomously based on change magnitude.
+- If a version bump is chosen, update all version-bearing areas in the same commit.
 - Keep `package.json` version and `extensions/ddotz-autopilot/version.ts` synchronized.
 - Dependency metadata changes must also update `pnpm-lock.yaml`.
 

@@ -63,7 +63,7 @@ Sources are tracked only when they are actually reflected into ddotz-pi or when 
 
 ## Response Style
 
-Final reports stay concise and sectioned. Default sections are Result, Verification, and Notes. Code creation/modification/deletion details are summarized first and folded by default via `<details><summary>작업 상세</summary>...</details>` only when useful. Confidence labels are `High`, `Medium`, and `Low`; terminal/UI rendering should use white text on green/yellow/red backgrounds.
+Final reports stay concise and sectioned. Default sections are Result, Verification, and Notes. Code creation/modification/deletion details are summarized first and folded by default via `<details><summary>작업 상세</summary>...</details>` only when useful. Confidence labels are `High`, `Medium`, and `Low`; terminal/UI rendering should use white text on green/yellow/red backgrounds. Final Markdown must not use HTML badge tags because Pi prints them literally.
 
 ## Completion Boundary
 
@@ -83,4 +83,4 @@ The external `insane-search` skill handles blocked/WAF-protected access and plat
 
 ## Commit Hygiene and Quality Gate
 
-Before commit, ddotz-pi requires a final file hygiene review: exclude unnecessary development analysis files, Superpowers runtime artifacts, personal/private files, secrets, generated output, caches, logs, and unneeded dotfiles. Version sync runs before lint/typecheck/test. If package/dependency/lockfile/plugin version information changes, all corresponding version-bearing areas must be updated in the same commit.
+Before commit, ddotz-pi requires a final file hygiene review: exclude unnecessary development analysis files, Superpowers runtime artifacts, personal/private files, secrets, generated output, caches, logs, and unneeded dotfiles. Version sync runs before lint/typecheck/test. Version bumps are chosen autonomously by change magnitude, not for every commit. If a version bump is chosen, all corresponding version-bearing areas must be updated in the same commit.

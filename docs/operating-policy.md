@@ -59,4 +59,4 @@ Summarize durable state. Do not retain long logs or noisy intermediate outputs. 
 
 Before committing, inspect changed and untracked files. Exclude unnecessary development analysis files, Superpowers runtime artifacts, private/personal files, secrets, generated output, caches, logs, and unneeded dotfiles.
 
-Run version sync before lint/typecheck/test after code changes. If package/dependency/lockfile/plugin version information changes, update all corresponding version-bearing areas in the same commit. `package.json` version and `extensions/ddotz-autopilot/version.ts` must match. Dependency metadata changes must also update `pnpm-lock.yaml`.
+Run version sync before lint/typecheck/test after code changes. Do not bump versions for every commit; choose no bump/patch/minor/major autonomously based on change magnitude. If a version bump is chosen, update all version-bearing areas in the same commit. `package.json` version and `extensions/ddotz-autopilot/version.ts` must match. Dependency metadata changes must also update `pnpm-lock.yaml`.

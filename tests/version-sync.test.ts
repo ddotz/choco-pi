@@ -10,7 +10,7 @@ describe("version sync", () => {
     expect(DDOTZ_PI_VERSION).toBe(packageJson.version);
   });
 
-  it("fails when package metadata changes without a package/plugin version bump", () => {
+  it("allows package metadata changes without forcing a version bump", () => {
     const result = analyzeVersionSync({
       currentPackageJson: JSON.stringify({ version: "0.1.0", scripts: { check: "new" } }),
       headPackageJson: JSON.stringify({ version: "0.1.0", scripts: { check: "old" } }),
@@ -19,8 +19,20 @@ describe("version sync", () => {
       currentPluginVersion: "0.1.0",
     });
 
+    expect(result.ok).toBe(true);
+  });
+
+  it("fails when a chosen package version bump is not mirrored to the plugin version", () => {
+    const result = analyzeVersionSync({
+      currentPackageJson: JSON.stringify({ version: "0.1.1" }),
+      headPackageJson: JSON.stringify({ version: "0.1.0" }),
+      currentLockfile: "lock-a",
+      headLockfile: "lock-a",
+      currentPluginVersion: "0.1.0",
+    });
+
     expect(result.ok).toBe(false);
-    expect(result.issues).toContain("package.json changed but package/plugin version did not change");
+    expect(result.issues).toContain("package.json version and plugin version constant differ");
   });
 
   it("fails when dependency metadata changes without lockfile sync", () => {

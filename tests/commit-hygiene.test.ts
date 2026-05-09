@@ -37,10 +37,8 @@ describe("commit hygiene", () => {
     expect(issues.map((issue) => issue.path)).toEqual([".env", ".superpowers/run.json"]);
   });
 
-  it("requires package and plugin version information to move together", () => {
-    expect(findVersionSyncIssues(["package.json"])).toEqual([
-      expect.objectContaining({ missingPath: "extensions/ddotz-autopilot/version.ts" }),
-    ]);
+  it("does not force a version bump for every package metadata change", () => {
+    expect(findVersionSyncIssues(["package.json"])).toEqual([]);
     expect(findVersionSyncIssues(["extensions/ddotz-autopilot/version.ts"])).toEqual([
       expect.objectContaining({ missingPath: "package.json" }),
     ]);

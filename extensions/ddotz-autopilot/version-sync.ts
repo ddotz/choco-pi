@@ -49,25 +49,10 @@ export function analyzeVersionSync(input: VersionSyncInput): VersionSyncResult {
 
   if (input.headPackageJson) {
     const headPackage = parsePackageJson(input.headPackageJson);
-    const packageChanged = input.currentPackageJson !== input.headPackageJson;
-    const packageVersionChanged = currentPackageVersion !== headPackage.version;
-    if (packageChanged && !packageVersionChanged) {
-      issues.push("package.json changed but package/plugin version did not change");
-    }
-
     const dependencyMetadataChanged = stableDependencyMetadata(currentPackage) !== stableDependencyMetadata(headPackage);
     const lockfileChanged = input.currentLockfile !== input.headLockfile;
     if (dependencyMetadataChanged && !lockfileChanged) {
       issues.push("dependency metadata changed but pnpm-lock.yaml did not change");
-    }
-  }
-
-  if (input.headLockfile !== undefined && input.currentLockfile !== undefined && input.headPackageJson) {
-    const headPackage = parsePackageJson(input.headPackageJson);
-    const lockfileChanged = input.currentLockfile !== input.headLockfile;
-    const packageVersionChanged = currentPackageVersion !== headPackage.version;
-    if (lockfileChanged && !packageVersionChanged) {
-      issues.push("pnpm-lock.yaml changed but package/plugin version did not change");
     }
   }
 

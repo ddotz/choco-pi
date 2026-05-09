@@ -50,7 +50,7 @@ Do not track links for simple analysis. Track only when the source was actually 
 
 ## Reporting Style
 
-Keep final reports concise and sectioned. Default sections are Result, Verification, and Notes. Keep code creation/modification/deletion details folded by default with `<details><summary>작업 상세</summary>...</details>` only when useful. Use confidence labels `High`, `Medium`, `Low`, not Korean labels; in terminal/UI contexts render them as white text on green/yellow/red backgrounds.
+Keep final reports concise and sectioned. Default sections are Result, Verification, and Notes. Keep code creation/modification/deletion details folded by default with `<details><summary>작업 상세</summary>...</details>` only when useful. Use confidence labels `High`, `Medium`, `Low`, not Korean labels. Do not use HTML badge tags in final Markdown because Pi prints them literally; use plain `Confidence: High` when ANSI rendering is unavailable.
 
 ## Completion Boundary
 
@@ -66,4 +66,4 @@ Use the external `insane-search` skill for blocked/WAF-protected sites and platf
 
 ## Commit and Quality Gate
 
-Before committing, inspect all changed/untracked files and exclude unnecessary development analysis files, Superpowers runtime artifacts, private/personal files, secrets, generated output, caches, logs, and unneeded dotfiles. Run version sync before lint/typecheck/test after code changes. If package/dependency/lockfile/plugin version information changes, update all corresponding version-bearing areas in the same commit.
+Before committing, inspect all changed/untracked files and exclude unnecessary development analysis files, Superpowers runtime artifacts, private/personal files, secrets, generated output, caches, logs, and unneeded dotfiles. Run version sync before lint/typecheck/test after code changes. Do not bump versions for every commit; choose no bump/patch/minor/major autonomously based on change magnitude. If a version bump is chosen, update all corresponding version-bearing areas in the same commit.

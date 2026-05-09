@@ -11,6 +11,7 @@ describe("response style", () => {
     expect(guidance).toContain("Keep final reports concise");
     expect(guidance).toContain("maximum 4 short bullets");
     expect(guidance).toContain("avoid long process narration");
+    expect(guidance).toContain("Do not use HTML tags");
   });
 
   it("folds noisy code operation details by default", () => {
