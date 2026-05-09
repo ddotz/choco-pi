@@ -12,9 +12,10 @@
     "prompts": ["prompts"]
   },
   "scripts": {
+    "lint": "oxlint . --deny-warnings",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm run typecheck && pnpm run test"
+    "check": "pnpm run lint && pnpm run typecheck && pnpm run test"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
@@ -22,6 +23,7 @@
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "^0.74.0",
     "@types/node": "^24.10.0",
+    "oxlint": "^1.62.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.14"
   },

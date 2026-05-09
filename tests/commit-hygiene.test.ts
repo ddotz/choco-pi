@@ -1,0 +1,42 @@
+import { describe, expect, it } from "vitest";
+import {
+  classifyCommitPath,
+  createDefaultQualityCommands,
+  findCommitHygieneIssues,
+  shouldIncludeInCommit,
+} from "../extensions/ddotz-autopilot/commit-hygiene";
+
+describe("commit hygiene", () => {
+  it("excludes superpowers runtime artifacts, private files, secrets, and unnecessary dotfiles", () => {
+    expect(shouldIncludeInCommit("docs/superpowers/plans/temp.md")).toBe(false);
+    expect(shouldIncludeInCommit(".superpowers/session.json")).toBe(false);
+    expect(shouldIncludeInCommit(".env")).toBe(false);
+    expect(shouldIncludeInCommit("private-notes.md")).toBe(false);
+    expect(shouldIncludeInCommit(".DS_Store")).toBe(false);
+    expect(shouldIncludeInCommit("extensions/ddotz-autopilot/policy.ts")).toBe(true);
+    expect(shouldIncludeInCommit(".gitignore")).toBe(true);
+  });
+
+  it("classifies path risks for final commit review", () => {
+    expect(classifyCommitPath("docs/superpowers/plans/a.md").kind).toBe("superpowers-artifact");
+    expect(classifyCommitPath(".env.local").kind).toBe("secret-or-private");
+    expect(classifyCommitPath(".cache/tmp").kind).toBe("unnecessary-dotfile");
+    expect(classifyCommitPath("src/index.ts").kind).toBe("allowed");
+  });
+
+  it("reports actionable hygiene issues before commit", () => {
+    const issues = findCommitHygieneIssues([
+      "README.md",
+      ".env",
+      ".superpowers/run.json",
+      "extensions/ddotz-autopilot/index.ts",
+    ]);
+
+    expect(issues).toHaveLength(2);
+    expect(issues.map((issue) => issue.path)).toEqual([".env", ".superpowers/run.json"]);
+  });
+
+  it("requires lint as part of the default post-change quality gate", () => {
+    expect(createDefaultQualityCommands()).toEqual(["pnpm run lint", "pnpm run typecheck", "pnpm run test"]);
+  });
+});

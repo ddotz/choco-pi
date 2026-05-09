@@ -16,7 +16,6 @@ const MAX_MEMORY_TEXT_LENGTH = 2000;
 
 export function classifyMemoryCandidate(input: string): MemoryCandidate {
   const text = input.trim();
-  const lower = text.toLowerCase();
 
   if (!text || text.length > MAX_MEMORY_TEXT_LENGTH) {
     return { kind: "noise", text, reason: "empty or oversized" };

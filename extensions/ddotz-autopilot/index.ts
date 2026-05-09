@@ -4,17 +4,42 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { createEmptyLedger, type ContextLedger, summarizeLedger } from "./context-ledger";
 import { createStoredMemory, classifyMemoryCandidate, type StoredMemory } from "./memory";
-import { createModeState, DEFAULT_MODE, parseMode, type ModeState } from "./mode";
-import { buildAutopilotSystemPrompt, type DdotzMode } from "./policy";
+import {
+  createRuntimeState,
+  DEFAULT_EXECUTION_INTENSITY,
+  DEFAULT_WORK_MODE,
+  inferWorkMode,
+  parseExecutionIntensity,
+  parseWorkMode,
+  type ExecutionIntensity,
+  type RuntimeState,
+  type WorkMode,
+} from "./mode";
+import { buildAutopilotSystemPrompt, classifyExecutionIntensity } from "./policy";
+import {
+  createExternalSource,
+  createSourceRegistry,
+  gitRemoteUrlForSource,
+  markSourceAdopted,
+  markSourceRejected,
+  sourcesDueForWeeklyCheck,
+  summarizeChangedSources,
+  summarizeDueSources,
+  upsertExternalSource,
+  updateSourceCheckResult,
+  type ExternalSource,
+  type SourceRegistry,
+} from "./source-registry";
 
 interface DdotzState {
-  version: 1;
-  mode: ModeState;
+  version: 2;
+  runtime: RuntimeState;
   memories: StoredMemory[];
   ledgers: Record<string, ContextLedger>;
+  sourceRegistry: SourceRegistry;
 }
 
-const STATE_VERSION = 1 as const;
+const STATE_VERSION = 2 as const;
 
 function agentDir(): string {
   return process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent");
@@ -27,10 +52,18 @@ function statePath(): string {
 function emptyState(): DdotzState {
   return {
     version: STATE_VERSION,
-    mode: createModeState(DEFAULT_MODE),
+    runtime: createRuntimeState(DEFAULT_WORK_MODE, DEFAULT_EXECUTION_INTENSITY),
     memories: [],
     ledgers: {},
+    sourceRegistry: createSourceRegistry(),
   };
+}
+
+function migrateLegacyMode(parsed: { mode?: { mode?: string }; runtime?: RuntimeState }): RuntimeState {
+  if (parsed.runtime?.workMode && parsed.runtime?.executionIntensity) return parsed.runtime;
+  const legacy = parsed.mode?.mode;
+  if (legacy === "autopilot-heavy") return createRuntimeState("default", "deep");
+  return createRuntimeState("default", "standard");
 }
 
 function ledgerKey(cwd: string): string {
@@ -40,12 +73,13 @@ function ledgerKey(cwd: string): string {
 async function loadState(): Promise<DdotzState> {
   try {
     const raw = await readFile(statePath(), "utf8");
-    const parsed = JSON.parse(raw) as Partial<DdotzState>;
+    const parsed = JSON.parse(raw) as Partial<DdotzState> & { mode?: { mode?: string } };
     return {
       version: STATE_VERSION,
-      mode: parsed.mode?.mode ? parsed.mode : createModeState(DEFAULT_MODE),
+      runtime: migrateLegacyMode(parsed),
       memories: Array.isArray(parsed.memories) ? parsed.memories : [],
       ledgers: parsed.ledgers && typeof parsed.ledgers === "object" ? parsed.ledgers : {},
+      sourceRegistry: parsed.sourceRegistry?.sources ? parsed.sourceRegistry : createSourceRegistry(),
     };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return emptyState();
@@ -77,18 +111,102 @@ function formatMemories(memories: StoredMemory[]): string {
     .join("\n");
 }
 
-async function setMode(mode: DdotzMode, ctx: ExtensionCommandContext): Promise<void> {
+function formatSources(registry: SourceRegistry): string {
+  if (registry.sources.length === 0) return "No ddotz-pi external sources tracked.";
+  return registry.sources
+    .map((source) => {
+      const changed = source.changedSinceLastCheck ? " changed" : "";
+      const ref = source.lastKnownRef ? ` @ ${source.lastKnownRef.slice(0, 12)}` : "";
+      return `- ${source.id} [${source.status}${changed}] ${source.label}${ref} — ${source.url}`;
+    })
+    .join("\n");
+}
+
+function extractUrls(text: string): string[] {
+  const matches = text.match(/https?:\/\/[^\s)\]>"']+/g) ?? [];
+  return Array.from(new Set(matches.map((url) => url.replace(/[.,;]+$/, ""))));
+}
+
+function maxIntensity(a: ExecutionIntensity, b: ExecutionIntensity): ExecutionIntensity {
+  const rank: Record<ExecutionIntensity, number> = { micro: 0, standard: 1, deep: 2 };
+  return rank[a] >= rank[b] ? a : b;
+}
+
+function effectiveWorkMode(configured: WorkMode, prompt: string): WorkMode {
+  if (configured !== "default") return configured;
+  return inferWorkMode(prompt);
+}
+
+async function setWorkMode(workMode: WorkMode, ctx: ExtensionCommandContext): Promise<void> {
   const state = await loadState();
-  state.mode = createModeState(mode);
+  state.runtime = createRuntimeState(workMode, state.runtime.executionIntensity);
   await saveState(state);
-  ctx.ui.notify(`ddotz-pi mode: ${mode}`, "info");
+  ctx.ui.notify(`ddotz-pi work mode: ${workMode}`, "info");
+}
+
+async function setExecutionIntensity(executionIntensity: ExecutionIntensity, ctx: ExtensionCommandContext): Promise<void> {
+  const state = await loadState();
+  state.runtime = createRuntimeState(state.runtime.workMode, executionIntensity);
+  await saveState(state);
+  ctx.ui.notify(`ddotz-pi execution intensity: ${executionIntensity}`, "info");
+}
+
+async function checkSource(pi: ExtensionAPI, source: ExternalSource): Promise<{ id: string; ok: boolean; message: string; ref?: string }> {
+  const remote = gitRemoteUrlForSource(source);
+  if (!remote) {
+    return { id: source.id, ok: false, message: "non-GitHub URL requires model-led analysis" };
+  }
+
+  const result = await pi.exec("git", ["ls-remote", remote, "HEAD"], { timeout: 15_000 });
+  if (result.code !== 0) {
+    return { id: source.id, ok: false, message: result.stderr?.trim() || `git ls-remote exited ${result.code}` };
+  }
+  const ref = result.stdout.trim().split(/\s+/)[0];
+  if (!ref) return { id: source.id, ok: false, message: "empty git ls-remote response" };
+  return { id: source.id, ok: true, message: `HEAD ${ref.slice(0, 12)}`, ref };
+}
+
+async function checkSources(pi: ExtensionAPI, state: DdotzState, sources: ExternalSource[]): Promise<string[]> {
+  const messages: string[] = [];
+  for (const source of sources) {
+    const checkedAt = new Date();
+    try {
+      const result = await checkSource(pi, source);
+      state.sourceRegistry = updateSourceCheckResult(state.sourceRegistry, source.id, {
+        checkedAt,
+        upstreamRef: result.ref,
+        ok: result.ok,
+        error: result.ok ? undefined : result.message,
+      });
+      messages.push(`${source.label}: ${result.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      state.sourceRegistry = updateSourceCheckResult(state.sourceRegistry, source.id, {
+        checkedAt,
+        ok: false,
+        error: message,
+      });
+      messages.push(`${source.label}: ${message}`);
+    }
+  }
+  return messages;
 }
 
 export default function ddotzAutopilot(pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
-    if (!ctx.hasUI) return;
     const state = await loadState();
-    ctx.ui.setStatus("ddotz-pi", ctx.ui.theme.fg("accent", `ddotz:${state.mode.mode}`));
+    const dueGithubSources = sourcesDueForWeeklyCheck(state.sourceRegistry)
+      .filter((source) => source.kind === "github")
+      .slice(0, 5);
+    if (dueGithubSources.length > 0) {
+      await checkSources(pi, state, dueGithubSources);
+      await saveState(state);
+    }
+    if (!ctx.hasUI) return;
+    ctx.ui.setStatus(
+      "ddotz-pi",
+      ctx.ui.theme.fg("accent", `ddotz:${state.runtime.workMode}/${state.runtime.executionIntensity}`),
+    );
   });
 
   pi.on("session_shutdown", async (_event, ctx) => {
@@ -98,36 +216,156 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   pi.on("before_agent_start", async (event, ctx) => {
     const state = await loadState();
     const cwd = ctx.cwd || process.cwd();
+    const urls = extractUrls(event.prompt ?? "");
+    for (const url of urls) {
+      state.sourceRegistry = upsertExternalSource(
+        state.sourceRegistry,
+        createExternalSource(url, {
+          rationale: "User supplied this external link for analysis/adoption consideration.",
+        }),
+      );
+    }
+
     const ledger = getLedger(state, cwd, event.prompt);
     await saveState(state);
 
+    const workMode = effectiveWorkMode(state.runtime.workMode, event.prompt ?? "");
+    const executionIntensity = maxIntensity(
+      state.runtime.executionIntensity,
+      classifyExecutionIntensity(event.prompt ?? ""),
+    );
     const ledgerSummary = summarizeLedger(ledger, { maxItemsPerSection: 4 });
+    const changed = summarizeChangedSources(state.sourceRegistry);
+    const due = summarizeDueSources(state.sourceRegistry);
+    const dueSourceSummary = [changed, due].filter((line) => !line.startsWith("No ")).join("\n\n");
+
     return {
       systemPrompt: `${event.systemPrompt}\n\n${buildAutopilotSystemPrompt({
-        mode: state.mode.mode,
+        workMode,
+        executionIntensity,
         cwd,
         ledgerSummary,
+        dueSourceSummary: dueSourceSummary || undefined,
       })}`,
     };
   });
 
   pi.registerCommand("ddotz-mode", {
-    description: "Show or set ddotz-pi mode: normal, autopilot, or heavy",
+    description: "Show or set ddotz-pi work mode: default, coding, report, web-analysis, adoption-analysis",
     handler: async (args: string, ctx: ExtensionCommandContext) => {
       const value = args.trim();
       if (!value || value === "status") {
         const state = await loadState();
-        ctx.ui.notify(`ddotz-pi mode: ${state.mode.mode}`, "info");
+        ctx.ui.notify(`ddotz-pi work mode: ${state.runtime.workMode}`, "info");
         return;
       }
 
-      const mode = parseMode(value);
-      if (!mode) {
-        ctx.ui.notify("Usage: /ddotz-mode [normal|autopilot|heavy|status]", "error");
+      const workMode = parseWorkMode(value);
+      if (!workMode) {
+        ctx.ui.notify("Usage: /ddotz-mode [default|coding|report|web-analysis|adoption-analysis|status]", "error");
         return;
       }
 
-      await setMode(mode, ctx);
+      await setWorkMode(workMode, ctx);
+    },
+  });
+
+  pi.registerCommand("ddotz-intensity", {
+    description: "Show or set ddotz-pi execution intensity: micro, standard, or deep",
+    handler: async (args: string, ctx: ExtensionCommandContext) => {
+      const value = args.trim();
+      if (!value || value === "status") {
+        const state = await loadState();
+        ctx.ui.notify(`ddotz-pi execution intensity: ${state.runtime.executionIntensity}`, "info");
+        return;
+      }
+
+      const intensity = parseExecutionIntensity(value);
+      if (!intensity) {
+        ctx.ui.notify("Usage: /ddotz-intensity [micro|standard|deep|status]", "error");
+        return;
+      }
+
+      await setExecutionIntensity(intensity, ctx);
+    },
+  });
+
+  pi.registerCommand("ddotz-source", {
+    description: "Track external repos/links for adoption analysis and weekly update checks",
+    handler: async (args: string, ctx: ExtensionCommandContext) => {
+      const [command = "list", ...rest] = args.trim().split(/\s+/).filter(Boolean);
+      const state = await loadState();
+
+      if (command === "list") {
+        ctx.ui.notify(formatSources(state.sourceRegistry), "info");
+        return;
+      }
+
+      if (command === "due") {
+        ctx.ui.notify(summarizeDueSources(state.sourceRegistry), "info");
+        return;
+      }
+
+      if (command === "changed") {
+        ctx.ui.notify(summarizeChangedSources(state.sourceRegistry), "info");
+        return;
+      }
+
+      if (command === "add") {
+        const [url, ...rationaleParts] = rest;
+        if (!url) {
+          ctx.ui.notify("Usage: /ddotz-source add <url> [rationale]", "error");
+          return;
+        }
+        const source = createExternalSource(url, { rationale: rationaleParts.join(" ") || undefined });
+        state.sourceRegistry = upsertExternalSource(state.sourceRegistry, source);
+        await saveState(state);
+        ctx.ui.notify(`Tracked external source: ${source.id}`, "info");
+        return;
+      }
+
+      if (command === "adopt") {
+        const [id, ...reviewParts] = rest;
+        if (!id) {
+          ctx.ui.notify("Usage: /ddotz-source adopt <id> [review]", "error");
+          return;
+        }
+        state.sourceRegistry = markSourceAdopted(state.sourceRegistry, id, reviewParts.join(" ") || "Adopted for ddotz-pi.");
+        await saveState(state);
+        ctx.ui.notify(`Marked adopted: ${id}`, "info");
+        return;
+      }
+
+      if (command === "reject") {
+        const [id, ...reviewParts] = rest;
+        if (!id) {
+          ctx.ui.notify("Usage: /ddotz-source reject <id> [review]", "error");
+          return;
+        }
+        state.sourceRegistry = markSourceRejected(state.sourceRegistry, id, reviewParts.join(" ") || "Rejected for ddotz-pi.");
+        await saveState(state);
+        ctx.ui.notify(`Marked rejected: ${id}`, "info");
+        return;
+      }
+
+      if (command === "check") {
+        const target = rest[0] || "due";
+        const selected = target === "all"
+          ? state.sourceRegistry.sources.filter((source) => source.status !== "rejected")
+          : target === "due"
+            ? sourcesDueForWeeklyCheck(state.sourceRegistry)
+            : state.sourceRegistry.sources.filter((source) => source.id === target);
+        if (selected.length === 0) {
+          ctx.ui.notify(`No sources selected for check: ${target}`, "warning");
+          return;
+        }
+        const messages = await checkSources(pi, state, selected);
+        await saveState(state);
+        ctx.ui.notify(messages.join("\n"), "info");
+        return;
+      }
+
+      ctx.ui.notify("Usage: /ddotz-source [list|add|adopt|reject|due|changed|check]", "error");
     },
   });
 
