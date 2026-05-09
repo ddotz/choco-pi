@@ -82,4 +82,4 @@ The external `insane-search` skill handles blocked/WAF-protected access and plat
 
 ## Commit Hygiene and Quality Gate
 
-Before commit, ddotz-pi requires a final file hygiene review: exclude unnecessary development analysis files, Superpowers runtime artifacts, personal/private files, secrets, generated output, caches, logs, and unneeded dotfiles. After code changes, lint is part of the default quality gate before typecheck/test.
+Before commit, ddotz-pi requires a final file hygiene review: exclude unnecessary development analysis files, Superpowers runtime artifacts, personal/private files, secrets, generated output, caches, logs, and unneeded dotfiles. Version sync runs before lint/typecheck/test. If package/dependency/lockfile/plugin version information changes, all corresponding version-bearing areas must be updated in the same commit.

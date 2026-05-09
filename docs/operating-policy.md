@@ -57,4 +57,6 @@ Summarize durable state. Do not retain long logs or noisy intermediate outputs. 
 
 ## Commit Hygiene Rule
 
-Before committing, inspect changed and untracked files. Exclude unnecessary development analysis files, Superpowers runtime artifacts, private/personal files, secrets, generated output, caches, logs, and unneeded dotfiles. Run lint before typecheck/test after code changes.
+Before committing, inspect changed and untracked files. Exclude unnecessary development analysis files, Superpowers runtime artifacts, private/personal files, secrets, generated output, caches, logs, and unneeded dotfiles.
+
+Run version sync before lint/typecheck/test after code changes. If package/dependency/lockfile/plugin version information changes, update all corresponding version-bearing areas in the same commit. `package.json` version and `extensions/ddotz-autopilot/version.ts` must match. Dependency metadata changes must also update `pnpm-lock.yaml`.

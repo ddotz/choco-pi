@@ -66,4 +66,4 @@ Use the external `insane-search` skill for blocked/WAF-protected sites and platf
 
 ## Commit and Quality Gate
 
-Before committing, inspect all changed/untracked files and exclude unnecessary development analysis files, Superpowers runtime artifacts, private/personal files, secrets, generated output, caches, logs, and unneeded dotfiles. Run lint before typecheck/test after code changes.
+Before committing, inspect all changed/untracked files and exclude unnecessary development analysis files, Superpowers runtime artifacts, private/personal files, secrets, generated output, caches, logs, and unneeded dotfiles. Run version sync before lint/typecheck/test after code changes. If package/dependency/lockfile/plugin version information changes, update all corresponding version-bearing areas in the same commit.

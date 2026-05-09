@@ -31,6 +31,7 @@ import {
   type ExternalSource,
   type SourceRegistry,
 } from "./source-registry";
+import { DDOTZ_PI_VERSION } from "./version";
 import {
   addCustomWorkMode,
   createWorkModeRegistry,
@@ -230,7 +231,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     if (!ctx.hasUI) return;
     ctx.ui.setStatus(
       "mode",
-      ctx.ui.theme.fg("accent", `mode:${state.runtime.workMode}/${state.runtime.executionIntensity}`),
+      ctx.ui.theme.fg("accent", `mode:${state.runtime.workMode}/${state.runtime.executionIntensity}@${DDOTZ_PI_VERSION}`),
     );
   });
 

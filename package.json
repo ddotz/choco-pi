@@ -1,6 +1,6 @@
 {
   "name": "ddotz-pi",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Personal autonomous PM/development-team layer for the pi coding agent.",
   "keywords": [
@@ -26,10 +26,11 @@
     ]
   },
   "scripts": {
+    "version:check": "node scripts/check-version-sync.ts",
     "lint": "oxlint . --deny-warnings",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm run lint && pnpm run typecheck && pnpm run test"
+    "check": "pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"

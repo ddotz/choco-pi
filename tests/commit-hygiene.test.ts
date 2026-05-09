@@ -3,6 +3,7 @@ import {
   classifyCommitPath,
   createDefaultQualityCommands,
   findCommitHygieneIssues,
+  findVersionSyncIssues,
   shouldIncludeInCommit,
 } from "../extensions/ddotz-autopilot/commit-hygiene";
 
@@ -36,7 +37,22 @@ describe("commit hygiene", () => {
     expect(issues.map((issue) => issue.path)).toEqual([".env", ".superpowers/run.json"]);
   });
 
-  it("requires lint as part of the default post-change quality gate", () => {
-    expect(createDefaultQualityCommands()).toEqual(["pnpm run lint", "pnpm run typecheck", "pnpm run test"]);
+  it("requires package and plugin version information to move together", () => {
+    expect(findVersionSyncIssues(["package.json"])).toEqual([
+      expect.objectContaining({ missingPath: "extensions/ddotz-autopilot/version.ts" }),
+    ]);
+    expect(findVersionSyncIssues(["extensions/ddotz-autopilot/version.ts"])).toEqual([
+      expect.objectContaining({ missingPath: "package.json" }),
+    ]);
+    expect(findVersionSyncIssues(["package.json", "extensions/ddotz-autopilot/version.ts"])).toEqual([]);
+  });
+
+  it("requires lint and version sync as part of the default post-change quality gate", () => {
+    expect(createDefaultQualityCommands()).toEqual([
+      "pnpm run version:check",
+      "pnpm run lint",
+      "pnpm run typecheck",
+      "pnpm run test",
+    ]);
   });
 });

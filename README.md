@@ -87,7 +87,10 @@ Before committing:
 - Inspect `git status --short --untracked-files=all`.
 - Exclude unnecessary development analysis files, Superpowers runtime artifacts, private/personal files, secrets, generated output, caches, logs, and unneeded dotfiles.
 - Include intentional config dotfiles only when they are part of the project contract.
-- Run lint before typecheck/test.
+- Run version sync before lint/typecheck/test.
+- If package/dependency/lockfile/plugin version information changes, update all corresponding version-bearing areas in the same commit.
+- Keep `package.json` version and `extensions/ddotz-autopilot/version.ts` synchronized.
+- Dependency metadata changes must also update `pnpm-lock.yaml`.
 
 ```bash
 pnpm run check

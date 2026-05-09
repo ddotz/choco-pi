@@ -12,6 +12,12 @@ export interface CommitPathRisk {
   reason: string;
 }
 
+export interface VersionSyncIssue {
+  changedPath: string;
+  missingPath: string;
+  reason: string;
+}
+
 const ALLOWED_DOTFILES = new Set([
   ".gitignore",
   ".npmrc",
@@ -51,6 +57,9 @@ const GENERATED_OR_CACHE_PATTERNS = [
   /(^|\/)Thumbs\.db$/,
   /\.log$/,
 ];
+
+const PACKAGE_VERSION_PATH = "package.json";
+const PLUGIN_VERSION_PATH = "extensions/ddotz-autopilot/version.ts";
 
 function normalizePath(path: string): string {
   return path.trim().replace(/^\.\//, "");
@@ -115,8 +124,33 @@ export function findCommitHygieneIssues(paths: string[]): CommitPathRisk[] {
   return paths.map(classifyCommitPath).filter((risk) => !risk.include);
 }
 
+export function findVersionSyncIssues(paths: string[]): VersionSyncIssue[] {
+  const normalizedPaths = new Set(paths.map(normalizePath));
+  const issues: VersionSyncIssue[] = [];
+  const packageChanged = normalizedPaths.has(PACKAGE_VERSION_PATH);
+  const pluginVersionChanged = normalizedPaths.has(PLUGIN_VERSION_PATH);
+
+  if (packageChanged && !pluginVersionChanged) {
+    issues.push({
+      changedPath: PACKAGE_VERSION_PATH,
+      missingPath: PLUGIN_VERSION_PATH,
+      reason: "Package version metadata changed without updating the plugin version constant.",
+    });
+  }
+
+  if (pluginVersionChanged && !packageChanged) {
+    issues.push({
+      changedPath: PLUGIN_VERSION_PATH,
+      missingPath: PACKAGE_VERSION_PATH,
+      reason: "Plugin version constant changed without updating package.json.",
+    });
+  }
+
+  return issues;
+}
+
 export function createDefaultQualityCommands(): string[] {
-  return ["pnpm run lint", "pnpm run typecheck", "pnpm run test"];
+  return ["pnpm run version:check", "pnpm run lint", "pnpm run typecheck", "pnpm run test"];
 }
 
 export function buildCommitHygieneGuidance(): string {
@@ -126,7 +160,9 @@ export function buildCommitHygieneGuidance(): string {
     "- Inspect `git status --short --untracked-files=all`.",
     "- Exclude unnecessary development analysis files, Superpowers runtime artifacts, private/personal files, secrets, generated output, caches, logs, and unneeded dotfiles.",
     "- Allow intentional project configuration dotfiles such as .gitignore, .npmrc, .editorconfig, and linter/formatter config.",
-    "- After code changes, run lint by default before typecheck/test.",
+    "- Version sync is mandatory: when package/dependency/lockfile/plugin version information changes, update all corresponding version-bearing areas in the same commit.",
+    "- Keep package.json version and the plugin version constant synchronized; dependency metadata changes must also update pnpm-lock.yaml.",
+    "- After code changes, run version sync and lint by default before typecheck/test.",
     `- Default quality gate: ${createDefaultQualityCommands().join(" && ")}`,
   ].join("\n");
 }
