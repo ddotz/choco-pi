@@ -22,6 +22,7 @@ The primary target is the user's current Pi environment under `~/.pi/agent`. `~/
 
 - Extension: injects autonomous PM policy through `before_agent_start`, exposes `/mode`, `/intensity`, `/memory`, `/ledger`, and `/source`, and stores compact state under the Pi agent directory.
 - Mode folders: isolate shared philosophy from mode-specific overlays so report/coding/web/adoption behavior can diverge without changing the base philosophy.
+- UI extensions: keep todo tool rows silent while widgets update, collapse read previews to header-only by default, and render the footer with branch version, current mode, and cyan-highlighted usage values.
 - Utility absorption: selected roach-pi utilities are loaded through the `ddotz-pi-utilities` dependency alias, not as a top-level Pi package.
 - Skill: describes the autonomous execution behavior for task-triggered progressive disclosure.
 - Prompt: lets the user explicitly force autonomous behavior if needed.

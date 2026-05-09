@@ -60,6 +60,13 @@ Do **not** track links for simple analysis. Track only when:
 
 Tracked/adopted sources are checked weekly. If upstream changed, the agent analyzes fit and asks whether to adopt the proposed improvement.
 
+## UI behavior
+
+- Todo tool calls render silently; the bottom/side todo widget still updates.
+- Read previews stay header-only while collapsed and expand on demand.
+- Footer shows `⎇ <branch> v<version>` and the current mode as the first item on line 2.
+- Footer usage values (`5h`, `wk`, `ctx` percentage) highlight only the numeric values in cyan.
+
 ## Reporting style
 
 - Keep final reports concise and sectioned.

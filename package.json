@@ -1,6 +1,6 @@
 {
   "name": "ddotz-pi",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Personal autonomous PM/development-team layer for the pi coding agent.",
   "keywords": [
@@ -14,9 +14,12 @@
   "pi": {
     "extensions": [
       "extensions/ddotz-autopilot/index.ts",
+      "extensions/todo-widget.ts",
+      "extensions/ddotz-footer/index.ts",
       "node_modules/ddotz-pi-utilities/extensions/fff-search/index.ts",
       "node_modules/pi-lsp-client/src/index.ts",
-      "node_modules/ddotz-pi-utilities/extensions/pi-code-previews/index.ts"
+      "node_modules/ddotz-pi-utilities/extensions/pi-code-previews/index.ts",
+      "extensions/focus-rendering/index.ts"
     ],
     "skills": [
       "skills"
