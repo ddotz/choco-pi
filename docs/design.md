@@ -14,9 +14,11 @@ Build a personal Pi package that makes the default operating philosophy an auton
 
 ## Architecture
 
-`ddotz-pi` is a Pi package with one extension, one skill, and one prompt template.
+`ddotz-pi` is a Pi package with one extension, one skill, prompt templates, and mode instruction folders.
 
-- Extension: injects autonomous PM policy through `before_agent_start`, exposes work-mode/intensity/memory/ledger/source commands, and stores compact state under the Pi agent directory.
+- Extension: injects autonomous PM policy through `before_agent_start`, exposes `/mode`, `/intensity`, `/memory`, `/ledger`, and `/source`, and stores compact state under the Pi agent directory.
+- Mode folders: isolate shared philosophy from mode-specific overlays so report/coding/web/adoption behavior can diverge without changing the base philosophy.
+- Utility absorption: selected roach-pi utilities are loaded through the `ddotz-pi-utilities` dependency alias, not as a top-level Pi package.
 - Skill: describes the autonomous execution behavior for task-triggered progressive disclosure.
 - Prompt: lets the user explicitly force autonomous behavior if needed.
 
@@ -27,6 +29,20 @@ The autonomous PM/development-team base is always on. It is not a user-facing mo
 ## Work Modes
 
 Only `default` work mode is implemented. Planned modes are `coding`, `report`, `web-analysis`, and `adoption-analysis`. The agent must not claim planned modes are active. If the user explicitly asks to use one, ask whether to implement/switch it.
+
+Folder layout:
+
+```text
+modes/
+  _base/MODE.md
+  default/MODE.md
+  coding/MODE.md
+  report/MODE.md
+  web-analysis/MODE.md
+  adoption-analysis/MODE.md
+```
+
+Each mode inherits `_base` and adds a focused overlay. For example, `default` remains general and may do coding, while `report` can later add evidence structure, source notes, and writing-specific output rules. Custom modes follow `modes/<mode-id>/MODE.md`; `/mode add` registers them and writes runtime files under `~/.pi/agent/ddotz-pi/modes/`.
 
 ## Execution Intensity
 
@@ -42,7 +58,7 @@ Sources are tracked only when they are actually reflected into ddotz-pi or when 
 
 ## Response Style
 
-Final reports stay concise and sectioned. Default sections are Result, Verification, and Notes. Code creation/modification/deletion details are summarized first and folded by default via `<details><summary>작업 상세</summary>...</details>` only when useful. Confidence labels are `High`, `Medium`, and `Low`, with color rendering where possible.
+Final reports stay concise and sectioned. Default sections are Result, Verification, and Notes. Code creation/modification/deletion details are summarized first and folded by default via `<details><summary>작업 상세</summary>...</details>` only when useful. Confidence labels are `High`, `Medium`, and `Low`; terminal/UI rendering should use white text on green/yellow/red backgrounds.
 
 ## Completion Boundary
 

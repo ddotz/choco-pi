@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { createEmptyLedger, type ContextLedger, summarizeLedger } from "./context-ledger";
@@ -35,6 +35,7 @@ import {
   addCustomWorkMode,
   createWorkModeRegistry,
   ensureBuiltInModes,
+  findWorkMode,
   listWorkModes,
   removeCustomWorkMode,
   type WorkModeRegistry,
@@ -57,6 +58,24 @@ function agentDir(): string {
 
 function statePath(): string {
   return join(agentDir(), "ddotz-pi", "state.json");
+}
+
+function modeFilePath(folder: string): string {
+  return join(agentDir(), "ddotz-pi", folder, "MODE.md");
+}
+
+async function writeCustomModeFile(id: string, folder: string, description: string): Promise<void> {
+  const filePath = modeFilePath(folder);
+  await mkdir(join(agentDir(), "ddotz-pi", folder), { recursive: true });
+  await writeFile(
+    filePath,
+    [`# ${id} Mode`, "", "Status: planned, custom.", "", description.trim(), ""].join("\n"),
+    "utf8",
+  );
+}
+
+async function removeCustomModeFile(folder: string): Promise<void> {
+  await rm(join(agentDir(), "ddotz-pi", folder), { recursive: true, force: true });
 }
 
 function emptyState(): DdotzState {
@@ -147,14 +166,14 @@ async function setWorkMode(workMode: WorkMode, ctx: ExtensionCommandContext): Pr
   }
   state.runtime = createRuntimeState(workMode, state.runtime.executionIntensity);
   await saveState(state);
-  ctx.ui.notify(`ddotz-pi work mode: ${workMode}`, "info");
+  ctx.ui.notify(`mode: ${workMode}`, "info");
 }
 
 async function setExecutionIntensity(executionIntensity: ExecutionIntensity, ctx: ExtensionCommandContext): Promise<void> {
   const state = await loadState();
   state.runtime = createRuntimeState(state.runtime.workMode, executionIntensity);
   await saveState(state);
-  ctx.ui.notify(`ddotz-pi execution intensity: ${executionIntensity}`, "info");
+  ctx.ui.notify(`intensity: ${executionIntensity}`, "info");
 }
 
 async function checkSource(pi: ExtensionAPI, source: ExternalSource): Promise<{ id: string; ok: boolean; message: string; ref?: string }> {
@@ -210,13 +229,13 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     }
     if (!ctx.hasUI) return;
     ctx.ui.setStatus(
-      "ddotz-pi",
-      ctx.ui.theme.fg("accent", `ddotz:${state.runtime.workMode}/${state.runtime.executionIntensity}`),
+      "mode",
+      ctx.ui.theme.fg("accent", `mode:${state.runtime.workMode}/${state.runtime.executionIntensity}`),
     );
   });
 
   pi.on("session_shutdown", async (_event, ctx) => {
-    if (ctx.hasUI) ctx.ui.setStatus("ddotz-pi", undefined);
+    if (ctx.hasUI) ctx.ui.setStatus("mode", undefined);
   });
 
   pi.on("before_agent_start", async (event, ctx) => {
@@ -248,14 +267,14 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     };
   });
 
-  pi.registerCommand("ddotz-mode", {
-    description: "Manage ddotz-pi work modes: list, set, add, remove",
+  pi.registerCommand("mode", {
+    description: "Manage work modes: list, set, add, remove",
     handler: async (args: string, ctx: ExtensionCommandContext) => {
       const [command = "status", ...rest] = args.trim().split(/\s+/).filter(Boolean);
       const state = await loadState();
 
       if (command === "status") {
-        ctx.ui.notify(`ddotz-pi work mode: ${state.runtime.workMode}`, "info");
+        ctx.ui.notify(`mode: ${state.runtime.workMode}`, "info");
         return;
       }
 
@@ -267,26 +286,35 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
       if (command === "add") {
         const [id, ...descriptionParts] = rest;
         if (!id || descriptionParts.length === 0) {
-          ctx.ui.notify("Usage: /ddotz-mode add <id> <description>", "error");
+          ctx.ui.notify("Usage: /mode add <id> <description>", "error");
           return;
         }
-        state.workModeRegistry = addCustomWorkMode(state.workModeRegistry, {
-          id,
-          description: descriptionParts.join(" "),
-        });
-        await saveState(state);
-        ctx.ui.notify(`Added planned work mode: ${id}`, "info");
+        try {
+          const description = descriptionParts.join(" ");
+          state.workModeRegistry = addCustomWorkMode(state.workModeRegistry, {
+            id,
+            description,
+          });
+          const mode = findWorkMode(state.workModeRegistry, id);
+          if (mode) await writeCustomModeFile(mode.id, mode.folder, description);
+          await saveState(state);
+          ctx.ui.notify(`Added planned work mode: ${id}${mode ? ` (${mode.instructionFile})` : ""}`, "info");
+        } catch (error) {
+          ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
+        }
         return;
       }
 
       if (command === "remove") {
         const [id] = rest;
         if (!id) {
-          ctx.ui.notify("Usage: /ddotz-mode remove <id>", "error");
+          ctx.ui.notify("Usage: /mode remove <id>", "error");
           return;
         }
         try {
+          const existing = findWorkMode(state.workModeRegistry, id);
           state.workModeRegistry = removeCustomWorkMode(state.workModeRegistry, id);
+          if (existing?.custom) await removeCustomModeFile(existing.folder);
           await saveState(state);
           ctx.ui.notify(`Removed custom work mode: ${id}`, "info");
         } catch (error) {
@@ -297,12 +325,17 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
 
       const modeArg = command === "set" ? rest[0] : command;
       if (!modeArg) {
-        ctx.ui.notify("Usage: /ddotz-mode [status|list|set <mode>|add <id> <description>|remove <id>]", "error");
+        ctx.ui.notify("Usage: /mode [status|list|set <mode>|add <id> <description>|remove <id>]", "error");
         return;
       }
       const workMode = parseWorkMode(modeArg);
       if (!workMode) {
-        ctx.ui.notify("Usage: /ddotz-mode [status|list|set <mode>|add <id> <description>|remove <id>]", "error");
+        const registeredMode = findWorkMode(state.workModeRegistry, modeArg);
+        if (registeredMode) {
+          ctx.ui.notify(`Work mode '${registeredMode.id}' is registered at ${registeredMode.instructionFile} but not implemented. Staying in default mode.`, "warning");
+          return;
+        }
+        ctx.ui.notify("Usage: /mode [status|list|set <mode>|add <id> <description>|remove <id>]", "error");
         return;
       }
 
@@ -310,19 +343,19 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     },
   });
 
-  pi.registerCommand("ddotz-intensity", {
-    description: "Show or set ddotz-pi execution intensity: micro, standard, or deep",
+  pi.registerCommand("intensity", {
+    description: "Show or set execution intensity: micro, standard, or deep",
     handler: async (args: string, ctx: ExtensionCommandContext) => {
       const value = args.trim();
       if (!value || value === "status") {
         const state = await loadState();
-        ctx.ui.notify(`ddotz-pi execution intensity: ${state.runtime.executionIntensity}`, "info");
+        ctx.ui.notify(`intensity: ${state.runtime.executionIntensity}`, "info");
         return;
       }
 
       const intensity = parseExecutionIntensity(value);
       if (!intensity) {
-        ctx.ui.notify("Usage: /ddotz-intensity [micro|standard|deep|status]", "error");
+        ctx.ui.notify("Usage: /intensity [micro|standard|deep|status]", "error");
         return;
       }
 
@@ -330,8 +363,8 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     },
   });
 
-  pi.registerCommand("ddotz-source", {
-    description: "Track external repos/links for adoption analysis and weekly update checks",
+  pi.registerCommand("source", {
+    description: "Track adopted external repos/links for weekly update checks",
     handler: async (args: string, ctx: ExtensionCommandContext) => {
       const [command = "list", ...rest] = args.trim().split(/\s+/).filter(Boolean);
       const state = await loadState();
@@ -354,7 +387,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
       if (command === "add") {
         const [url, ...rationaleParts] = rest;
         if (!url) {
-          ctx.ui.notify("Usage: /ddotz-source add <url> [rationale]", "error");
+          ctx.ui.notify("Usage: /source add <url> [rationale]", "error");
           return;
         }
         const source = createExternalSource(url, { rationale: rationaleParts.join(" ") || undefined });
@@ -367,7 +400,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
       if (command === "adopt") {
         const [id, ...reviewParts] = rest;
         if (!id) {
-          ctx.ui.notify("Usage: /ddotz-source adopt <id> [review]", "error");
+          ctx.ui.notify("Usage: /source adopt <id> [review]", "error");
           return;
         }
         state.sourceRegistry = markSourceAdopted(state.sourceRegistry, id, reviewParts.join(" ") || "Adopted for ddotz-pi.");
@@ -379,7 +412,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
       if (command === "reject") {
         const [id, ...reviewParts] = rest;
         if (!id) {
-          ctx.ui.notify("Usage: /ddotz-source reject <id> [review]", "error");
+          ctx.ui.notify("Usage: /source reject <id> [review]", "error");
           return;
         }
         state.sourceRegistry = markSourceRejected(state.sourceRegistry, id, reviewParts.join(" ") || "Rejected for ddotz-pi.");
@@ -405,12 +438,12 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
         return;
       }
 
-      ctx.ui.notify("Usage: /ddotz-source [list|add|adopt|reject|due|changed|check]", "error");
+      ctx.ui.notify("Usage: /source [list|add|adopt|reject|due|changed|check]", "error");
     },
   });
 
-  pi.registerCommand("ddotz-memory", {
-    description: "List or save durable ddotz-pi memories",
+  pi.registerCommand("memory", {
+    description: "List or save durable memories",
     handler: async (args: string, ctx: ExtensionCommandContext) => {
       const trimmed = args.trim();
       const state = await loadState();
@@ -430,11 +463,11 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
 
       state.memories.push(memory);
       await saveState(state);
-      ctx.ui.notify(`Saved ddotz-pi memory: ${memory.kind}`, "info");
+      ctx.ui.notify(`Saved memory: ${memory.kind}`, "info");
     },
   });
 
-  pi.registerCommand("ddotz-ledger", {
+  pi.registerCommand("ledger", {
     description: "Show the compact Context Ledger for the current workspace",
     handler: async (args: string, ctx: ExtensionCommandContext) => {
       const state = await loadState();
@@ -444,7 +477,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
       if (args.trim() === "reset") {
         delete state.ledgers[key];
         await saveState(state);
-        ctx.ui.notify("Reset ddotz-pi Context Ledger for this workspace.", "info");
+        ctx.ui.notify("Reset Context Ledger for this workspace.", "info");
         return;
       }
 

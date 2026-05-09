@@ -20,11 +20,14 @@ describe("response style", () => {
     expect(shouldFoldOperationDetails("final-summary")).toBe(false);
   });
 
-  it("uses English confidence labels with ANSI color", () => {
+  it("uses English confidence labels with high-contrast ANSI background colors", () => {
     expect(formatConfidenceLabel("high")).toContain("High");
     expect(formatConfidenceLabel("medium")).toContain("Medium");
     expect(formatConfidenceLabel("low")).toContain("Low");
-    expect(formatConfidenceLabel("high")).toContain("\u001b[");
+    expect(formatConfidenceLabel("high")).toContain("\u001b[42m");
+    expect(formatConfidenceLabel("medium")).toContain("\u001b[43m");
+    expect(formatConfidenceLabel("low")).toContain("\u001b[41m");
+    expect(formatConfidenceLabel("high")).toContain("\u001b[37m");
     expect(formatConfidenceLabel("medium")).not.toContain("중간");
   });
 });

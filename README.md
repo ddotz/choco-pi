@@ -8,15 +8,29 @@ Personal autonomous PM/development-team layer for the pi coding agent.
 
 The autonomous PM base is always on. **Only `default` work mode is currently implemented.** Specialized modes (`coding`, `report`, `web-analysis`, `adoption-analysis`) are planned and should be implemented/switched only after an explicit user request.
 
-This repo is not a fork of roach-pi or oh-my-pi. It keeps Pi as the runtime and borrows useful ideas while preserving a personal operating policy.
+Selected roach-pi utilities are absorbed under this package through the `ddotz-pi-utilities` dependency alias, so Pi settings only need the local `ddotz-pi` package.
 
 ## Commands
 
-- `/ddotz-mode [default|status]` — show or set the domain work mode. Current implemented mode is `default` only.
-- `/ddotz-intensity [micro|standard|deep|status]` — show or set execution intensity. This is process weight, not a work mode.
-- `/ddotz-source [list|add|adopt|reject|due|changed|check]` — track adopted or explicitly tracked external sources.
-- `/ddotz-memory [list|save <text>]` — list/save durable memories.
-- `/ddotz-ledger [reset]` — show/reset compact workspace Context Ledger.
+- `/mode [status|list|set <mode>|add <id> <description>|remove <id>]` — manage work modes. Current implemented mode is `default` only.
+- `/intensity [micro|standard|deep|status]` — show or set execution intensity. This is process weight, not a work mode.
+- `/source [list|add|adopt|reject|due|changed|check]` — track adopted or explicitly tracked external sources.
+- `/memory [list|save <text>]` — list/save durable memories.
+- `/ledger [reset]` — show/reset compact workspace Context Ledger.
+
+## Mode folder structure
+
+```text
+modes/
+  _base/MODE.md                # shared autonomous PM philosophy
+  default/MODE.md              # only implemented mode
+  coding/MODE.md               # planned coding overlay
+  report/MODE.md               # planned report-writing overlay
+  web-analysis/MODE.md         # planned web research overlay
+  adoption-analysis/MODE.md    # planned source adoption overlay
+```
+
+Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created custom modes are stored under `~/.pi/agent/ddotz-pi/modes/<mode-id>/MODE.md` and registered by `/mode add`.
 
 ## Planned work modes
 
@@ -48,7 +62,7 @@ Tracked/adopted sources are checked weekly. If upstream changed, the agent analy
 - Default sections: Result, Verification, Notes.
 - Maximum 4 short bullets per section unless detail is requested.
 - Keep code creation/modification/deletion details folded by default using `<details><summary>작업 상세</summary>...</details>` only when useful.
-- Use confidence labels `High`, `Medium`, `Low`; render color when possible.
+- Use confidence labels `High`, `Medium`, `Low`; in terminal/UI contexts render them as white-text badges on green/yellow/red backgrounds.
 
 ## Approval boundaries
 

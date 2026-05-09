@@ -3,13 +3,27 @@
   "version": "0.1.0",
   "private": true,
   "description": "Personal autonomous PM/development-team layer for the pi coding agent.",
-  "keywords": ["pi-package", "pi-extension", "autopilot", "agent"],
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "autopilot",
+    "agent"
+  ],
   "license": "UNLICENSED",
   "type": "module",
   "pi": {
-    "extensions": ["extensions/ddotz-autopilot/index.ts"],
-    "skills": ["skills"],
-    "prompts": ["prompts"]
+    "extensions": [
+      "extensions/ddotz-autopilot/index.ts",
+      "node_modules/ddotz-pi-utilities/extensions/fff-search/index.ts",
+      "node_modules/pi-lsp-client/src/index.ts",
+      "node_modules/ddotz-pi-utilities/extensions/pi-code-previews/index.ts"
+    ],
+    "skills": [
+      "skills"
+    ],
+    "prompts": [
+      "prompts"
+    ]
   },
   "scripts": {
     "lint": "oxlint . --deny-warnings",
@@ -27,5 +41,18 @@
     "typescript": "^5.9.3",
     "vitest": "^4.0.14"
   },
-  "packageManager": "pnpm@10.29.3"
+  "packageManager": "pnpm@10.29.3",
+  "dependencies": {
+    "@ff-labs/fff-node": "^0.7.2",
+    "@mariozechner/pi-ai": "npm:@earendil-works/pi-ai@^0.74.0",
+    "@mariozechner/pi-coding-agent": "npm:@earendil-works/pi-coding-agent@^0.74.0",
+    "@mariozechner/pi-tui": "npm:@earendil-works/pi-tui@^0.74.0",
+    "@sinclair/typebox": "^0.34.49",
+    "ddotz-pi-utilities": "github:tmdgusya/roach-pi#v1.26.1",
+    "diff": "^9.0.0",
+    "pi-lsp-client": "github:code-yeongyu/pi-lsp-client",
+    "shiki": "^4.0.2",
+    "typebox": "^1.1.38",
+    "vscode-jsonrpc": "^8.2.1"
+  }
 }

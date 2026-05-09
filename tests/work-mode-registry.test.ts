@@ -10,7 +10,9 @@ describe("work mode registry", () => {
   it("starts with default implemented and planned built-in modes", () => {
     const registry = createWorkModeRegistry();
     expect(registry.modes.find((mode) => mode.id === "default")?.status).toBe("implemented");
+    expect(registry.modes.find((mode) => mode.id === "default")?.folder).toBe("modes/default");
     expect(registry.modes.find((mode) => mode.id === "coding")?.status).toBe("planned");
+    expect(registry.modes.find((mode) => mode.id === "report")?.instructionFile).toBe("modes/report/MODE.md");
   });
 
   it("allows adding custom planned modes", () => {
@@ -23,6 +25,8 @@ describe("work mode registry", () => {
     const mode = registry.modes.find((item) => item.id === "design-review");
     expect(mode?.status).toBe("planned");
     expect(mode?.custom).toBe(true);
+    expect(mode?.folder).toBe("modes/design-review");
+    expect(mode?.instructionFile).toBe("modes/design-review/MODE.md");
   });
 
   it("allows removing custom modes but protects built-ins", () => {

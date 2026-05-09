@@ -30,8 +30,11 @@ Drive work like an autonomous PM/development team. The autonomous PM base is alw
 
 ## Work Modes
 
+Use `/mode` as the canonical work-mode command.
+
 - **default**: the only implemented mode.
 - **coding/report/web-analysis/adoption-analysis**: planned modes. Do not claim they are active. If the user explicitly asks to use one, ask whether to implement/switch it.
+- Mode folders use `modes/_base/MODE.md` for shared philosophy and `modes/<mode-id>/MODE.md` for mode-specific overlays. Custom runtime modes are registered by `/mode add`.
 
 ## Execution Intensity
 
@@ -47,7 +50,7 @@ Do not track links for simple analysis. Track only when the source was actually 
 
 ## Reporting Style
 
-Keep final reports concise and sectioned. Default sections are Result, Verification, and Notes. Keep code creation/modification/deletion details folded by default with `<details><summary>작업 상세</summary>...</details>` only when useful. Use confidence labels `High`, `Medium`, `Low`, not Korean labels.
+Keep final reports concise and sectioned. Default sections are Result, Verification, and Notes. Keep code creation/modification/deletion details folded by default with `<details><summary>작업 상세</summary>...</details>` only when useful. Use confidence labels `High`, `Medium`, `Low`, not Korean labels; in terminal/UI contexts render them as white text on green/yellow/red backgrounds.
 
 ## Completion Boundary
 

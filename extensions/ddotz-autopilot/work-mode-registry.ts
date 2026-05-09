@@ -5,6 +5,8 @@ export interface WorkModeDefinition {
   description: string;
   status: WorkModeStatus;
   custom: boolean;
+  folder: string;
+  instructionFile: string;
   createdAt: string;
 }
 
@@ -18,7 +20,7 @@ export interface AddCustomWorkModeInput {
   description: string;
 }
 
-const BUILT_IN_MODES: Array<Omit<WorkModeDefinition, "createdAt">> = [
+const BUILT_IN_MODES: Array<Omit<WorkModeDefinition, "createdAt" | "folder" | "instructionFile">> = [
   {
     id: "default",
     description: "General autonomous PM/development-team behavior. The only currently implemented work mode.",
@@ -61,18 +63,34 @@ function normalizeModeId(id: string): string {
   return normalized;
 }
 
+export function modeFolderFor(id: string): string {
+  return `modes/${normalizeModeId(id)}`;
+}
+
+export function modeInstructionFileFor(id: string): string {
+  return `${modeFolderFor(id)}/MODE.md`;
+}
+
+function withModePaths<T extends { id: string }>(mode: T): T & { folder: string; instructionFile: string } {
+  return {
+    ...mode,
+    folder: modeFolderFor(mode.id),
+    instructionFile: modeInstructionFileFor(mode.id),
+  };
+}
+
 export function createWorkModeRegistry(): WorkModeRegistry {
   const createdAt = nowIso();
   return {
     version: 1,
-    modes: BUILT_IN_MODES.map((mode) => ({ ...mode, createdAt })),
+    modes: BUILT_IN_MODES.map((mode) => ({ ...withModePaths(mode), createdAt })),
   };
 }
 
 export function ensureBuiltInModes(registry: WorkModeRegistry | undefined): WorkModeRegistry {
   const base = registry?.modes ? registry : createWorkModeRegistry();
   const builtIns = createWorkModeRegistry().modes;
-  const custom = base.modes.filter((mode) => mode.custom);
+  const custom = base.modes.filter((mode) => mode.custom).map((mode) => ({ ...withModePaths(mode), createdAt: mode.createdAt }));
   const mergedCustom = custom.filter((mode) => !builtIns.some((builtIn) => builtIn.id === mode.id));
   return { version: 1, modes: [...builtIns, ...mergedCustom] };
 }
@@ -91,6 +109,8 @@ export function addCustomWorkMode(registry: WorkModeRegistry, input: AddCustomWo
         description,
         status: "planned",
         custom: true,
+        folder: modeFolderFor(id),
+        instructionFile: modeInstructionFileFor(id),
         createdAt: nowIso(),
       },
     ],
@@ -106,12 +126,16 @@ export function removeCustomWorkMode(registry: WorkModeRegistry, id: string): Wo
 }
 
 export function findWorkMode(registry: WorkModeRegistry, id: string): WorkModeDefinition | undefined {
-  const normalized = normalizeModeId(id);
-  return registry.modes.find((mode) => mode.id === normalized);
+  try {
+    const normalized = normalizeModeId(id);
+    return registry.modes.find((mode) => mode.id === normalized);
+  } catch {
+    return undefined;
+  }
 }
 
 export function listWorkModes(registry: WorkModeRegistry): string {
   return registry.modes
-    .map((mode) => `- ${mode.id} [${mode.status}${mode.custom ? ", custom" : ""}] ${mode.description}`)
+    .map((mode) => `- ${mode.id} [${mode.status}${mode.custom ? ", custom" : ""}] ${mode.instructionFile} — ${mode.description}`)
     .join("\n");
 }
