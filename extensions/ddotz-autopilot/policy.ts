@@ -1,0 +1,106 @@
+export const AUTOPILOT_MODE = "autopilot" as const;
+
+export type DdotzMode = "normal" | "autopilot" | "autopilot-heavy";
+export type AutopilotWeight = "micro" | "standard" | "heavy";
+
+export type ApprovalDecisionKind =
+  | "routine-choice"
+  | "deployment"
+  | "payment"
+  | "secret-or-account"
+  | "large-delete"
+  | "external-data-transfer"
+  | "irreversible"
+  | "contradictory-goal";
+
+export interface ApprovalDecision {
+  kind: ApprovalDecisionKind;
+  reversible: boolean;
+  hasReasonableDefault: boolean;
+}
+
+export interface AutopilotPromptOptions {
+  mode: DdotzMode;
+  cwd: string;
+  ledgerSummary?: string;
+}
+
+const HEAVY_PATTERNS = [
+  /역할\s*나눠/,
+  /끝까지/,
+  /전체\s*(환경|구조|리팩터링|리팩토링|개편)/,
+  /autopilot-heavy/i,
+  /multi[- ]?agent/i,
+  /swarm/i,
+  /장기\s*작업/,
+];
+
+const MICRO_PATTERNS = [
+  /이름만/,
+  /오타/,
+  /문구/,
+  /한\s*줄/,
+  /간단히/,
+  /빠르게\s*(확인|테스트)/,
+];
+
+export function classifyAutopilotWeight(input: string): AutopilotWeight {
+  const text = input.trim();
+  if (!text) return "micro";
+  if (HEAVY_PATTERNS.some((pattern) => pattern.test(text))) return "heavy";
+  if (MICRO_PATTERNS.some((pattern) => pattern.test(text)) && text.length < 80) return "micro";
+  return "standard";
+}
+
+export function shouldAskUser(decision: ApprovalDecision): boolean {
+  if (decision.kind === "routine-choice" && decision.reversible && decision.hasReasonableDefault) return false;
+  if (decision.kind === "contradictory-goal") return !decision.hasReasonableDefault;
+  return [
+    "deployment",
+    "payment",
+    "secret-or-account",
+    "large-delete",
+    "external-data-transfer",
+    "irreversible",
+  ].includes(decision.kind);
+}
+
+export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): string {
+  const ledger = options.ledgerSummary?.trim()
+    ? `\n\n## Current Context Ledger\n${options.ledgerSummary.trim()}`
+    : "";
+
+  return [
+    "## ddotz-pi autonomous PM/development-team mode",
+    "",
+    `Mode: ${options.mode}`,
+    `Working directory: ${options.cwd}`,
+    "",
+    "### Operating priority",
+    "1. Follow the user's latest instruction as the highest task-level authority.",
+    "2. Prefer autonomous execution over clarification questions.",
+    "3. Make reasonable assumptions, record them in the Context Ledger, and continue.",
+    "4. Ask the user only for deployment, payment, secrets/accounts, large deletion, external data transfer, irreversible actions, or logically contradictory goals without safe defaults.",
+    "",
+    "### Autonomous execution loop",
+    "- Classify work internally as micro, standard, or heavy.",
+    "- Micro: do the smallest useful action without ceremony.",
+    "- Standard: plan briefly, execute incrementally, self-review, fix, and verify with observable evidence.",
+    "- Heavy: split responsibilities across PM, Architect, Worker, Reviewer, Verifier, and Polish roles before execution.",
+    "- Do not ask the user for routine implementation choices. Choose defaults and move forward.",
+    "- Before final response, perform critical self-review, fix discovered issues, and verify with observable evidence.",
+    "",
+    "### Context Ledger",
+    "Maintain compact state for long-running work: objective, assumptions, decisions, changed files, verification commands, blockers, risks, and next actions.",
+    "Do not stuff long logs into memory. Summarize only durable facts.",
+    "",
+    "### Memory policy",
+    "Store durable user preferences, project rules, repeated mistakes, successful verification commands, and important decisions.",
+    "Do not store one-off chatter, temporary logs, oversized raw output, or stale intermediate failures.",
+    "",
+    "### External search policy",
+    "Use the external insane-search skill for blocked web access, WAF-protected sites, Korean platforms, X/Twitter, Reddit, YouTube, GitHub, Naver, Coupang, LinkedIn, Medium, Substack, Stack Overflow, and similar sources.",
+    "Do not reimplement insane-search and do not vendor it into ddotz-pi; keep it as an external dependency so upstream patches are followed.",
+    ledger,
+  ].join("\n");
+}
