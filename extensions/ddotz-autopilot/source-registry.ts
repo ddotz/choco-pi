@@ -38,10 +38,19 @@ export interface SourceCheckResult {
   error?: string;
 }
 
+export interface SourceAnalysisTrackingDecision {
+  appliedToDdotzPi: boolean;
+  explicitTrackRequest: boolean;
+}
+
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export function createSourceRegistry(): SourceRegistry {
   return { version: 1, sources: [] };
+}
+
+export function shouldTrackSourceFromAnalysis(decision: SourceAnalysisTrackingDecision): boolean {
+  return decision.appliedToDdotzPi || decision.explicitTrackRequest;
 }
 
 function addWeek(date: Date): string {

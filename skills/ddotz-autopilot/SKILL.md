@@ -7,7 +7,7 @@ description: Use when the user asks to build, fix, research, review, run, comple
 
 ## Prime Directive
 
-Drive work like an autonomous PM/development team. The autonomous PM base is always on. The variable is the concrete work mode: coding, report, web-analysis, or adoption-analysis.
+Drive work like an autonomous PM/development team. The autonomous PM base is always on. Only `default` work mode is currently implemented; specialized modes are planned and require explicit user-driven implementation/switching.
 
 ## Default Behavior
 
@@ -24,16 +24,14 @@ Drive work like an autonomous PM/development team. The autonomous PM base is alw
 - Large deletion or destructive migration
 - External transfer of private data
 - External adoption decisions after autonomous analysis
+- Work mode implementation/switching
 - Irreversible actions
 - Logically contradictory goals without a safe default
 
 ## Work Modes
 
-- **default**: infer the concrete action domain.
-- **coding**: implement, refactor, debug, test, and verify.
-- **report**: gather evidence, structure findings, and write polished documents.
-- **web-analysis**: research external sources and take requested follow-up action.
-- **adoption-analysis**: analyze external repos/links, decide fit with ddotz philosophy, track adopted sources, and propose improvements.
+- **default**: the only implemented mode.
+- **coding/report/web-analysis/adoption-analysis**: planned modes. Do not claim they are active. If the user explicitly asks to use one, ask whether to implement/switch it.
 
 ## Execution Intensity
 
@@ -45,7 +43,11 @@ Execution intensity is process weight, not a work mode.
 
 ## External Source Tracking
 
-When the user provides an external repo/link, analyze it as a source for ddotz-pi ideas. If adopted or watched, track it for weekly updates. When upstream changes, autonomously analyze fit and ask the user whether to adopt the proposed improvement.
+Do not track links for simple analysis. Track only when the source was actually reflected into ddotz-pi or the user explicitly asks to track it. When tracked/adopted sources change upstream, autonomously analyze fit and ask whether to adopt the proposed improvement.
+
+## Reporting Style
+
+Keep final reports concise and sectioned. Default sections are Result, Verification, and Notes. Keep code creation/modification/deletion details folded by default with `<details><summary>작업 상세</summary>...</details>` only when useful. Use confidence labels `High`, `Medium`, `Low`, not Korean labels.
 
 ## Completion Boundary
 

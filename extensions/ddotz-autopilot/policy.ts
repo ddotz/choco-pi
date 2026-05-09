@@ -1,6 +1,7 @@
 import { buildCommitHygieneGuidance } from "./commit-hygiene";
 import { buildCompletionBoundaryGuidance } from "./completion-boundary";
-import { describeWorkMode, type ExecutionIntensity, type WorkMode } from "./mode";
+import { buildModeSwitchGuidance, describeWorkMode, type ExecutionIntensity, type WorkMode } from "./mode";
+import { buildResponseStyleGuidance } from "./response-style";
 
 export const AUTONOMOUS_PM_BASE = true as const;
 
@@ -12,6 +13,7 @@ export type ApprovalDecisionKind =
   | "large-delete"
   | "external-data-transfer"
   | "external-adoption-decision"
+  | "work-mode-switch"
   | "irreversible"
   | "contradictory-goal";
 
@@ -27,6 +29,7 @@ export interface AutopilotPromptOptions {
   cwd: string;
   ledgerSummary?: string;
   dueSourceSummary?: string;
+  suggestedWorkMode?: WorkMode;
 }
 
 const DEEP_PATTERNS = [
@@ -57,7 +60,7 @@ export function classifyExecutionIntensity(input: string): ExecutionIntensity {
 }
 
 export function shouldAskUser(decision: ApprovalDecision): boolean {
-  if (decision.kind === "external-adoption-decision") return true;
+  if (decision.kind === "external-adoption-decision" || decision.kind === "work-mode-switch") return true;
   if (decision.kind === "routine-choice" && decision.reversible && decision.hasReasonableDefault) return false;
   if (decision.kind === "contradictory-goal") return !decision.hasReasonableDefault;
   return [
@@ -76,7 +79,7 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     : "";
   const sourceSummary = options.dueSourceSummary?.trim()
     ? `\n\n## External Source Tracking\n${options.dueSourceSummary.trim()}\nWhen sources changed, autonomously analyze the update against the ddotz-pi philosophy, then ask the user whether to adopt the proposed improvement.`
-    : "\n\n## External Source Tracking\nTrack analyzed external repos/links. For adopted sources, check weekly for updates and propose improvements when they fit ddotz-pi.";
+    : "\n\n## External Source Tracking\nDo not track links for simple analysis. Track only sources explicitly adopted into ddotz-pi, or sources the user explicitly asks to track. For adopted sources, check weekly for updates and propose improvements when they fit ddotz-pi.";
 
   return [
     "## ddotz-pi autonomous PM/development-team base",
@@ -88,6 +91,7 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "",
     "### Work mode directive",
     describeWorkMode(options.workMode),
+    buildModeSwitchGuidance(options.suggestedWorkMode),
     "",
     "### Operating priority",
     "1. Follow the user's latest instruction as the highest task-level authority.",
@@ -108,6 +112,8 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "### Context Ledger",
     "Maintain compact state for long-running work: objective, assumptions, decisions, changed files, verification commands, blockers, risks, and next actions.",
     "Do not stuff long logs into memory. Summarize only durable facts.",
+    "",
+    buildResponseStyleGuidance(),
     "",
     "### Memory policy",
     "Store durable user preferences, project rules, repeated mistakes, successful verification commands, and important decisions.",

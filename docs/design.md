@@ -10,6 +10,7 @@ Build a personal Pi package that makes the default operating philosophy an auton
 - Do not adopt roach-pi full harness by default.
 - Do not vendor insane-search.
 - Do not treat `autopilot` or `autopilot-heavy` as domain modes.
+- Do not track external links that were only analyzed and not reflected into ddotz-pi.
 
 ## Architecture
 
@@ -21,17 +22,11 @@ Build a personal Pi package that makes the default operating philosophy an auton
 
 ## Autonomous PM Base
 
-The autonomous PM/development-team base is always on. It is not a user-facing mode. The agent should act autonomously, choose defaults, self-review, fix, verify, and report evidence.
+The autonomous PM/development-team base is always on. It is not a user-facing mode. The agent should act autonomously, choose defaults, self-review, fix, verify, and report concise evidence.
 
 ## Work Modes
 
-Work modes describe the concrete action domain:
-
-- `default`: infer the action domain from the user request.
-- `coding`: code implementation, debugging, refactoring, tests, and verification.
-- `report`: report/document creation with evidence and polished structure.
-- `web-analysis`: external research followed by the requested action.
-- `adoption-analysis`: external repo/link analysis for ddotz-pi adoption and improvement ideas.
+Only `default` work mode is implemented. Planned modes are `coding`, `report`, `web-analysis`, and `adoption-analysis`. The agent must not claim planned modes are active. If the user explicitly asks to use one, ask whether to implement/switch it.
 
 ## Execution Intensity
 
@@ -43,7 +38,11 @@ Execution intensity describes process weight:
 
 ## External Source Registry
 
-Analyzed external repos/links are tracked as sources. Sources can be `candidate`, `watching`, `adopted`, or `rejected`. Adopted/watched sources are checked weekly. Changed sources are summarized into the system prompt so the agent can autonomously analyze whether updates fit the ddotz-pi philosophy, then ask for adoption decisions.
+Sources are tracked only when they are actually reflected into ddotz-pi or when the user explicitly asks to track them. Simple analysis does not add a source to the registry. Tracked/adopted sources are checked weekly. Changed sources are summarized into the system prompt so the agent can autonomously analyze whether updates fit the ddotz-pi philosophy, then ask for adoption decisions.
+
+## Response Style
+
+Final reports stay concise and sectioned. Default sections are Result, Verification, and Notes. Code creation/modification/deletion details are summarized first and folded by default via `<details><summary>작업 상세</summary>...</details>` only when useful. Confidence labels are `High`, `Medium`, and `Low`, with color rendering where possible.
 
 ## Completion Boundary
 

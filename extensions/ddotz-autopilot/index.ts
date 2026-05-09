@@ -8,7 +8,8 @@ import {
   createRuntimeState,
   DEFAULT_EXECUTION_INTENSITY,
   DEFAULT_WORK_MODE,
-  inferWorkMode,
+  inferPlannedWorkMode,
+  isWorkModeImplemented,
   parseExecutionIntensity,
   parseWorkMode,
   type ExecutionIntensity,
@@ -30,6 +31,14 @@ import {
   type ExternalSource,
   type SourceRegistry,
 } from "./source-registry";
+import {
+  addCustomWorkMode,
+  createWorkModeRegistry,
+  ensureBuiltInModes,
+  listWorkModes,
+  removeCustomWorkMode,
+  type WorkModeRegistry,
+} from "./work-mode-registry";
 
 interface DdotzState {
   version: 2;
@@ -37,6 +46,7 @@ interface DdotzState {
   memories: StoredMemory[];
   ledgers: Record<string, ContextLedger>;
   sourceRegistry: SourceRegistry;
+  workModeRegistry: WorkModeRegistry;
 }
 
 const STATE_VERSION = 2 as const;
@@ -56,6 +66,7 @@ function emptyState(): DdotzState {
     memories: [],
     ledgers: {},
     sourceRegistry: createSourceRegistry(),
+    workModeRegistry: createWorkModeRegistry(),
   };
 }
 
@@ -80,6 +91,7 @@ async function loadState(): Promise<DdotzState> {
       memories: Array.isArray(parsed.memories) ? parsed.memories : [],
       ledgers: parsed.ledgers && typeof parsed.ledgers === "object" ? parsed.ledgers : {},
       sourceRegistry: parsed.sourceRegistry?.sources ? parsed.sourceRegistry : createSourceRegistry(),
+      workModeRegistry: ensureBuiltInModes(parsed.workModeRegistry),
     };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return emptyState();
@@ -122,23 +134,17 @@ function formatSources(registry: SourceRegistry): string {
     .join("\n");
 }
 
-function extractUrls(text: string): string[] {
-  const matches = text.match(/https?:\/\/[^\s)\]>"']+/g) ?? [];
-  return Array.from(new Set(matches.map((url) => url.replace(/[.,;]+$/, ""))));
-}
-
 function maxIntensity(a: ExecutionIntensity, b: ExecutionIntensity): ExecutionIntensity {
   const rank: Record<ExecutionIntensity, number> = { micro: 0, standard: 1, deep: 2 };
   return rank[a] >= rank[b] ? a : b;
 }
 
-function effectiveWorkMode(configured: WorkMode, prompt: string): WorkMode {
-  if (configured !== "default") return configured;
-  return inferWorkMode(prompt);
-}
-
 async function setWorkMode(workMode: WorkMode, ctx: ExtensionCommandContext): Promise<void> {
   const state = await loadState();
+  if (!isWorkModeImplemented(workMode)) {
+    ctx.ui.notify(`Work mode '${workMode}' is planned but not implemented. Staying in default mode.`, "warning");
+    return;
+  }
   state.runtime = createRuntimeState(workMode, state.runtime.executionIntensity);
   await saveState(state);
   ctx.ui.notify(`ddotz-pi work mode: ${workMode}`, "info");
@@ -216,20 +222,11 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   pi.on("before_agent_start", async (event, ctx) => {
     const state = await loadState();
     const cwd = ctx.cwd || process.cwd();
-    const urls = extractUrls(event.prompt ?? "");
-    for (const url of urls) {
-      state.sourceRegistry = upsertExternalSource(
-        state.sourceRegistry,
-        createExternalSource(url, {
-          rationale: "User supplied this external link for analysis/adoption consideration.",
-        }),
-      );
-    }
-
     const ledger = getLedger(state, cwd, event.prompt);
     await saveState(state);
 
-    const workMode = effectiveWorkMode(state.runtime.workMode, event.prompt ?? "");
+    const workMode = state.runtime.workMode;
+    const suggestedWorkMode = inferPlannedWorkMode(event.prompt ?? "");
     const executionIntensity = maxIntensity(
       state.runtime.executionIntensity,
       classifyExecutionIntensity(event.prompt ?? ""),
@@ -246,23 +243,66 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
         cwd,
         ledgerSummary,
         dueSourceSummary: dueSourceSummary || undefined,
+        suggestedWorkMode,
       })}`,
     };
   });
 
   pi.registerCommand("ddotz-mode", {
-    description: "Show or set ddotz-pi work mode: default, coding, report, web-analysis, adoption-analysis",
+    description: "Manage ddotz-pi work modes: list, set, add, remove",
     handler: async (args: string, ctx: ExtensionCommandContext) => {
-      const value = args.trim();
-      if (!value || value === "status") {
-        const state = await loadState();
+      const [command = "status", ...rest] = args.trim().split(/\s+/).filter(Boolean);
+      const state = await loadState();
+
+      if (command === "status") {
         ctx.ui.notify(`ddotz-pi work mode: ${state.runtime.workMode}`, "info");
         return;
       }
 
-      const workMode = parseWorkMode(value);
+      if (command === "list") {
+        ctx.ui.notify(listWorkModes(state.workModeRegistry), "info");
+        return;
+      }
+
+      if (command === "add") {
+        const [id, ...descriptionParts] = rest;
+        if (!id || descriptionParts.length === 0) {
+          ctx.ui.notify("Usage: /ddotz-mode add <id> <description>", "error");
+          return;
+        }
+        state.workModeRegistry = addCustomWorkMode(state.workModeRegistry, {
+          id,
+          description: descriptionParts.join(" "),
+        });
+        await saveState(state);
+        ctx.ui.notify(`Added planned work mode: ${id}`, "info");
+        return;
+      }
+
+      if (command === "remove") {
+        const [id] = rest;
+        if (!id) {
+          ctx.ui.notify("Usage: /ddotz-mode remove <id>", "error");
+          return;
+        }
+        try {
+          state.workModeRegistry = removeCustomWorkMode(state.workModeRegistry, id);
+          await saveState(state);
+          ctx.ui.notify(`Removed custom work mode: ${id}`, "info");
+        } catch (error) {
+          ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
+        }
+        return;
+      }
+
+      const modeArg = command === "set" ? rest[0] : command;
+      if (!modeArg) {
+        ctx.ui.notify("Usage: /ddotz-mode [status|list|set <mode>|add <id> <description>|remove <id>]", "error");
+        return;
+      }
+      const workMode = parseWorkMode(modeArg);
       if (!workMode) {
-        ctx.ui.notify("Usage: /ddotz-mode [default|coding|report|web-analysis|adoption-analysis|status]", "error");
+        ctx.ui.notify("Usage: /ddotz-mode [status|list|set <mode>|add <id> <description>|remove <id>]", "error");
         return;
       }
 

@@ -3,6 +3,8 @@ export type ExecutionIntensity = "micro" | "standard" | "deep";
 
 export const DEFAULT_WORK_MODE: WorkMode = "default";
 export const DEFAULT_EXECUTION_INTENSITY: ExecutionIntensity = "standard";
+export const IMPLEMENTED_WORK_MODES: WorkMode[] = ["default"];
+export const PLANNED_WORK_MODES: Exclude<WorkMode, "default">[] = ["coding", "report", "web-analysis", "adoption-analysis"];
 
 export interface RuntimeState {
   workMode: WorkMode;
@@ -22,6 +24,10 @@ export function parseWorkMode(input: string): WorkMode | undefined {
   return undefined;
 }
 
+export function isWorkModeImplemented(mode: WorkMode): boolean {
+  return IMPLEMENTED_WORK_MODES.includes(mode);
+}
+
 export function parseExecutionIntensity(input: string): ExecutionIntensity | undefined {
   const value = input.trim().toLowerCase();
   if (value === "micro" || value === "light" || value === "small") return "micro";
@@ -30,34 +36,46 @@ export function parseExecutionIntensity(input: string): ExecutionIntensity | und
   return undefined;
 }
 
-export function inferWorkMode(input: string): WorkMode {
+export function inferPlannedWorkMode(input: string): WorkMode | undefined {
   const text = input.trim().toLowerCase();
-  if (!text) return "default";
+  if (!text) return undefined;
   if (/repo|github|도입|채택|업데이트\s*체크|외부\s*(아이디어|링크|소스)/i.test(text)) return "adoption-analysis";
   if (/웹|사이트|검색|분석|리서치|뉴스|자료|url|https?:\/\//i.test(text)) return "web-analysis";
   if (/보고서|문서|글|카드뉴스|요약문|리포트|white\s*paper|report/i.test(text)) return "report";
   if (/코드|구현|수정|버그|테스트|리팩터|리팩토|파일|함수|class|api|build|lint/i.test(text)) return "coding";
-  return "default";
+  return undefined;
 }
 
 export function createRuntimeState(
   workMode: WorkMode = DEFAULT_WORK_MODE,
   executionIntensity: ExecutionIntensity = DEFAULT_EXECUTION_INTENSITY,
 ): RuntimeState {
-  return { workMode, executionIntensity, updatedAt: new Date().toISOString() };
+  const implementedMode = isWorkModeImplemented(workMode) ? workMode : DEFAULT_WORK_MODE;
+  return { workMode: implementedMode, executionIntensity, updatedAt: new Date().toISOString() };
 }
 
 export function describeWorkMode(mode: WorkMode): string {
   switch (mode) {
     case "coding":
-      return "Coding mode: implement, refactor, debug, test, and verify code changes autonomously.";
+      return "Coding mode is planned, not active yet. Keep using default mode unless the user explicitly asks to implement/switch this mode.";
     case "report":
-      return "Report mode: gather evidence, structure findings, write polished documents, and verify factual support.";
+      return "Report mode is planned, not active yet. Keep using default mode unless the user explicitly asks to implement/switch this mode.";
     case "web-analysis":
-      return "Web-analysis mode: research external sources, synthesize findings, and take the requested follow-up action.";
+      return "Web-analysis mode is planned, not active yet. Keep using default mode unless the user explicitly asks to implement/switch this mode.";
     case "adoption-analysis":
-      return "Adoption-analysis mode: analyze external repos/links, decide fit with ddotz philosophy, track adopted sources, and propose improvements.";
+      return "Adoption-analysis mode is planned, not active yet. Keep using default mode unless the user explicitly asks to implement/switch this mode.";
     case "default":
-      return "Default mode: choose the right concrete action domain while preserving autonomous PM/development-team behavior.";
+      return "Default mode is the only implemented work mode. Execute autonomously using the base PM philosophy; propose specialized mode implementation only when the user asks about changing modes.";
   }
+}
+
+export function buildModeSwitchGuidance(suggestedMode: WorkMode | undefined): string {
+  if (!suggestedMode || suggestedMode === "default") {
+    return "Only default work mode is currently implemented. Do not claim specialized modes are active.";
+  }
+  return [
+    "Only default work mode is currently implemented.",
+    `This task resembles planned ${suggestedMode} mode, but do not switch automatically.`,
+    "If the user explicitly asks to use or add this mode, ask once whether to implement/switch it; otherwise continue in default mode.",
+  ].join("\n");
 }

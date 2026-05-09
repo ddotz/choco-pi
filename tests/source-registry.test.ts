@@ -3,13 +3,20 @@ import {
   createExternalSource,
   createSourceRegistry,
   markSourceAdopted,
+  shouldTrackSourceFromAnalysis,
   sourcesDueForWeeklyCheck,
   summarizeDueSources,
   updateSourceCheckResult,
 } from "../extensions/ddotz-autopilot/source-registry";
 
 describe("external source registry", () => {
-  it("tracks analyzed external repos/links as candidates and adopted sources", () => {
+  it("does not track links for simple analysis unless their ideas were applied", () => {
+    expect(shouldTrackSourceFromAnalysis({ appliedToDdotzPi: false, explicitTrackRequest: false })).toBe(false);
+    expect(shouldTrackSourceFromAnalysis({ appliedToDdotzPi: true, explicitTrackRequest: false })).toBe(true);
+    expect(shouldTrackSourceFromAnalysis({ appliedToDdotzPi: false, explicitTrackRequest: true })).toBe(true);
+  });
+
+  it("tracks adopted external repos/links and their adopted items", () => {
     let registry = createSourceRegistry();
     const source = createExternalSource("https://github.com/can1357/oh-my-pi", {
       label: "oh-my-pi",
