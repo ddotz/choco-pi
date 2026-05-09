@@ -12,6 +12,10 @@ Build a personal Pi package that makes the default operating philosophy an auton
 - Do not treat `autopilot` or `autopilot-heavy` as domain modes.
 - Do not track external links that were only analyzed and not reflected into ddotz-pi.
 
+## Runtime vs Distribution
+
+The primary target is the user's current Pi environment under `~/.pi/agent`. `~/code/ddotz-pi` is the reproducible/distributable package for that environment. Durable behavior changes should be made live in `~/.pi/agent` when needed and mirrored into `~/code/ddotz-pi` so the environment can be reinstalled or shared.
+
 ## Architecture
 
 `ddotz-pi` is a Pi package with one extension, one skill, prompt templates, and mode instruction folders.

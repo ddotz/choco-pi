@@ -10,6 +10,10 @@ The autonomous PM base is always on. **Only `default` work mode is currently imp
 
 Selected roach-pi utilities are absorbed under this package through the `ddotz-pi-utilities` dependency alias, so Pi settings only need the local `ddotz-pi` package.
 
+## Runtime target
+
+This work customizes the current Pi environment itself (`~/.pi/agent`). `~/code/ddotz-pi` is the reproducible/distributable package for that personal environment. Apply live environment changes when needed, then mirror durable behavior into this repo.
+
 ## Commands
 
 - `/mode [status|list|set <mode>|add <id> <description>|remove <id>]` — manage work modes. Current implemented mode is `default` only.
