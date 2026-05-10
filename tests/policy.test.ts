@@ -44,6 +44,28 @@ describe("ddotz autonomous PM policy", () => {
     expect(shouldAskUser({ kind: "contradictory-goal", reversible: true, hasReasonableDefault: false })).toBe(true);
   });
 
+  it("injects a non-negotiable structural gate that preserves autonomous PM discipline under long context", () => {
+    const prompt = buildAutopilotSystemPrompt({
+      workMode: "default",
+      executionIntensity: "standard",
+      cwd: "/repo",
+    });
+
+    expect(prompt).toContain("Structural execution gate");
+    expect(prompt).toContain("non-negotiable");
+    expect(prompt).toContain("must not be skipped or softened when context is long");
+    expect(prompt).toContain("complete autonomous PM");
+    expect(prompt).toContain("structured development flow");
+    expect(prompt).toContain("Acceptance fit");
+    expect(prompt).toContain("Runtime fit");
+    expect(prompt).toContain("Failure modes");
+    expect(prompt).toContain("Verification evidence");
+    expect(prompt).toContain("Completion boundary");
+    expect(prompt).toContain("structural_gate");
+    expect(prompt).toContain("message_end hook");
+    expect(prompt).toContain("fail-closed");
+  });
+
   it("injects autonomous base, default-only work mode, concise response, folded details, confidence, context, memory, and source tracking", () => {
     const prompt = buildAutopilotSystemPrompt({
       workMode: "default",

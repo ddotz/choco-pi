@@ -44,13 +44,29 @@ Execution intensity is process weight, not a work mode.
 - **standard**: plan briefly, execute, self-review, fix, verify.
 - **deep**: split responsibilities into PM, Architect, Worker, Reviewer, Verifier, and Polish. Use subagents or separate passes only when they reduce risk.
 
+## Structural Execution Gate
+
+This gate is non-negotiable and must not be skipped or softened when context is long. The base philosophy is complete autonomous PM; the enforcement mechanism is a structured development flow.
+
+Before claiming completion or asking for a routine decision, explicitly check:
+
+1. **Acceptance fit**: user's latest request, assumptions, and completion boundary match the actual result.
+2. **Runtime fit**: tests/code changes represent real Pi/runtime behavior, including reload, load order, UI state, and extension conflicts when relevant.
+3. **Failure modes**: remaining ways the change can fail, leak, regress, or be misreported; fix critical in-scope issues first.
+4. **Verification evidence**: observable verification is present; separate test evidence from runtime guarantees when they differ.
+5. **Completion boundary**: stop only when the requested outcome is satisfied, verification passed, and no critical in-scope issue remains.
+
+The `structural_gate` tool is the non-prompt enforcement path: call it before final completion reporting on non-trivial work. A `message_end` hook checks the `structural_gate` state fail-closed; if the tool was skipped or did not pass, the final assistant message is replaced with a blocked response and a follow-up repair turn is queued.
+
+If this gate was skipped, acknowledge the skip, run the gate immediately, fix what it finds, and then report RED/Root cause/Fix/GREEN for any TDD or bug-fix work.
+
 ## External Source Tracking
 
 Do not track links for simple analysis. Track only when the source was actually reflected into ddotz-pi or the user explicitly asks to track it. When tracked/adopted sources change upstream, autonomously analyze fit and ask whether to adopt the proposed improvement.
 
 ## Reporting Style
 
-Keep final reports concise and sectioned. Default sections are Result, Verification, and Notes. Keep code creation/modification/deletion details folded by default with `<details><summary>작업 상세</summary>...</details>` only when useful. Use confidence labels `High`, `Medium`, `Low`, not Korean labels. Do not use HTML badge tags in final Markdown because Pi prints them literally; use plain `Confidence: High` when ANSI rendering is unavailable.
+Keep final reports concise and sectioned. Default sections are Result, Verification, and Notes. Keep code creation/modification/deletion details folded by default with `<details><summary>작업 상세</summary>...</details>` only when useful. For TDD, bug-fix, or regression-fix work, final reports must include `RED`, `Root cause`, `Fix`, and `GREEN` evidence. Use confidence labels `High`, `Medium`, `Low`, not Korean labels. Do not use HTML badge tags in final Markdown because Pi prints them literally; use plain `Confidence: High` when ANSI rendering is unavailable.
 
 ## Completion Boundary
 

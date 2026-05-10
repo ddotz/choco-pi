@@ -31,6 +31,7 @@ import {
   type ExternalSource,
   type SourceRegistry,
 } from "./source-registry";
+import { installStructuralGate } from "./structural-gate";
 import { DDOTZ_PI_VERSION } from "./version";
 import {
   addCustomWorkMode,
@@ -159,6 +160,10 @@ function maxIntensity(a: ExecutionIntensity, b: ExecutionIntensity): ExecutionIn
   return rank[a] >= rank[b] ? a : b;
 }
 
+function splitCommandArgs(args: string): string[] {
+  return args.trim().split(/\s+/).filter(Boolean);
+}
+
 async function setWorkMode(workMode: WorkMode, ctx: ExtensionCommandContext): Promise<void> {
   const state = await loadState();
   if (!isWorkModeImplemented(workMode)) {
@@ -219,6 +224,8 @@ async function checkSources(pi: ExtensionAPI, state: DdotzState, sources: Extern
 }
 
 export default function ddotzAutopilot(pi: ExtensionAPI) {
+  installStructuralGate(pi);
+
   pi.on("session_start", async (_event, ctx) => {
     const state = await loadState();
     const dueGithubSources = sourcesDueForWeeklyCheck(state.sourceRegistry)
@@ -271,7 +278,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   pi.registerCommand("mode", {
     description: "Manage work modes: list, set, add, remove",
     handler: async (args: string, ctx: ExtensionCommandContext) => {
-      const [command = "status", ...rest] = args.trim().split(/\s+/).filter(Boolean);
+      const [command = "status", ...rest] = splitCommandArgs(args);
       const state = await loadState();
 
       if (command === "status") {

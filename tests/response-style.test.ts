@@ -14,6 +14,14 @@ describe("response style", () => {
     expect(guidance).toContain("Do not use HTML tags");
   });
 
+  it("requires TDD and bug-fix reports to include red root-cause fix and green evidence", () => {
+    const guidance = buildResponseStyleGuidance();
+    expect(guidance).toContain("RED");
+    expect(guidance).toContain("Root cause");
+    expect(guidance).toContain("Fix");
+    expect(guidance).toContain("GREEN");
+  });
+
   it("folds noisy code operation details by default", () => {
     expect(shouldFoldOperationDetails("code-create")).toBe(true);
     expect(shouldFoldOperationDetails("code-modify")).toBe(true);

@@ -12,13 +12,12 @@ describe("package configuration", () => {
     expect(packageJson.dependencies).toHaveProperty("ddotz-pi-utilities");
     expect(packageJson.pi.extensions).toContain("node_modules/ddotz-pi-utilities/extensions/fff-search/index.ts");
     expect(packageJson.pi.extensions).toContain("node_modules/pi-lsp-client/src/index.ts");
-    expect(packageJson.pi.extensions).toContain("node_modules/ddotz-pi-utilities/extensions/pi-code-previews/index.ts");
     expect(packageJson.pi.extensions).toContain("extensions/todo-widget.ts");
     expect(packageJson.pi.extensions).toContain("extensions/ddotz-footer/index.ts");
     expect(packageJson.pi.extensions).toContain("extensions/focus-rendering/index.ts");
-    expect(packageJson.pi.extensions.indexOf("extensions/focus-rendering/index.ts")).toBeGreaterThan(
-      packageJson.pi.extensions.indexOf("node_modules/ddotz-pi-utilities/extensions/pi-code-previews/index.ts"),
-    );
+    expect(packageJson.pi.extensions).toContain("extensions/raw-paste/index.ts");
+    expect(packageJson.pi.extensions).not.toContain("node_modules/ddotz-pi-utilities/extensions/pi-code-previews/index.ts");
+    expect(JSON.stringify(packageJson.pi)).not.toContain("pi-code-previews");
     expect(JSON.stringify(packageJson.pi)).not.toContain("roach-pi");
   });
 });
