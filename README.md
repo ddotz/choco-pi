@@ -75,6 +75,7 @@ Tracked/adopted sources are checked weekly. If upstream changed, the agent analy
 - Maximum 4 short bullets per section unless detail is requested.
 - Keep code creation/modification/deletion details folded by default using `<details><summary>작업 상세</summary>...</details>` only when useful.
 - Use confidence labels `High`, `Medium`, `Low`; in terminal/UI contexts render them as white-text ANSI badges on green/yellow/red backgrounds. Do not use HTML badge tags in final Markdown because Pi prints them literally.
+- Do not treat `Medium` as a successful completion state. Medium requires critical self-review and reinforcement until `High`, or a concrete blocker report.
 
 ## Approval boundaries
 
@@ -92,7 +93,7 @@ Pi itself is expected to run inside tmux by default. When direct runtime input i
 
 ## Loop and completion boundary
 
-Stop when the requested outcome is satisfied, verification passed, and no critical in-scope issue remains. Optional and new-scope ideas are deferred follow-ups, not silently added to the active task.
+Stop when the requested outcome is satisfied, verification passed, confidence is High, and no critical in-scope issue remains. Optional and new-scope ideas are deferred follow-ups, not silently added to the active task.
 
 Before crossing from one step or todo item to the next, re-check that the next action still fits the current plan/current todo and call `loop_transition` after completing a todo/plan step. If new work appears after the current todo, start a fresh loop: write a new plan, create or reset todos for that scope, and continue only after new steering/follow-up starts the new loop.
 

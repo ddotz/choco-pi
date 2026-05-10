@@ -32,5 +32,6 @@ export function buildResponseStyleGuidance(): string {
     "Keep code creation/modification/deletion details folded by default: show a short summary first, then put noisy details under a collapsed `<details><summary>작업 상세</summary>...</details>` block only when details are useful.",
     "For TDD, bug-fix, or regression-fix work, final reports must include the evidence chain: RED (failing test/symptom), Root cause, Fix, and GREEN (passing verification). Keep it concise but do not omit this chain.",
     "Use confidence labels: High, Medium, Low. Do not use Korean labels like [높음], [중간], [낮음]. Do not use HTML tags such as `<span>` for confidence labels because Pi renders them as literal text. In terminal/UI contexts, render them as high-contrast ANSI badges: High with green background, Medium with yellow background, Low with red background, all with white text when possible. In plain Markdown final answers, use plain `Confidence: High` if ANSI rendering is unavailable.",
+    "Do not end successful completion reports with Medium confidence. Medium requires a critical self-review and reinforcement loop; either raise confidence to High with evidence or report a concrete blocker with readyToComplete=false.",
   ].join("\n");
 }

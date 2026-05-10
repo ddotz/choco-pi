@@ -313,6 +313,54 @@ describe("structural gate guard", () => {
     expect(loopResult.details).toMatchObject({ ok: true });
   });
 
+  it("rejects ready-to-complete medium confidence so the agent must reinforce or report a blocker", async () => {
+    const { handlers, tools } = setupAutopilot();
+    await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "검증까지 마무리해", systemPrompt: "base", systemPromptOptions: {} });
+
+    const gateResult = await tools.get("structural_gate")!.execute(
+      "gate-medium",
+      {
+        acceptanceFit: "Requested outcome appears complete.",
+        runtimeFit: "Some runtime evidence exists but dogfood is incomplete.",
+        failureModes: "Remaining runtime uncertainty has not been reinforced or blocked.",
+        verificationEvidence: "Targeted tests passed.",
+        loopGovernance: "Step transitions stayed within the current plan and no new work was appended.",
+        completionBoundary: "Trying to stop with medium confidence.",
+        confidence: "Medium",
+        readyToComplete: true,
+      },
+      undefined,
+      undefined,
+      { cwd: "/repo" },
+    );
+
+    expect(gateResult.details).toMatchObject({ ok: false, reason: expect.stringContaining("Medium confidence") });
+  });
+
+  it("allows medium confidence only when completion is blocked with a concrete blocker", async () => {
+    const { handlers, tools } = setupAutopilot();
+    await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "외부 계정 설정까지 확인해", systemPrompt: "base", systemPromptOptions: {} });
+
+    const gateResult = await tools.get("structural_gate")!.execute(
+      "gate-medium-blocked",
+      {
+        acceptanceFit: "Work is not complete because a secret/account approval boundary remains.",
+        runtimeFit: "Runtime verification cannot proceed without credentials.",
+        failureModes: "The remaining failure mode is blocked by a user-controlled credential boundary.",
+        verificationEvidence: "Local checks passed; credentialed external verification was not run.",
+        loopGovernance: "Step transitions stayed within the current plan and the remaining work is blocked, not silently appended.",
+        completionBoundary: "Blocked by secret/account approval boundary; cannot safely continue autonomously.",
+        confidence: "Medium",
+        readyToComplete: false,
+      },
+      undefined,
+      undefined,
+      { cwd: "/repo" },
+    );
+
+    expect(gateResult.details).toMatchObject({ ok: false, reason: expect.stringContaining("readyToComplete is false") });
+  });
+
   it("requires the gate if a tool call happened even when the prompt looked trivial", async () => {
     const { handlers } = setupAutopilot();
     await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "확인", systemPrompt: "base", systemPromptOptions: {} });

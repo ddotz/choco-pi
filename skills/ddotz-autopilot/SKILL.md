@@ -50,7 +50,8 @@ Execution intensity is process weight, not a work mode.
 
 This gate is non-negotiable and must not be skipped or softened when context is long. The base philosophy is complete autonomous PM; the enforcement mechanism is a structured development flow. The final `structural_gate` review must include loop governance evidence: step/todo transitions stayed plan-first, and any new work after the current todo used new steering/new loop or was deferred.
 
-Before claiming completion or asking for a routine decision, explicitly check:
+Before claiming completion or asking for a routine decision, explicitly check. Medium confidence is not a successful completion state: run a critical self-review and reinforce verification/runtime dogfood/review until confidence becomes High, or stop with a concrete blocker and `readyToComplete=false`.
+
 
 1. **Acceptance fit**: user's latest request, assumptions, and completion boundary match the actual result.
 2. **Runtime fit**: tests/code changes represent real Pi/runtime behavior, including reload, load order, UI state, and extension conflicts when relevant.
@@ -69,7 +70,7 @@ Do not track links for simple analysis. Track only when the source was actually 
 
 ## Reporting Style
 
-Keep final reports concise and sectioned. Default sections are Result, Verification, and Notes. Keep code creation/modification/deletion details folded by default with `<details><summary>작업 상세</summary>...</details>` only when useful. For TDD, bug-fix, or regression-fix work, final reports must include `RED`, `Root cause`, `Fix`, and `GREEN` evidence. Use confidence labels `High`, `Medium`, `Low`, not Korean labels. Do not use HTML badge tags in final Markdown because Pi prints them literally; use plain `Confidence: High` when ANSI rendering is unavailable.
+Keep final reports concise and sectioned. Default sections are Result, Verification, and Notes. Keep code creation/modification/deletion details folded by default with `<details><summary>작업 상세</summary>...</details>` only when useful. For TDD, bug-fix, or regression-fix work, final reports must include `RED`, `Root cause`, `Fix`, and `GREEN` evidence. Use confidence labels `High`, `Medium`, `Low`, not Korean labels. Do not use HTML badge tags in final Markdown because Pi prints them literally; use plain `Confidence: High` when ANSI rendering is unavailable. Do not end successful completion reports with Medium confidence; reinforce to High or report the concrete blocker.
 
 ## Completion Boundary
 

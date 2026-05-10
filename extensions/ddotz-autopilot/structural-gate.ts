@@ -208,6 +208,13 @@ export function recordStructuralGateReview(state: StructuralGateState, review: S
     return { ok: false, reason };
   }
 
+  if (review.confidence === "Medium") {
+    const reason = "Medium confidence cannot complete: reinforce verification to High or stop with a concrete blocker and readyToComplete=false";
+    turn.passed = false;
+    turn.rejectionReason = reason;
+    return { ok: false, reason };
+  }
+
   turn.passed = true;
   turn.rejectionReason = undefined;
   return { ok: true };
@@ -298,6 +305,7 @@ export function createStructuralGateTool(state: StructuralGateState): ToolDefini
       "For non-trivial problem-solving/development turns, call structural_gate before final completion reporting.",
       "If structural_gate cannot pass, continue fixing/verifying instead of claiming completion.",
       "structural_gate.loopGovernance must state that step/todo transitions stayed within the current plan and that any new work after the current todo used new steering/new loop or was deferred.",
+      "If structural_gate confidence would be Medium, do not complete. Reinforce verification to reach High, or set readyToComplete=false with a concrete blocker.",
     ],
     parameters: StructuralGateParams,
     renderShell: "self",

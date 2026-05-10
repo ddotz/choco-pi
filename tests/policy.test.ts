@@ -62,6 +62,9 @@ describe("ddotz autonomous PM policy", () => {
     expect(prompt).toContain("Verification evidence");
     expect(prompt).toContain("Completion boundary");
     expect(prompt).toContain("structural_gate");
+    expect(prompt).toContain("Medium confidence");
+    expect(prompt).toContain("reinforce");
+    expect(prompt).toContain("concrete blocker");
     expect(prompt).toContain("message_end hook");
     expect(prompt).toContain("fail-closed");
     expect(prompt).toContain("Loop governance");
