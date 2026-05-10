@@ -20,7 +20,7 @@ This work customizes the current Pi environment itself (`~/.pi/agent`). `~/code/
 - `/intensity [micro|standard|deep|status]` — show or set execution intensity. This is process weight, not a work mode.
 - `/source [list|add|adopt|reject|due|changed|check]` — track adopted or explicitly tracked external sources.
 - `/memory [list|save <text>]` — list/save durable memories.
-- `/ledger [reset]` — show/reset compact workspace Context Ledger.
+- `/ledger [reset]` — show/reset compact workspace Context Ledger. Write/edit tool calls auto-record changed files, and bash verification commands auto-record pass/fail evidence.
 - `/reload-runtime` — reload extensions, skills, prompts, and themes without starting a new session.
 
 ## Mode folder structure
@@ -59,7 +59,7 @@ Do **not** track links for simple analysis. Track only when:
 - the source was actually reflected into ddotz-pi, or
 - the user explicitly asks to track it.
 
-Tracked/adopted sources are checked weekly. If upstream changed, the agent analyzes fit and asks whether to adopt the proposed improvement.
+Tracked/adopted sources are checked weekly. If upstream changed, the agent analyzes fit, decides adopt / partially adopt / reject against the concise autonomous PM/development goal, proceeds when safe, and reports the decision.
 
 ## UI behavior
 
@@ -78,7 +78,7 @@ Tracked/adopted sources are checked weekly. If upstream changed, the agent analy
 
 ## Approval boundaries
 
-Ask first only for deployment, payment, secrets/accounts, large deletion/destructive migration, external private-data transfer, external adoption decisions, irreversible actions, or contradictory goals without safe defaults. Runtime `tool_call` checks block common deployment/publishing, secret/account mutation, large deletion, external transfer, and irreversible shell patterns before execution.
+Ask first only for deployment, payment, secrets/accounts, large deletion/destructive migration, external private-data transfer, irreversible actions, work mode switching, or contradictory goals without safe defaults. Runtime `tool_call` checks block common deployment/publishing, secret/account mutation, large deletion, external transfer, and irreversible shell patterns before execution.
 
 ## Runtime reload
 

@@ -34,13 +34,13 @@ describe("ddotz autonomous PM policy", () => {
     expect(parseExecutionIntensity("autopilot-heavy")).toBe("deep");
   });
 
-  it("prevents routine clarification questions and only allows hard blockers, mode switches, or adoption decisions", () => {
+  it("prevents routine clarification questions and only allows hard blockers or mode switches", () => {
     expect(shouldAskUser({ kind: "routine-choice", reversible: true, hasReasonableDefault: true })).toBe(false);
     expect(shouldAskUser({ kind: "work-mode-switch", reversible: true, hasReasonableDefault: true })).toBe(true);
     expect(shouldAskUser({ kind: "deployment", reversible: false, hasReasonableDefault: false })).toBe(true);
     expect(shouldAskUser({ kind: "secret-or-account", reversible: false, hasReasonableDefault: false })).toBe(true);
     expect(shouldAskUser({ kind: "external-data-transfer", reversible: false, hasReasonableDefault: false })).toBe(true);
-    expect(shouldAskUser({ kind: "external-adoption-decision", reversible: true, hasReasonableDefault: true })).toBe(true);
+    expect(shouldAskUser({ kind: "external-adoption-decision", reversible: true, hasReasonableDefault: true })).toBe(false);
     expect(shouldAskUser({ kind: "contradictory-goal", reversible: true, hasReasonableDefault: false })).toBe(true);
   });
 
@@ -94,6 +94,8 @@ describe("ddotz autonomous PM policy", () => {
     expect(prompt).toContain("insane-search");
     expect(prompt).toContain("Do not reimplement insane-search");
     expect(prompt).toContain("External Source Tracking");
+    expect(prompt).toContain("adopt, partially adopt, or reject");
+    expect(prompt).toContain("Do not ask for routine external adoption decisions");
     expect(prompt).not.toContain("Mode: autopilot");
   });
 });

@@ -56,6 +56,10 @@ const IRREVERSIBLE_PATTERNS = [
   /\bgit\s+reset\s+--hard\b/i,
   /\bgit\s+clean\s+-[a-zA-Z]*[xdf][a-zA-Z]*\b/i,
   /\bdd\s+if=.*\bof=\/dev\//i,
+  /\bterraform\s+(apply\b.*--?auto-approve\b|destroy\b)/i,
+  /\bkubectl\s+(delete|apply|replace)\b/i,
+  /\b(?:pnpm\s+|npm\s+|yarn\s+)?(?:prisma|drizzle|sequelize|knex|typeorm)\s+migrate\s+(deploy|up|latest|run)\b/i,
+  /\b(?:chmod|chown)\s+-[a-zA-Z]*R[a-zA-Z]*\b.*\s+\S*\/(?:Users|Volumes|var|etc|opt|usr|home)\b/i,
 ];
 
 function normalizedCommand(input: unknown): string | undefined {

@@ -26,7 +26,6 @@ Drive work like an autonomous PM/development team. The autonomous PM base is alw
 - Secret, credential, or account changes
 - Large deletion or destructive migration
 - External transfer of private data
-- External adoption decisions after autonomous analysis
 - Work mode implementation/switching
 - Irreversible actions
 - Logically contradictory goals without a safe default
@@ -66,7 +65,7 @@ If this gate was skipped, acknowledge the skip, run the gate immediately, fix wh
 
 ## External Source Tracking
 
-Do not track links for simple analysis. Track only when the source was actually reflected into ddotz-pi or the user explicitly asks to track it. When tracked/adopted sources change upstream, autonomously analyze fit and ask whether to adopt the proposed improvement.
+Do not track links for simple analysis. Track only when the source was actually reflected into ddotz-pi or the user explicitly asks to track it. When tracked/adopted sources change upstream, autonomously analyze fit, decide adopt / partially adopt / reject against the concise autonomous PM/development goal, proceed when safe, and report the decision. Ask only when a hard approval boundary is hit.
 
 ## Reporting Style
 

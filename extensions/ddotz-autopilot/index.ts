@@ -2,7 +2,14 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { createEmptyLedger, type ContextLedger, summarizeLedger } from "./context-ledger";
+import {
+  createEmptyLedger,
+  recordChangedFile,
+  recordVerification,
+  type ContextLedger,
+  type VerificationStatus,
+  summarizeLedger,
+} from "./context-ledger";
 import { createStoredMemory, classifyMemoryCandidate, type StoredMemory } from "./memory";
 import {
   createRuntimeState,
@@ -225,14 +232,73 @@ async function checkSources(pi: ExtensionAPI, state: DdotzState, sources: Extern
   return messages;
 }
 
+function objectInput(input: unknown): Record<string, unknown> | undefined {
+  return input && typeof input === "object" ? input as Record<string, unknown> : undefined;
+}
+
+function toolInputPath(input: unknown): string | undefined {
+  const path = objectInput(input)?.path;
+  return typeof path === "string" && path.trim() ? path.trim().replace(/^@/, "") : undefined;
+}
+
+function verificationCommand(input: unknown): string | undefined {
+  const command = objectInput(input)?.command;
+  if (typeof command !== "string") return undefined;
+  const trimmed = command.trim();
+  if (!trimmed) return undefined;
+  if (/\b(pnpm|npm|yarn)\s+(run\s+)?(check|test|lint|typecheck|version:check)\b/i.test(trimmed)) return trimmed;
+  if (/\b(vitest|pytest|tsc|eslint|oxlint)\b/i.test(trimmed)) return trimmed;
+  return undefined;
+}
+
+function textContentPreview(content: unknown): string | undefined {
+  if (!Array.isArray(content)) return undefined;
+  const parts: string[] = [];
+  for (const entry of content) {
+    const item = objectInput(entry);
+    if (item?.type === "text" && typeof item.text === "string") parts.push(item.text);
+  }
+  const text = parts.join("\n").trim();
+  if (!text) return undefined;
+  return text.split("\n").find((line) => line.trim())?.trim().slice(0, 160);
+}
+
+async function updateLedgerForToolCall(cwd: string, toolName: string, input: unknown): Promise<void> {
+  if (toolName !== "write" && toolName !== "edit") return;
+  const path = toolInputPath(input);
+  if (!path) return;
+  const state = await loadState();
+  const key = ledgerKey(cwd);
+  const ledger = getLedger(state, cwd);
+  state.ledgers[key] = recordChangedFile(ledger, path);
+  await saveState(state);
+}
+
+async function updateLedgerForToolResult(cwd: string, toolName: string, input: unknown, isError: boolean | undefined, content: unknown): Promise<void> {
+  if (toolName !== "bash") return;
+  const command = verificationCommand(input);
+  if (!command) return;
+  const status: VerificationStatus = isError ? "failed" : "passed";
+  const state = await loadState();
+  const key = ledgerKey(cwd);
+  const ledger = getLedger(state, cwd);
+  state.ledgers[key] = recordVerification(ledger, command, status, textContentPreview(content));
+  await saveState(state);
+}
+
 export default function ddotzAutopilot(pi: ExtensionAPI) {
   installStructuralGate(pi);
   registerRuntimeReload(pi);
 
-  pi.on("tool_call", (event) => {
+  pi.on("tool_call", async (event, ctx) => {
     const decision = classifyApprovalBoundaryToolCall(event.toolName, event.input);
-    if (!decision) return undefined;
-    return { block: true, reason: formatApprovalBoundaryBlock(decision) };
+    if (decision) return { block: true, reason: formatApprovalBoundaryBlock(decision) };
+    await updateLedgerForToolCall(ctx.cwd || process.cwd(), event.toolName, event.input);
+    return undefined;
+  });
+
+  pi.on("tool_result", async (event, ctx) => {
+    await updateLedgerForToolResult(ctx.cwd || process.cwd(), event.toolName, event.input, event.isError, event.content);
   });
 
   pi.on("session_start", async (_event, ctx) => {

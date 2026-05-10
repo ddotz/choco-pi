@@ -60,7 +60,8 @@ export function classifyExecutionIntensity(input: string): ExecutionIntensity {
 }
 
 export function shouldAskUser(decision: ApprovalDecision): boolean {
-  if (decision.kind === "external-adoption-decision" || decision.kind === "work-mode-switch") return true;
+  if (decision.kind === "work-mode-switch") return true;
+  if (decision.kind === "external-adoption-decision") return false;
   if (decision.kind === "routine-choice" && decision.reversible && decision.hasReasonableDefault) return false;
   if (decision.kind === "contradictory-goal") return !decision.hasReasonableDefault;
   return [
@@ -90,9 +91,10 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
   const ledger = options.ledgerSummary?.trim()
     ? `\n\n## Current Context Ledger\n${options.ledgerSummary.trim()}`
     : "";
+  const adoptionPolicy = "Do not ask for routine external adoption decisions. Critically decide whether to adopt, partially adopt, or reject each external idea/code against the concise autonomous PM/development goal, then proceed autonomously unless a hard approval boundary is hit.";
   const sourceSummary = options.dueSourceSummary?.trim()
-    ? `\n\n## External Source Tracking\n${options.dueSourceSummary.trim()}\nWhen sources changed, autonomously analyze the update against the ddotz-pi philosophy, then ask the user whether to adopt the proposed improvement.`
-    : "\n\n## External Source Tracking\nDo not track links for simple analysis. Track only sources explicitly adopted into ddotz-pi, or sources the user explicitly asks to track. For adopted sources, check weekly for updates and propose improvements when they fit ddotz-pi.";
+    ? `\n\n## External Source Tracking\n${options.dueSourceSummary.trim()}\n${adoptionPolicy}`
+    : `\n\n## External Source Tracking\nDo not track links for simple analysis. Track only sources explicitly adopted into ddotz-pi, or sources the user explicitly asks to track. For adopted sources, check weekly for updates, decide whether to adopt, partially adopt, or reject the change, and proceed autonomously when it fits ddotz-pi.\n${adoptionPolicy}`;
 
   return [
     "## ddotz-pi autonomous PM/development-team base",
@@ -110,7 +112,7 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "1. Follow the user's latest instruction as the highest task-level authority.",
     "2. Prefer autonomous execution over clarification questions.",
     "3. Make reasonable assumptions, record them in the Context Ledger, and continue.",
-    "4. Ask the user only for deployment, payment, secrets/accounts, large deletion, external data transfer, irreversible actions, external adoption decisions, or logically contradictory goals without safe defaults.",
+    "4. Ask the user only for deployment, payment, secrets/accounts, large deletion, external data transfer, irreversible actions, work mode switching, or logically contradictory goals without safe defaults.",
     "",
     "### Autonomous execution loop",
     "- Treat execution intensity as process weight, not as a user-facing work mode.",
