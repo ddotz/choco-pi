@@ -4,7 +4,7 @@ Personal autonomous PM/development-team layer for the pi coding agent.
 
 ## Purpose
 
-`ddotz-pi` makes Pi default to an autonomous PM base philosophy: act without routine clarification, self-review, fix, verify, and report evidence.
+`ddotz-pi` makes Pi default to an autonomous PM base philosophy: act without routine clarification, self-review, fix, verify, and report evidence. Each plan/todo step is treated as a bounded loop; new work discovered after the current todo must start from a fresh plan through new steering/new loop or be explicitly deferred.
 
 The autonomous PM base is always on. **Only `default` work mode is currently implemented.** Specialized modes (`coding`, `report`, `web-analysis`, `adoption-analysis`) are planned and should be implemented/switched only after an explicit user request.
 
@@ -21,6 +21,7 @@ This work customizes the current Pi environment itself (`~/.pi/agent`). `~/code/
 - `/source [list|add|adopt|reject|due|changed|check]` — track adopted or explicitly tracked external sources.
 - `/memory [list|save <text>]` — list/save durable memories.
 - `/ledger [reset]` — show/reset compact workspace Context Ledger.
+- `/reload-runtime` — reload extensions, skills, prompts, and themes without starting a new session.
 
 ## Mode folder structure
 
@@ -77,15 +78,23 @@ Tracked/adopted sources are checked weekly. If upstream changed, the agent analy
 
 ## Approval boundaries
 
-Ask first only for deployment, payment, secrets/accounts, large deletion/destructive migration, external private-data transfer, external adoption decisions, irreversible actions, or contradictory goals without safe defaults.
+Ask first only for deployment, payment, secrets/accounts, large deletion/destructive migration, external private-data transfer, external adoption decisions, irreversible actions, or contradictory goals without safe defaults. Runtime `tool_call` checks block common deployment/publishing, secret/account mutation, large deletion, external transfer, and irreversible shell patterns before execution.
+
+## Runtime reload
+
+`/reload-runtime` calls Pi's `ctx.reload()` and keeps the current session. The LLM-callable `reload_runtime` tool attempts direct reload only if the current Pi tool context exposes `reload()`; otherwise it visibly prepares `/reload-runtime` in the editor instead of falsely claiming autonomous reload, because current Pi `sendUserMessage()` bypasses slash-command routing.
+
+Pi itself is expected to run inside tmux by default. When direct runtime input is needed, use `tmux send-keys` against the active Pi pane before falling back to GUI automation.
 
 ## External search
 
 `insane-search` remains an external dependency. ddotz-pi references it for blocked/WAF-protected access and supported platforms instead of vendoring or reimplementing it.
 
-## Completion boundary
+## Loop and completion boundary
 
 Stop when the requested outcome is satisfied, verification passed, and no critical in-scope issue remains. Optional and new-scope ideas are deferred follow-ups, not silently added to the active task.
+
+Before crossing from one step or todo item to the next, re-check that the next action still fits the current plan/current todo and call `loop_transition` after completing a todo/plan step. If new work appears after the current todo, start a fresh loop: write a new plan, create or reset todos for that scope, and continue only after new steering/follow-up starts the new loop.
 
 ## Commit hygiene and quality gates
 

@@ -1,0 +1,104 @@
+export type ApprovalBoundaryKind =
+  | "deployment"
+  | "payment"
+  | "secret-or-account"
+  | "large-delete"
+  | "external-data-transfer"
+  | "irreversible";
+
+export interface ApprovalBoundaryDecision {
+  kind: ApprovalBoundaryKind;
+  reason: string;
+}
+
+const DEPLOYMENT_PATTERNS = [
+  /\b(vercel|netlify|firebase)\s+deploy\b/i,
+  /\bnpm\s+publish\b/i,
+  /\bpnpm\s+publish\b/i,
+  /\byarn\s+npm\s+publish\b/i,
+  /\bgh\s+release\s+(create|upload)\b/i,
+];
+
+const PAYMENT_PATTERNS = [
+  /\bstripe\s+(charges?|payment_intents?|refunds?)\b/i,
+  /\bpaypal\b.*\b(capture|refund|payout)\b/i,
+];
+
+const SECRET_OR_ACCOUNT_PATH_PATTERNS = [
+  /^\.env(?:\.|$)/,
+  /(^|\/)\.env(?:\.|$)/,
+  /(^|\/)(secrets?|credentials?|tokens?|auth)\b/i,
+  /(^|\/).*(\.pem|\.key|\.p12|\.pfx)$/i,
+  /(^|\/)id_rsa(?:\.pub)?$/,
+  /(^|\/)id_ed25519(?:\.pub)?$/,
+];
+
+const SECRET_OR_ACCOUNT_COMMAND_PATTERNS = [
+  /\b(gh|npm|pnpm|vercel|netlify|firebase|aws|gcloud|az)\s+(auth|login|logout|configure)\b/i,
+  /\b(pass|op)\s+(insert|edit|item\s+edit)\b/i,
+  />\s*\.?env(?:\.|\s|$)/i,
+];
+
+const LARGE_DELETE_PATTERNS = [
+  /\brm\s+(-[a-zA-Z]*r[a-zA-Z]*f|-rf|-fr)\s+(?:~|\/|\$HOME|\/Users\/|\/Volumes\/|\.\.)\S*/i,
+  /\brm\s+(-[a-zA-Z]*r[a-zA-Z]*f|-rf|-fr)\s+[^;&|]*\*[^;&|]*/i,
+];
+
+const EXTERNAL_TRANSFER_PATTERNS = [
+  /\bcurl\b[^;&|]*(?:-T|--upload-file|--form|-F)\b[^;&|]*https?:\/\//i,
+  /\bscp\b\s+[^;&|]+\s+[^\s@]+@[^\s:]+:/i,
+  /\brsync\b\s+[^;&|]+\s+[^\s@]+@[^\s:]+:/i,
+  /\baws\s+s3\s+(cp|sync)\b/i,
+  /\bgsutil\s+(cp|rsync)\b/i,
+];
+
+const IRREVERSIBLE_PATTERNS = [
+  /\bgit\s+reset\s+--hard\b/i,
+  /\bgit\s+clean\s+-[a-zA-Z]*[xdf][a-zA-Z]*\b/i,
+  /\bdd\s+if=.*\bof=\/dev\//i,
+];
+
+function normalizedCommand(input: unknown): string | undefined {
+  if (!input || typeof input !== "object") return undefined;
+  const command = (input as { command?: unknown }).command;
+  return typeof command === "string" ? command.trim() : undefined;
+}
+
+function normalizedPath(input: unknown): string | undefined {
+  if (!input || typeof input !== "object") return undefined;
+  const path = (input as { path?: unknown }).path;
+  return typeof path === "string" ? path.trim().replace(/^@/, "").replace(/^\.\//, "") : undefined;
+}
+
+function matchAny(text: string, patterns: RegExp[]): boolean {
+  return patterns.some((pattern) => pattern.test(text));
+}
+
+function decision(kind: ApprovalBoundaryKind, reason: string): ApprovalBoundaryDecision {
+  return { kind, reason };
+}
+
+export function classifyApprovalBoundaryToolCall(toolName: string, input: unknown): ApprovalBoundaryDecision | undefined {
+  const command = normalizedCommand(input);
+  if (toolName === "bash" && command) {
+    if (matchAny(command, DEPLOYMENT_PATTERNS)) return decision("deployment", "Deployment or publishing requires explicit user approval.");
+    if (matchAny(command, PAYMENT_PATTERNS)) return decision("payment", "Payment or billing actions require explicit user approval.");
+    if (matchAny(command, SECRET_OR_ACCOUNT_COMMAND_PATTERNS)) return decision("secret-or-account", "Secret or account changes require explicit user approval.");
+    if (matchAny(command, LARGE_DELETE_PATTERNS)) return decision("large-delete", "Large or destructive deletion requires explicit user approval.");
+    if (matchAny(command, EXTERNAL_TRANSFER_PATTERNS)) return decision("external-data-transfer", "External private-data transfer requires explicit user approval.");
+    if (matchAny(command, IRREVERSIBLE_PATTERNS)) return decision("irreversible", "Irreversible local operation requires explicit user approval.");
+  }
+
+  if (toolName === "write" || toolName === "edit") {
+    const path = normalizedPath(input);
+    if (path && matchAny(path, SECRET_OR_ACCOUNT_PATH_PATTERNS)) {
+      return decision("secret-or-account", "Secret, credential, token, or account configuration file mutation requires explicit user approval.");
+    }
+  }
+
+  return undefined;
+}
+
+export function formatApprovalBoundaryBlock(decision: ApprovalBoundaryDecision): string {
+  return `Approval boundary blocked (${decision.kind}): ${decision.reason}`;
+}

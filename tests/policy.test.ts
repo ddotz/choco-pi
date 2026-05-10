@@ -64,6 +64,11 @@ describe("ddotz autonomous PM policy", () => {
     expect(prompt).toContain("structural_gate");
     expect(prompt).toContain("message_end hook");
     expect(prompt).toContain("fail-closed");
+    expect(prompt).toContain("Loop governance");
+    expect(prompt).toContain("current todo");
+    expect(prompt).toContain("new steering");
+    expect(prompt).toContain("new loop");
+    expect(prompt).toContain("loop_transition");
   });
 
   it("injects autonomous base, default-only work mode, concise response, folded details, confidence, context, memory, and source tracking", () => {

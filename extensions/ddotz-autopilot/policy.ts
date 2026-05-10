@@ -73,6 +73,19 @@ export function shouldAskUser(decision: ApprovalDecision): boolean {
   ].includes(decision.kind);
 }
 
+function buildLoopGovernanceGuidance(): string {
+  return [
+    "### Loop governance",
+    "- Treat each plan/todo step as a bounded loop: plan → todo → execute current todo → self-review → fix → verify.",
+    "- Before crossing from one step or todo item to the next, re-check that the next action still fits the current plan, current todo, and requested scope.",
+    "- Call loop_transition after completing a todo/plan step and before moving to the next step or final completion.",
+    "- If new work appears after the current todo, do not silently append it to the active loop.",
+    "- Start fresh for that work: write a new plan, create or reset the todo list for the new scope, then continue only after a new steering/follow-up starts the new loop.",
+    "- If the new work is optional, new-scope, or blocked by approval boundaries, defer it explicitly instead of starting it in the current loop.",
+    "- Before final completion, structural_gate.loopGovernance must cite the step/todo transition decision and whether any new steering/new loop was required.",
+  ].join("\n");
+}
+
 export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): string {
   const ledger = options.ledgerSummary?.trim()
     ? `\n\n## Current Context Ledger\n${options.ledgerSummary.trim()}`
@@ -115,10 +128,13 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "2. Runtime fit: check whether tests and code changes represent the real Pi/runtime behavior, including reload, load order, UI state, and extension conflicts when relevant.",
     "3. Failure modes: identify remaining ways the change can fail, leak, regress, or be misreported; fix critical in-scope issues before final response.",
     "4. Verification evidence: run or cite observable verification; separate test evidence from runtime guarantees when they differ.",
-    "5. Completion boundary: stop only when the requested outcome is satisfied, verification passed, and no critical in-scope issue remains.",
+    "5. Loop governance: every step/todo transition stayed plan-first; any new work after the current todo used new steering/new loop or was deferred.",
+    "6. Completion boundary: stop only when the requested outcome is satisfied, verification passed, and no critical in-scope issue remains.",
     "The structural_gate tool is the non-prompt enforcement path: call it before final completion reporting on non-trivial work.",
     "A message_end hook checks the structural_gate state fail-closed; if the tool was skipped or did not pass, the final assistant message is replaced with a blocked response and a follow-up repair turn is queued.",
     "If the gate was skipped, acknowledge the skip, run the gate immediately, fix what it finds, and then report RED/Root cause/Fix/GREEN for any TDD or bug-fix work.",
+    "",
+    buildLoopGovernanceGuidance(),
     "",
     buildCompletionBoundaryGuidance(),
     "",

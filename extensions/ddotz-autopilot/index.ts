@@ -31,6 +31,8 @@ import {
   type ExternalSource,
   type SourceRegistry,
 } from "./source-registry";
+import { classifyApprovalBoundaryToolCall, formatApprovalBoundaryBlock } from "./approval-boundary";
+import { registerRuntimeReload } from "./runtime-reload";
 import { installStructuralGate } from "./structural-gate";
 import { DDOTZ_PI_VERSION } from "./version";
 import {
@@ -225,6 +227,13 @@ async function checkSources(pi: ExtensionAPI, state: DdotzState, sources: Extern
 
 export default function ddotzAutopilot(pi: ExtensionAPI) {
   installStructuralGate(pi);
+  registerRuntimeReload(pi);
+
+  pi.on("tool_call", (event) => {
+    const decision = classifyApprovalBoundaryToolCall(event.toolName, event.input);
+    if (!decision) return undefined;
+    return { block: true, reason: formatApprovalBoundaryBlock(decision) };
+  });
 
   pi.on("session_start", async (_event, ctx) => {
     const state = await loadState();
