@@ -7,7 +7,7 @@ Build a personal Pi package that makes the default operating philosophy an auton
 ## Non-goals
 
 - Do not replace Pi with oh-my-pi/omp.
-- Do not adopt roach-pi full harness by default.
+- Do not adopt the upstream full harness by default.
 - Do not vendor insane-search.
 - Do not treat `autopilot` or `autopilot-heavy` as domain modes.
 - Do not track external links that were only analyzed and not reflected into ddotz-pi.
@@ -23,7 +23,7 @@ The primary target is the user's current Pi environment under `~/.pi/agent`. `~/
 - Extension: injects autonomous PM policy through `before_agent_start`, exposes `/mode`, `/intensity`, `/memory`, `/ledger`, and `/source`, and stores compact state under the Pi agent directory.
 - Mode folders: isolate shared philosophy from mode-specific overlays so report/coding/web/adoption behavior can diverge without changing the base philosophy.
 - UI extensions: keep todo tool rows silent while widgets update, collapse read previews to header-only by default, and render the footer with branch version, current mode, and cyan-highlighted usage values.
-- Utility absorption: selected roach-pi utilities are loaded through the `ddotz-pi-utilities` dependency alias, not as a top-level Pi package.
+- Utility absorption: selected upstream utilities are vendored as local `ddotz-pi` extensions, not loaded as a separate Pi package.
 - Skill: describes the autonomous execution behavior for task-triggered progressive disclosure.
 - Prompt: lets the user explicitly force autonomous behavior if needed.
 

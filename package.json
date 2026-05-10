@@ -16,7 +16,7 @@
       "extensions/ddotz-autopilot/index.ts",
       "extensions/todo-widget.ts",
       "extensions/ddotz-footer/index.ts",
-      "node_modules/ddotz-pi-utilities/extensions/fff-search/index.ts",
+      "extensions/fff-search/index.ts",
       "node_modules/pi-lsp-client/src/index.ts",
       "extensions/focus-rendering/index.ts",
       "extensions/raw-paste/index.ts"
@@ -52,7 +52,6 @@
     "@mariozechner/pi-coding-agent": "npm:@earendil-works/pi-coding-agent@^0.74.0",
     "@mariozechner/pi-tui": "npm:@earendil-works/pi-tui@^0.74.0",
     "@sinclair/typebox": "^0.34.49",
-    "ddotz-pi-utilities": "github:tmdgusya/roach-pi#v1.26.1",
     "diff": "^9.0.0",
     "pi-lsp-client": "github:code-yeongyu/pi-lsp-client",
     "shiki": "^4.0.2",

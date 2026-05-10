@@ -33,8 +33,8 @@ describe("external source registry", () => {
 
   it("marks sources due once per week and summarizes them for autonomous analysis", () => {
     let registry = createSourceRegistry();
-    const source = createExternalSource("https://github.com/tmdgusya/roach-pi", {
-      label: "roach-pi",
+    const source = createExternalSource("https://github.com/example/upstream-utility", {
+      label: "upstream-utility",
       now: new Date("2026-05-01T00:00:00Z"),
     });
 
@@ -43,13 +43,13 @@ describe("external source registry", () => {
     expect(sourcesDueForWeeklyCheck(registry, new Date("2026-05-08T00:00:01Z"))).toHaveLength(1);
 
     const summary = summarizeDueSources(registry, new Date("2026-05-08T00:00:01Z"));
-    expect(summary).toContain("roach-pi");
+    expect(summary).toContain("upstream-utility");
     expect(summary).toContain("weekly update check");
   });
 
   it("records upstream refs and flags changed sources for follow-up analysis", () => {
     let registry = createSourceRegistry();
-    const source = createExternalSource("https://github.com/tmdgusya/roach-pi", {
+    const source = createExternalSource("https://github.com/example/upstream-utility", {
       now: new Date("2026-05-01T00:00:00Z"),
     });
     registry = { ...registry, sources: [source] };

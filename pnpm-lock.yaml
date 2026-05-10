@@ -23,9 +23,6 @@ importers:
       '@sinclair/typebox':
         specifier: ^0.34.49
         version: 0.34.49
-      ddotz-pi-utilities:
-        specifier: github:tmdgusya/roach-pi#v1.26.1
-        version: pi-engineering-discipline-extension@https://codeload.github.com/tmdgusya/roach-pi/tar.gz/33aa768b3b9eede78eeb33e88ab6a4cc586c3fa2
       diff:
         specifier: ^9.0.0
         version: 9.0.0
@@ -252,19 +249,9 @@ packages:
   '@emnapi/wasi-threads@1.2.1':
     resolution: {integrity: sha512-uTII7OYF+/Mes/MrcIOYp5yOtSMLBWSIoLPpcgwipoiKbli6k322tcoFsxoIIxPDqW01SQGAgko4EzZi2BNv2w==}
 
-  '@ff-labs/fff-bin-darwin-arm64@0.6.4':
-    resolution: {integrity: sha512-IiLrUeVL+6oeHlzyBGp6ACrb4j7vl66/GXtkoSASVtXJGt5J3IH9m9OvQTwwBxrQtPSgb0tI7TvdYPX0RGH9Qg==}
-    cpu: [arm64]
-    os: [darwin]
-
   '@ff-labs/fff-bin-darwin-arm64@0.7.2':
     resolution: {integrity: sha512-RfOAZE6SxwtCyU48q4mflKYwG10GkhLYEhRNlKKCY1ve9DwbdV1FBiNNihsTYlkHOLvy+Wml3ESAIOdTb0Nd7w==}
     cpu: [arm64]
-    os: [darwin]
-
-  '@ff-labs/fff-bin-darwin-x64@0.6.4':
-    resolution: {integrity: sha512-COd27jhKVKIsLT3krQ2DrOkgMYJ5jPSnRLrbarwtYe5jVbayKR6N4wUhtGF3VXWnNoYTNstq2uBYcHphOp5AkQ==}
-    cpu: [x64]
     os: [darwin]
 
   '@ff-labs/fff-bin-darwin-x64@0.7.2':
@@ -272,23 +259,11 @@ packages:
     cpu: [x64]
     os: [darwin]
 
-  '@ff-labs/fff-bin-linux-arm64-gnu@0.6.4':
-    resolution: {integrity: sha512-E2UWCgpBwCPWaupHnn7RAmHjyCyEmKwruaMyigTjI2tg6gXYvoAIjNR+TGsKkTqGl0B1BmP0sD8Uh65K5koxTQ==}
-    cpu: [arm64]
-    os: [linux]
-    libc: [glibc]
-
   '@ff-labs/fff-bin-linux-arm64-gnu@0.7.2':
     resolution: {integrity: sha512-3fOPWxG95gVrUueipKjHLIc8NBzDVwH5buoAwg94KdY1Jr8yz0ffGpQ55gOyb2mghMDNOGdy+PLrdA5tJ2j2uQ==}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
-
-  '@ff-labs/fff-bin-linux-arm64-musl@0.6.4':
-    resolution: {integrity: sha512-t9K3NzYkBxK2UYp6Xy7Lac/RAL+cWa+78HcRNI693k0U9c6G65J2/cVn5SVOiJ1EcnEnC3MCuPsCEmj/9d3Pqw==}
-    cpu: [arm64]
-    os: [linux]
-    libc: [musl]
 
   '@ff-labs/fff-bin-linux-arm64-musl@0.7.2':
     resolution: {integrity: sha512-efoiSy2k2xqPK0XhIR8yCGVo0WySt8DVWPG053tZ6hrjcmm7ciukACsB5eDIk+JMxsSib9ZKnUpAHvqNH3j43A==}
@@ -296,23 +271,11 @@ packages:
     os: [linux]
     libc: [musl]
 
-  '@ff-labs/fff-bin-linux-x64-gnu@0.6.4':
-    resolution: {integrity: sha512-tNSYpZok9HpXZoAlTEWbJF0ZQtZKZNmpyU2WfVRa3WhsPZ/ej+YUuPEPI83OYRqxy4F0OVtGYCqj7dos/AVSLg==}
-    cpu: [x64]
-    os: [linux]
-    libc: [glibc]
-
   '@ff-labs/fff-bin-linux-x64-gnu@0.7.2':
     resolution: {integrity: sha512-qw/K9r3YJ4mrNoDzQXYvhfi8q5sIz2lNWzClAIjEMeoUO/tyvIWuiaQnHjHFunYvlj6N4MpogMclJ4J41PNGMQ==}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
-
-  '@ff-labs/fff-bin-linux-x64-musl@0.6.4':
-    resolution: {integrity: sha512-GHJhJ3P7cGth4F0VTyoe3maFQT0cW+RbMm7R5XKkNZZW2rNtR+4jo+neAU4gchYH6jv7ajCB5HQdNBcou8zxKA==}
-    cpu: [x64]
-    os: [linux]
-    libc: [musl]
 
   '@ff-labs/fff-bin-linux-x64-musl@0.7.2':
     resolution: {integrity: sha512-kIp4BXX1oXVzHgBGD7ejpgDGNgCmooxZKob3frcn9dPkXoi0mUnbQfBTOHB4Fix64DwqIatGoj3HJ8EpPQEN1A==}
@@ -320,31 +283,15 @@ packages:
     os: [linux]
     libc: [musl]
 
-  '@ff-labs/fff-bin-win32-arm64@0.6.4':
-    resolution: {integrity: sha512-+wmwbeoAvkce2ZduY1FSjzMnmE4LNJDpXa1q++mTz+/LsUvjPBl1dSchvXxuyLzKAqhigHpJ1k9Xull0iIDUjQ==}
-    cpu: [arm64]
-    os: [win32]
-
   '@ff-labs/fff-bin-win32-arm64@0.7.2':
     resolution: {integrity: sha512-ShQpZRF6TfhI1mUaSLI4NJ2sE2cZwhMmWnKoNfJtp+5lTJuVGchmSIEJR9HrXnKn0zx37sQpggMDYmxGZ5pLxw==}
     cpu: [arm64]
-    os: [win32]
-
-  '@ff-labs/fff-bin-win32-x64@0.6.4':
-    resolution: {integrity: sha512-OOEXudgFtkXS5iF+6JoawCMpK76xg0NodUhsc2bhTKXJP8DjfQhU/ARpxoPFiX7uwAy1/xaPjbaT5dfP16TaCg==}
-    cpu: [x64]
     os: [win32]
 
   '@ff-labs/fff-bin-win32-x64@0.7.2':
     resolution: {integrity: sha512-cYQVdtvTS612M2o+kV7cZlL6pFVXRCsSmPCAj3ReIn6s8H0e6V/FZbPnddOrTY/6ryb+IAr4q1SXiXF6jiFSEQ==}
     cpu: [x64]
     os: [win32]
-
-  '@ff-labs/fff-node@0.6.4':
-    resolution: {integrity: sha512-iC9H2cTxxEhOpGkx9sZaAo4ADX/m+gU+RzvpgB89KNOeDhjtJ6AxedT3YkgV1ZAWHHvBAVDALXwNKI81Ygk7Xg==}
-    engines: {node: '>=18.0.0'}
-    cpu: [x64, arm64]
-    os: [darwin, linux, win32]
 
   '@ff-labs/fff-node@0.7.2':
     resolution: {integrity: sha512-fiTkBCUqx6RWDRpDFmmckIMa3+HmGc3p/t9NUmlQljmOGZTrtZ1yPF770PRqUWEXgcd+siduPSEnon2B2iTCmw==}
@@ -1623,13 +1570,6 @@ packages:
   pend@1.2.0:
     resolution: {integrity: sha512-F3asv42UuXchdzt+xXqfW1OGlVBe+mxa2mqI0pg5yAHZPvFmY3Y6drSf/GQ1A86WgWEN9Kzh/WrgKa6iGcHXLg==}
 
-  pi-engineering-discipline-extension@https://codeload.github.com/tmdgusya/roach-pi/tar.gz/33aa768b3b9eede78eeb33e88ab6a4cc586c3fa2:
-    resolution: {tarball: https://codeload.github.com/tmdgusya/roach-pi/tar.gz/33aa768b3b9eede78eeb33e88ab6a4cc586c3fa2}
-    version: 1.26.1
-    bundledDependencies:
-      - '@code-yeongyu/pi-nested-agents-md'
-      - pi-lsp-client
-
   pi-lsp-client@https://codeload.github.com/code-yeongyu/pi-lsp-client/tar.gz/b94bbd05275916f623983a55d311308f6ac64193:
     resolution: {tarball: https://codeload.github.com/code-yeongyu/pi-lsp-client/tar.gz/b94bbd05275916f623983a55d311308f6ac64193}
     version: 0.1.0
@@ -2523,66 +2463,29 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@ff-labs/fff-bin-darwin-arm64@0.6.4':
-    optional: true
-
   '@ff-labs/fff-bin-darwin-arm64@0.7.2':
-    optional: true
-
-  '@ff-labs/fff-bin-darwin-x64@0.6.4':
     optional: true
 
   '@ff-labs/fff-bin-darwin-x64@0.7.2':
     optional: true
 
-  '@ff-labs/fff-bin-linux-arm64-gnu@0.6.4':
-    optional: true
-
   '@ff-labs/fff-bin-linux-arm64-gnu@0.7.2':
-    optional: true
-
-  '@ff-labs/fff-bin-linux-arm64-musl@0.6.4':
     optional: true
 
   '@ff-labs/fff-bin-linux-arm64-musl@0.7.2':
     optional: true
 
-  '@ff-labs/fff-bin-linux-x64-gnu@0.6.4':
-    optional: true
-
   '@ff-labs/fff-bin-linux-x64-gnu@0.7.2':
-    optional: true
-
-  '@ff-labs/fff-bin-linux-x64-musl@0.6.4':
     optional: true
 
   '@ff-labs/fff-bin-linux-x64-musl@0.7.2':
     optional: true
 
-  '@ff-labs/fff-bin-win32-arm64@0.6.4':
-    optional: true
-
   '@ff-labs/fff-bin-win32-arm64@0.7.2':
-    optional: true
-
-  '@ff-labs/fff-bin-win32-x64@0.6.4':
     optional: true
 
   '@ff-labs/fff-bin-win32-x64@0.7.2':
     optional: true
-
-  '@ff-labs/fff-node@0.6.4':
-    dependencies:
-      ffi-rs: 1.3.2
-    optionalDependencies:
-      '@ff-labs/fff-bin-darwin-arm64': 0.6.4
-      '@ff-labs/fff-bin-darwin-x64': 0.6.4
-      '@ff-labs/fff-bin-linux-arm64-gnu': 0.6.4
-      '@ff-labs/fff-bin-linux-arm64-musl': 0.6.4
-      '@ff-labs/fff-bin-linux-x64-gnu': 0.6.4
-      '@ff-labs/fff-bin-linux-x64-musl': 0.6.4
-      '@ff-labs/fff-bin-win32-arm64': 0.6.4
-      '@ff-labs/fff-bin-win32-x64': 0.6.4
 
   '@ff-labs/fff-node@0.7.2':
     dependencies:
@@ -3814,13 +3717,6 @@ snapshots:
   pathe@2.0.3: {}
 
   pend@1.2.0: {}
-
-  pi-engineering-discipline-extension@https://codeload.github.com/tmdgusya/roach-pi/tar.gz/33aa768b3b9eede78eeb33e88ab6a4cc586c3fa2:
-    dependencies:
-      '@ff-labs/fff-node': 0.6.4
-      '@sinclair/typebox': 0.34.49
-      diff: 8.0.4
-      shiki: 4.0.2
 
   pi-lsp-client@https://codeload.github.com/code-yeongyu/pi-lsp-client/tar.gz/b94bbd05275916f623983a55d311308f6ac64193(@earendil-works/pi-ai@0.74.0(ws@8.20.0)(zod@4.4.3))(@earendil-works/pi-coding-agent@0.74.0(ws@8.20.0)(zod@4.4.3))(@earendil-works/pi-tui@0.74.0)(typebox@1.1.38):
     dependencies:
