@@ -6,7 +6,7 @@ Personal Pi package for an autonomous PM/development-team workflow.
 
 ## Status
 
-- Current package version: `0.3.0`.
+- Current package version: `0.3.1`.
 - Implemented work modes: `default`, `web-analysis`, `adoption-analysis`.
 - Planned work modes: `coding`, `report`.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
@@ -108,7 +108,7 @@ It also registers user commands:
 
 - `/mode`: status/list/set/add/remove work modes.
 - `/intensity`: status/set execution intensity.
-- `/source`: track and check adopted sources.
+- `/source`: track, watch, adopt/reject, and check external sources.
 - `/memory`: list/save durable memory.
 - `/ledger`: show/reset the context ledger.
 - `/reload-runtime`: reload extensions/skills/prompts/themes without starting a new session.
@@ -529,7 +529,7 @@ pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test
 - `/mode` — open the interactive work-mode selector with each mode description.
 - `/mode [status|list|set <mode>|add <id> <description>|remove <id>]` — manage work modes. `default`, `web-analysis`, and `adoption-analysis` are implemented modes.
 - `/intensity [micro|standard|deep|status]` — show or set process weight.
-- `/source [list|add|adopt|reject|due|changed|check]` — track adopted or explicitly tracked external sources.
+- `/source [list|add|watch|adopt|reject|due|changed|check]` — track adopted, watched, or explicitly tracked external sources.
 - `/memory [list|save <text>]` — list/save durable memories.
 - `/ledger [reset]` — show/reset the compact workspace Context Ledger.
 - `/reload-runtime` — reload extensions, skills, prompts, and themes without starting a new session. The LLM-callable `reload_runtime` tool self-submits `/reload-runtime --continue` through tmux when direct tool reload is unavailable, waits for the command acknowledgement marker, then the reloaded extension sends `continue` from `session_start(reason: "reload")`.
@@ -557,6 +557,7 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 - No mode may change default or any other mode as a side effect; shared changes belong in `modes/_base/MODE.md` only when they are mode-agnostic.
 - `web-analysis` retrieval/review policy and message-end quality guardrail are active only while that mode is active.
 - `adoption-analysis` does not replace default adoption capability; it adds mode-scoped decision, adoption-depth, fit/risk, scope, tracking, and confidence quality guardrails only while active.
+- The `source_registry` tool is the Pi-native LLM path for autonomous source tracking; use `watch` when a source is relevant but not safe or ready to adopt.
 - Commit and push autonomously after verification when the working tree contains intentional in-scope changes and a remote is configured; normal `git push` is routine source synchronization, not deployment.
 - Treat each plan/todo step as a bounded loop. Complete a step, verify fit, record `loop_transition`, then move on.
 - If new work appears after the current todo, start a new loop or defer it explicitly. Do not silently append scope.

@@ -17,7 +17,7 @@ Required review contract:
 - Fit review: ddotz-pi philosophy, Pi-native fit, default behavior impact, mode isolation, duplication, and maintenance cost.
 - Risk review: license, security, source freshness, privacy, dependency health, reversibility, and runtime conflict risk.
 - Scope: what to adopt, what to reject, what to defer, and which files/policies are affected when implementation follows.
-- Tracking decision: track only sources actually reflected into ddotz-pi or explicitly requested by the user.
+- Tracking decision: track only sources actually reflected into ddotz-pi or explicitly requested by the user. Use `source_registry.watch` when a source is relevant but not ready or safe to adopt.
 - Confidence: High only when all required review sections are explicit and no critical blocker remains.
 
 Adoption-depth bias:

@@ -1,7 +1,10 @@
+import { StringEnum } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { Type } from "typebox";
+import { ADOPTION_DEPTHS, type AdoptionDepth } from "./adoption-depth";
 import {
   createEmptyLedger,
   recordChangedFile,
@@ -30,6 +33,7 @@ import {
   gitRemoteUrlForSource,
   markSourceAdopted,
   markSourceRejected,
+  markSourceWatching,
   sourcesDueForWeeklyCheck,
   summarizeChangedSources,
   summarizeDueSources,
@@ -162,8 +166,9 @@ function formatSources(registry: SourceRegistry): string {
   return registry.sources
     .map((source) => {
       const changed = source.changedSinceLastCheck ? " changed" : "";
+      const depth = source.adoptionDepth ? ` depth:${source.adoptionDepth}` : "";
       const ref = source.lastKnownRef ? ` @ ${source.lastKnownRef.slice(0, 12)}` : "";
-      return `- ${source.id} [${source.status}${changed}] ${source.label}${ref} — ${source.url}`;
+      return `- ${source.id} [${source.status}${changed}${depth}] ${source.label}${ref} — ${source.url}`;
     })
     .join("\n");
 }
@@ -175,6 +180,41 @@ function maxIntensity(a: ExecutionIntensity, b: ExecutionIntensity): ExecutionIn
 
 function splitCommandArgs(args: string): string[] {
   return args.trim().split(/\s+/).filter(Boolean);
+}
+
+type SourceRegistryAction = "list" | "add" | "watch" | "adopt" | "reject" | "due" | "changed" | "check";
+
+interface SourceRegistryToolParams {
+  action: SourceRegistryAction;
+  url?: string;
+  id?: string;
+  target?: string;
+  rationale?: string;
+  review?: string;
+  adoptionDepth?: AdoptionDepth;
+  adoptedItems?: string[];
+  rejectedItems?: string[];
+  scopeRationale?: string;
+  clearChangedFlag?: boolean;
+}
+
+const SourceRegistryParams = Type.Object({
+  action: StringEnum(["list", "add", "watch", "adopt", "reject", "due", "changed", "check"] as const),
+  url: Type.Optional(Type.String({ description: "Source URL for add" })),
+  id: Type.Optional(Type.String({ description: "Source id for watch, adopt, reject, and check" })),
+  target: Type.Optional(Type.String({ description: "Check target: due, all, or source id" })),
+  rationale: Type.Optional(Type.String({ description: "Why this source is relevant" })),
+  review: Type.Optional(Type.String({ description: "Adoption/watch/rejection review" })),
+  adoptionDepth: Type.Optional(StringEnum(ADOPTION_DEPTHS)),
+  adoptedItems: Type.Optional(Type.Array(Type.String())),
+  rejectedItems: Type.Optional(Type.Array(Type.String())),
+  scopeRationale: Type.Optional(Type.String()),
+  clearChangedFlag: Type.Optional(Type.Boolean()),
+});
+
+function requireSourceId(id: string | undefined): string {
+  if (!id?.trim()) throw new Error("Source id is required");
+  return id.trim();
 }
 
 async function setWorkMode(workMode: WorkMode, ctx: ExtensionCommandContext): Promise<void> {
@@ -263,6 +303,87 @@ async function checkSources(pi: ExtensionAPI, state: DdotzState, sources: Extern
   return messages;
 }
 
+function selectSourcesForCheck(registry: SourceRegistry, target: string): ExternalSource[] {
+  return target === "all"
+    ? registry.sources.filter((source) => source.status !== "rejected")
+    : target === "due"
+      ? sourcesDueForWeeklyCheck(registry)
+      : registry.sources.filter((source) => source.id === target);
+}
+
+function registerSourceRegistryTool(pi: ExtensionAPI): void {
+  pi.registerTool({
+    name: "source_registry",
+    label: "Source registry",
+    description: "Track adopted, watched, and rejected external sources for ddotz-pi adoption analysis.",
+    promptSnippet: "source_registry: list/add/watch/adopt/reject/check external sources that are reflected into ddotz-pi or explicitly requested for tracking.",
+    promptGuidelines: [
+      "Track sources only when their code/design is reflected into ddotz-pi or the user explicitly asks to track them.",
+      "Use watch for sources that are relevant but not adopted yet, especially when license, security, or freshness is unresolved.",
+      "When adopting, record the smallest sufficient adoptionDepth and the concrete adopted/rejected scope.",
+    ],
+    parameters: SourceRegistryParams,
+    renderShell: "self",
+    async execute(_toolCallId, params) {
+      const input = params as SourceRegistryToolParams;
+      const state = await loadState();
+      const details = () => ({ action: input.action, state: state.sourceRegistry });
+
+      if (input.action === "list") {
+        return { content: [{ type: "text", text: formatSources(state.sourceRegistry) }], details: details() };
+      }
+      if (input.action === "due") {
+        return { content: [{ type: "text", text: summarizeDueSources(state.sourceRegistry) }], details: details() };
+      }
+      if (input.action === "changed") {
+        return { content: [{ type: "text", text: summarizeChangedSources(state.sourceRegistry) }], details: details() };
+      }
+      if (input.action === "add") {
+        if (!input.url?.trim()) throw new Error("Source URL is required");
+        const source = createExternalSource(input.url, { rationale: input.rationale });
+        state.sourceRegistry = upsertExternalSource(state.sourceRegistry, source);
+        await saveState(state);
+        return { content: [{ type: "text", text: `Tracked external source: ${source.id}` }], details: details() };
+      }
+      if (input.action === "watch") {
+        const id = requireSourceId(input.id);
+        state.sourceRegistry = markSourceWatching(state.sourceRegistry, id, input.review || "Watching for future adoption analysis.", {
+          adoptionDepth: input.adoptionDepth,
+          scopeRationale: input.scopeRationale,
+          clearChangedFlag: input.clearChangedFlag,
+        });
+        await saveState(state);
+        return { content: [{ type: "text", text: `Marked watching: ${id}` }], details: details() };
+      }
+      if (input.action === "adopt") {
+        const id = requireSourceId(input.id);
+        state.sourceRegistry = markSourceAdopted(state.sourceRegistry, id, input.review || "Adopted for ddotz-pi.", {
+          adoptionDepth: input.adoptionDepth,
+          adoptedItems: input.adoptedItems,
+          rejectedItems: input.rejectedItems,
+          scopeRationale: input.scopeRationale,
+          clearChangedFlag: input.clearChangedFlag,
+        });
+        await saveState(state);
+        return { content: [{ type: "text", text: `Marked adopted: ${id}` }], details: details() };
+      }
+      if (input.action === "reject") {
+        const id = requireSourceId(input.id);
+        state.sourceRegistry = markSourceRejected(state.sourceRegistry, id, input.review || "Rejected for ddotz-pi.");
+        await saveState(state);
+        return { content: [{ type: "text", text: `Marked rejected: ${id}` }], details: details() };
+      }
+
+      const target = input.target || input.id || "due";
+      const selected = selectSourcesForCheck(state.sourceRegistry, target);
+      if (selected.length === 0) return { content: [{ type: "text", text: `No sources selected for check: ${target}` }], details: details() };
+      const messages = await checkSources(pi, state, selected);
+      await saveState(state);
+      return { content: [{ type: "text", text: messages.join("\n") }], details: details() };
+    },
+  });
+}
+
 function objectInput(input: unknown): Record<string, unknown> | undefined {
   return input && typeof input === "object" ? input as Record<string, unknown> : undefined;
 }
@@ -320,6 +441,7 @@ async function updateLedgerForToolResult(cwd: string, toolName: string, input: u
 export default function ddotzAutopilot(pi: ExtensionAPI) {
   installStructuralGate(pi);
   registerRuntimeReload(pi);
+  registerSourceRegistryTool(pi);
 
   pi.on("tool_call", async (event, ctx) => {
     const decision = classifyApprovalBoundaryToolCall(event.toolName, event.input);
@@ -516,7 +638,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   });
 
   pi.registerCommand("source", {
-    description: "Track adopted external repos/links for weekly update checks",
+    description: "Track, watch, adopt, reject, and check external repos/links for weekly update checks",
     handler: async (args: string, ctx: ExtensionCommandContext) => {
       const [command = "list", ...rest] = args.trim().split(/\s+/).filter(Boolean);
       const state = await loadState();
@@ -549,6 +671,18 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
         return;
       }
 
+      if (command === "watch") {
+        const [id, ...reviewParts] = rest;
+        if (!id) {
+          ctx.ui.notify("Usage: /source watch <id> [review]", "error");
+          return;
+        }
+        state.sourceRegistry = markSourceWatching(state.sourceRegistry, id, reviewParts.join(" ") || "Watching for future adoption analysis.");
+        await saveState(state);
+        ctx.ui.notify(`Marked watching: ${id}`, "info");
+        return;
+      }
+
       if (command === "adopt") {
         const [id, ...reviewParts] = rest;
         if (!id) {
@@ -575,11 +709,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
 
       if (command === "check") {
         const target = rest[0] || "due";
-        const selected = target === "all"
-          ? state.sourceRegistry.sources.filter((source) => source.status !== "rejected")
-          : target === "due"
-            ? sourcesDueForWeeklyCheck(state.sourceRegistry)
-            : state.sourceRegistry.sources.filter((source) => source.id === target);
+        const selected = selectSourcesForCheck(state.sourceRegistry, target);
         if (selected.length === 0) {
           ctx.ui.notify(`No sources selected for check: ${target}`, "warning");
           return;
@@ -590,7 +720,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
         return;
       }
 
-      ctx.ui.notify("Usage: /source [list|add|adopt|reject|due|changed|check]", "error");
+      ctx.ui.notify("Usage: /source [list|add|watch|adopt|reject|due|changed|check]", "error");
     },
   });
 

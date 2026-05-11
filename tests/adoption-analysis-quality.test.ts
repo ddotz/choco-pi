@@ -47,6 +47,16 @@ describe("adoption-analysis quality guardrails", () => {
     expect(result.issues).toContain("missing-adoption-depth");
   });
 
+  it("requires explicit Decision and Adoption depth section labels", () => {
+    const answer = structuredAnswer
+      .replace("Decision: partially adopt", "I will partially adopt the source.")
+      .replace("Adoption depth: partial-port", "Depth should be partial-port.");
+
+    const result = evaluateAdoptionAnalysisQuality("adoption-analysis", answer);
+    expect(result.issues).toContain("missing-decision");
+    expect(result.issues).toContain("missing-adoption-depth");
+  });
+
   it("flags adoption-analysis answers without fit review", () => {
     const answer = structuredAnswer.replace(/^Fit review:.*\n/m, "");
     const result = evaluateAdoptionAnalysisQuality("adoption-analysis", answer);

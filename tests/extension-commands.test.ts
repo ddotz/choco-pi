@@ -104,4 +104,17 @@ describe("extension command names", () => {
     expect(notify).toHaveBeenLastCalledWith(expect.stringContaining("mode: default"), "info");
     expect(notify.mock.calls.flat().join("\n")).not.toContain("planned but not implemented");
   });
+
+  it("supports watch decisions in the source command", async () => {
+    await useTempAgentDir();
+    const commands = registeredCommands();
+    const notify = vi.fn();
+
+    await commands.get("source")!.handler("add https://github.com/example/upstream-utility license unstable", { ui: { notify } });
+    await commands.get("source")!.handler("watch github-example-upstream-utility Watch until license stabilizes", { ui: { notify } });
+    await commands.get("source")!.handler("list", { ui: { notify } });
+
+    expect(notify).toHaveBeenCalledWith("Marked watching: github-example-upstream-utility", "info");
+    expect(notify).toHaveBeenLastCalledWith(expect.stringContaining("[watching]"), "info");
+  });
 });

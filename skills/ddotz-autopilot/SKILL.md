@@ -39,7 +39,7 @@ Use `/mode` as the canonical work-mode command. Run `/mode` with no arguments to
 
 - **default**: implemented base autonomous PM/development mode.
 - **web-analysis**: implemented mode-scoped retrieval-first external research with source confidence scoring, critical review, and message-end quality guardrails.
-- **adoption-analysis**: implemented mode-scoped external source/package/repo adoption review with explicit adoption depth, fit/risk review, scope, tracking decision, and message-end quality guardrails. It does not replace default adoption capability.
+- **adoption-analysis**: implemented mode-scoped external source/package/repo adoption review with explicit adoption depth, fit/risk review, scope, tracking decision, and message-end quality guardrails. It does not replace default adoption capability. Use the `source_registry` tool for autonomous tracking and `watch` for relevant sources that are not ready to adopt.
 - **coding/report**: planned modes. Do not claim they are active. If the user explicitly asks to use one, ask whether to implement/switch it.
 - Mode isolation is mandatory for every work mode, including future planned and custom modes.
 - New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.

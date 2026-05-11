@@ -3,6 +3,7 @@ import {
   createExternalSource,
   createSourceRegistry,
   markSourceAdopted,
+  markSourceWatching,
   shouldTrackSourceFromAnalysis,
   sourcesDueForWeeklyCheck,
   summarizeDueSources,
@@ -57,6 +58,32 @@ describe("external source registry", () => {
       lastReviewedRef: "abc123",
       lastReviewedAt: "2026-05-11T00:00:00.000Z",
       scopeRationale: "Use the idea, not the package boundary.",
+      changedSinceLastCheck: false,
+    });
+  });
+
+  it("marks sources as watching when adoption-analysis chooses watch depth", () => {
+    let registry = createSourceRegistry();
+    const source = createExternalSource("https://github.com/example/upstream-utility", {
+      now: new Date("2026-05-01T00:00:00Z"),
+    });
+    registry = { ...registry, sources: [{ ...source, changedSinceLastCheck: true, lastKnownRef: "abc123" }] };
+
+    registry = markSourceWatching(registry, source.id, "Watch upstream until license stabilizes.", {
+      adoptionDepth: "idea-only",
+      reviewedRef: "abc123",
+      reviewedAt: new Date("2026-05-11T00:00:00Z"),
+      scopeRationale: "Watch only; do not adopt code yet.",
+      clearChangedFlag: true,
+    });
+
+    expect(registry.sources[0]).toMatchObject({
+      status: "watching",
+      adoptionDepth: "idea-only",
+      lastAdoptionReview: "Watch upstream until license stabilizes.",
+      lastReviewedRef: "abc123",
+      lastReviewedAt: "2026-05-11T00:00:00.000Z",
+      scopeRationale: "Watch only; do not adopt code yet.",
       changedSinceLastCheck: false,
     });
   });

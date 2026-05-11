@@ -132,6 +132,19 @@ function mergeItems(existing: string[], incoming: string[] | undefined): string[
   return Array.from(new Set([...existing, ...(incoming ?? []).map((item) => item.trim()).filter(Boolean)]));
 }
 
+function reviewMetadata(source: ExternalSource, review: string, options: MarkSourceAdoptedOptions): Pick<ExternalSource, "lastAdoptionReview" | "adoptionDepth" | "lastReviewedRef" | "lastReviewedAt" | "scopeRationale" | "changedSinceLastCheck"> {
+  const reviewedAt = options.reviewedAt?.toISOString();
+  const scopeRationale = options.scopeRationale?.trim();
+  return {
+    lastAdoptionReview: review.trim() || source.lastAdoptionReview,
+    adoptionDepth: options.adoptionDepth ?? source.adoptionDepth,
+    lastReviewedRef: options.reviewedRef ?? source.lastReviewedRef,
+    lastReviewedAt: reviewedAt ?? source.lastReviewedAt,
+    scopeRationale: scopeRationale || source.scopeRationale,
+    changedSinceLastCheck: options.clearChangedFlag ? false : source.changedSinceLastCheck,
+  };
+}
+
 export function markSourceAdopted(
   registry: SourceRegistry,
   id: string,
@@ -139,8 +152,6 @@ export function markSourceAdopted(
   adoptedItemsOrOptions: string[] | MarkSourceAdoptedOptions = [],
 ): SourceRegistry {
   const options = normalizeAdoptedOptions(adoptedItemsOrOptions);
-  const reviewedAt = options.reviewedAt?.toISOString();
-  const scopeRationale = options.scopeRationale?.trim();
   return {
     ...registry,
     sources: registry.sources.map((source) =>
@@ -148,14 +159,31 @@ export function markSourceAdopted(
         ? {
             ...source,
             status: "adopted",
-            lastAdoptionReview: review.trim() || source.lastAdoptionReview,
-            adoptionDepth: options.adoptionDepth ?? source.adoptionDepth,
+            ...reviewMetadata(source, review, options),
             adoptedItems: mergeItems(source.adoptedItems ?? [], options.adoptedItems),
             rejectedItems: mergeItems(source.rejectedItems ?? [], options.rejectedItems),
-            lastReviewedRef: options.reviewedRef ?? source.lastReviewedRef,
-            lastReviewedAt: reviewedAt ?? source.lastReviewedAt,
-            scopeRationale: scopeRationale || source.scopeRationale,
-            changedSinceLastCheck: options.clearChangedFlag ? false : source.changedSinceLastCheck,
+          }
+        : source,
+    ),
+  };
+}
+
+export function markSourceWatching(
+  registry: SourceRegistry,
+  id: string,
+  review: string,
+  options: MarkSourceAdoptedOptions = {},
+): SourceRegistry {
+  return {
+    ...registry,
+    sources: registry.sources.map((source) =>
+      source.id === id
+        ? {
+            ...source,
+            status: "watching",
+            ...reviewMetadata(source, review, options),
+            adoptedItems: source.adoptedItems ?? [],
+            rejectedItems: source.rejectedItems ?? [],
           }
         : source,
     ),

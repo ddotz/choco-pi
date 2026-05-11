@@ -23,13 +23,12 @@ export interface AdoptionAnalysisQualityGuardResult {
 }
 
 function hasDecision(text: string): boolean {
-  return /Decision:\s*(adopt|partially adopt|reject|watch)\b/i.test(text)
-    || /\b(adopt|partially adopt|reject|watch)\b/i.test(text);
+  return /^Decision:\s*(adopt|partially adopt|reject|watch)\b/im.test(text);
 }
 
 function hasAdoptionDepth(text: string): boolean {
-  return ADOPTION_DEPTHS.some((depth) => new RegExp(`Adoption depth:\\s*${depth}\\b`, "i").test(text))
-    || ADOPTION_DEPTHS.some((depth) => text.includes(depth));
+  const depthPattern = ADOPTION_DEPTHS.join("|");
+  return new RegExp(`^Adoption depth:\\s*(${depthPattern})\\b`, "im").test(text);
 }
 
 function hasFitReview(text: string): boolean {
