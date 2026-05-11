@@ -4,6 +4,7 @@ import { buildCompletionBoundaryGuidance } from "./completion-boundary";
 import { buildEpistemicIntegrityGuidance } from "./epistemic-integrity";
 import { buildModeSwitchGuidance, describeWorkMode, type ExecutionIntensity, type WorkMode } from "./mode";
 import { buildResponseStyleGuidance } from "./response-style";
+import { buildReportModeGuidance } from "./report-policy";
 import { buildTechnicalDebtCleanupGuidance } from "./technical-debt";
 import { buildWebAnalysisModeGuidance } from "./web-analysis-policy";
 import { buildWorktreeGuidance } from "./worktree-planner";
@@ -107,6 +108,7 @@ function buildNewFeaturePackageReuseGuidance(): string {
 function buildModeOverlayGuidance(mode: WorkMode): string {
   if (mode === "web-analysis") return buildWebAnalysisModeGuidance();
   if (mode === "adoption-analysis") return buildAdoptionAnalysisModeGuidance();
+  if (mode === "report") return buildReportModeGuidance();
   return "";
 }
 

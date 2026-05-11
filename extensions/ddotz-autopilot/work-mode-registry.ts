@@ -35,8 +35,8 @@ const BUILT_IN_MODES: Array<Omit<WorkModeDefinition, "createdAt" | "folder" | "i
   },
   {
     id: "report",
-    description: "Planned mode for evidence gathering, report writing, and document polishing.",
-    status: "planned",
+    description: "Implemented mode for evidence-led report writing, source confidence gating, Kami-derived layout, and im-not-ai-derived Korean polishing.",
+    status: "implemented",
     custom: false,
   },
   {

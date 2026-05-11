@@ -26,6 +26,10 @@ describe("session-scoped autopilot state", () => {
       effectiveMode: "adoption-analysis",
       automatic: true,
     });
+    expect(resolveEffectiveWorkMode({ persistentMode: "default", suggestedMode: "report" })).toMatchObject({
+      effectiveMode: "report",
+      automatic: true,
+    });
     expect(resolveEffectiveWorkMode({ persistentMode: "default", suggestedMode: "coding" })).toMatchObject({
       effectiveMode: "default",
       automatic: false,

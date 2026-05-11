@@ -59,6 +59,30 @@ const ADOPTION_ANALYSIS_POLICY: ModeResourcePolicy = {
   ],
 };
 
+const REPORT_POLICY: ModeResourcePolicy = {
+  mode: "report",
+  skills: ["insane-search", "kami"],
+  extensionGuidance: [
+    "Use Kami-derived layout constraints for report artifacts; do not vendor upstream templates wholesale.",
+    "Use im-not-ai-derived Korean polishing rules as report-mode policy; do not depend on Claude-only agents or commands.",
+    "Keep report-mode source, layout, and polishing guardrails isolated from default mode.",
+  ],
+  toolPriority: [
+    "user materials and report objective before source collection",
+    "evidence ledger before synthesis",
+    "confidence scoring before drafting",
+    "logic review before polishing",
+    "Kami layout and im-not-ai polishing after evidence is stable",
+  ],
+  processPriorities: [
+    "factual confidence before narrative polish",
+    "primary sources before secondary summaries",
+    "double-check Medium evidence and triple-check Low evidence before use",
+    "C-level concise report style before decorative writing",
+    "mode isolation before reusable report helpers",
+  ],
+};
+
 function clonePolicy(policy: ModeResourcePolicy): ModeResourcePolicy {
   return {
     mode: policy.mode,
@@ -72,6 +96,7 @@ function clonePolicy(policy: ModeResourcePolicy): ModeResourcePolicy {
 export function buildModeResourcePolicy(mode: WorkMode): ModeResourcePolicy {
   if (mode === "web-analysis") return clonePolicy(WEB_ANALYSIS_POLICY);
   if (mode === "adoption-analysis") return clonePolicy(ADOPTION_ANALYSIS_POLICY);
+  if (mode === "report") return clonePolicy(REPORT_POLICY);
   return { ...clonePolicy({ ...EMPTY_POLICY, mode }) };
 }
 

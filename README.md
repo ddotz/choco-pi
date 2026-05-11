@@ -6,9 +6,9 @@ Personal Pi package for an autonomous PM/development-team workflow.
 
 ## Status
 
-- Current package version: `0.5.3`.
-- Implemented work modes: `default`, `web-analysis`, `adoption-analysis`.
-- Planned work modes: `coding`, `report`.
+- Current package version: `0.6.0`.
+- Implemented work modes: `default`, `web-analysis`, `adoption-analysis`, `report`.
+- Planned work modes: `coding`.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
 
 Planned modes are documented but not active. If a user asks to use a planned mode, `ddotz-pi` should ask whether to implement/switch it instead of pretending the mode already exists.
@@ -176,7 +176,7 @@ The structural gate tracks completed todo steps and loop transitions. If a todo 
 
 Work mode and intensity are intentionally separate.
 
-- **Work mode** is a policy overlay. `default`, `web-analysis`, and `adoption-analysis` are implemented; other built-in modes remain planned.
+- **Work mode** is a policy overlay. `default`, `web-analysis`, `adoption-analysis`, and `report` are implemented; other built-in modes remain planned.
 - **Execution intensity** controls process weight: `micro`, `standard`, or `deep`.
 
 Mode files live under:
@@ -433,7 +433,7 @@ Structural gate는 todo 완료와 loop transition 수를 추적합니다. todo�
 
 Work mode와 execution intensity는 분리되어 있습니다.
 
-- **Work mode**: policy overlay입니다. 현재 구현된 mode는 `default`, `web-analysis`, `adoption-analysis`이고 나머지 built-in mode는 planned 상태입니다.
+- **Work mode**: policy overlay입니다. 현재 구현된 mode는 `default`, `web-analysis`, `adoption-analysis`, `report`이고 나머지 built-in mode는 planned 상태입니다.
 - **Execution intensity**: 처리 강도입니다. `micro`, `standard`, `deep` 중 하나입니다.
 
 mode file 위치는 다음입니다.
@@ -569,7 +569,7 @@ pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test
 ## Commands
 
 - `/mode` — open the interactive work-mode selector with each mode description.
-- `/mode [status|list|set <mode>|add <id> <description>|remove <id>]` — manage work modes. `default`, `web-analysis`, and `adoption-analysis` are implemented modes.
+- `/mode [status|list|set <mode>|add <id> <description>|remove <id>]` — manage work modes. `default`, `web-analysis`, `adoption-analysis`, and `report` are implemented modes.
 - `/intensity [micro|standard|deep|status]` — show or set process weight.
 - `/source [list|add|watch|adopt|reject|due|changed|check]` — track adopted, watched, or explicitly tracked external sources.
 - `/btw`, `/btw:new`, `/btw:tangent`, `/btw:inject`, `/btw:summarize`, `/btw:clear`, `/btw:model`, `/btw:thinking` — run Korean-localized side conversations in a focused overlay without installing `npm:pi-btw` separately.
@@ -584,7 +584,7 @@ modes/
   _base/MODE.md                # shared autonomous PM philosophy
   default/MODE.md              # base implemented mode
   coding/MODE.md               # planned coding overlay
-  report/MODE.md               # planned report-writing overlay
+  report/MODE.md               # implemented evidence-led report overlay
   web-analysis/MODE.md         # implemented web research overlay
   adoption-analysis/MODE.md    # implemented source adoption overlay
 ```
@@ -602,6 +602,7 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 - Prefer isolated git worktrees for parallel/multi-session work. Todo and ledger state are session-scoped by default; use project-shared todos only when explicitly needed.
 - `web-analysis` retrieval/review policy and message-end quality guardrail are active only while that mode is active.
 - `adoption-analysis` does not replace default adoption capability; it adds mode-scoped decision, adoption-depth, fit/risk, scope, tracking, and confidence quality guardrails only while active.
+- `report` adds mode-scoped evidence ledgers, confidence double-check/triple-check rules, Kami-derived layout guidance, and im-not-ai-derived Korean polishing only while active.
 - The `source_registry` tool is the Pi-native LLM path for autonomous source tracking; use `watch` when a source is relevant but not safe or ready to adopt.
 - Commit and push autonomously after verification when the working tree contains intentional in-scope changes and a remote is configured; normal `git push` is routine source synchronization, not deployment.
 - Treat each plan/todo step as a bounded loop. Complete a step, verify fit, record `loop_transition`, then move on.
