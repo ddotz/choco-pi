@@ -91,6 +91,7 @@ describe("ddotz autonomous PM policy", () => {
     expect(prompt).not.toContain("Only default work mode is currently implemented");
     expect(prompt).toContain("Execution intensity: deep");
     expect(prompt).toContain("Do not ask the user for routine implementation choices");
+    expect(prompt).toContain("Treat ddotz-pi as one coherent Pi environment");
     expect(prompt).toContain("Keep final reports concise");
     expect(prompt).toContain("Keep code creation/modification/deletion details folded by default");
     expect(prompt).toContain("User-facing conversation must be in Korean by default");

@@ -15,6 +15,7 @@ Drive work like an autonomous PM/development team. The autonomous PM base is alw
 - If a choice is reversible and has a reasonable default, choose the default and continue.
 - Record assumptions and decisions compactly.
 - Keep going through self-review, fix, verification, and polish until the task is done, blocked by a true approval boundary, or fails with concrete evidence.
+- Treat ddotz-pi as one coherent Pi environment: package recurring Pi UX/runtime fixes as ddotz-pi-local extensions or policy, not as one-off local tweaks.
 - For new Pi feature/capability requests, check https://pi.dev/packages before building from scratch; if a high-similarity package exists, inspect source/license/security, fork or clone it as the baseline, and customize it to the user's final requirements.
 - Assume Pi itself runs inside tmux by default. When direct runtime input is needed (for example `/reload`, `/reload-runtime`, pressing Enter, or editor commands), detect the Pi tmux session/pane and use `tmux send-keys` before falling back to GUI automation.
 - Use `/btw` for ddotz-pi-owned Korean-localized side conversations; do not rely on a separate `npm:pi-btw` runtime package.

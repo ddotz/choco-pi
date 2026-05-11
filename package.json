@@ -1,6 +1,6 @@
 {
   "name": "ddotz-pi",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "Personal autonomous PM/development-team layer for the pi coding agent.",
   "keywords": [
@@ -14,6 +14,7 @@
   "pi": {
     "extensions": [
       "extensions/ddotz-autopilot/index.ts",
+      "extensions/input-newline/index.ts",
       "extensions/todo-widget.ts",
       "extensions/ddotz-footer/index.ts",
       "extensions/fff-search/index.ts",

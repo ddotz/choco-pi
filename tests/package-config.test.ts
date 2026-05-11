@@ -13,6 +13,7 @@ describe("package configuration", () => {
     expect(packageJson.dependencies ?? {}).not.toHaveProperty(absorbedUtilityAlias);
     expect(packageJson.pi.extensions).toContain("extensions/fff-search/index.ts");
     expect(packageJson.pi.extensions).toContain("node_modules/pi-lsp-client/src/index.ts");
+    expect(packageJson.pi.extensions).toContain("extensions/input-newline/index.ts");
     expect(packageJson.pi.extensions).toContain("extensions/todo-widget.ts");
     expect(packageJson.pi.extensions).toContain("extensions/ddotz-footer/index.ts");
     expect(packageJson.pi.extensions).toContain("extensions/focus-rendering/index.ts");

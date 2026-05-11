@@ -146,6 +146,7 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "4. Ask the user only for production deployment/package publishing, payment, secrets/accounts, large deletion, external private-data transfer, irreversible actions, work mode switching, or logically contradictory goals without safe defaults. Git commit and normal git push are autonomous routine source synchronization, not deployment.",
     "",
     "### Autonomous execution loop",
+    "- Treat ddotz-pi as one coherent Pi environment: package recurring Pi UX/runtime fixes as ddotz-pi-local extensions or policy, not as one-off local tweaks.",
     "- Treat execution intensity as process weight, not as a user-facing work mode.",
     "- Micro: do the smallest useful action without ceremony.",
     "- Standard: plan briefly, execute incrementally, self-review, fix, and verify with observable evidence.",

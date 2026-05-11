@@ -6,7 +6,7 @@ Personal Pi package for an autonomous PM/development-team workflow.
 
 ## Status
 
-- Current package version: `0.4.1`.
+- Current package version: `0.4.2`.
 - Implemented work modes: `default`, `web-analysis`, `adoption-analysis`.
 - Planned work modes: `coding`, `report`.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
@@ -41,6 +41,7 @@ If Pi is already running, run `/reload-runtime` after installation. Otherwise, s
 
 - Extensions
   - `extensions/ddotz-autopilot/index.ts`
+  - `extensions/input-newline/index.ts`
   - `extensions/todo-widget.ts`
   - `extensions/ddotz-footer/index.ts`
   - `extensions/fff-search/index.ts`
@@ -63,6 +64,7 @@ Selected utility behavior is absorbed as local `ddotz-pi` extensions so a new en
 Pi runtime
   ├─ package.json pi.extensions[]
   │   ├─ ddotz-autopilot        # PM loop, guards, state, commands, reload tool
+  │   ├─ input-newline          # routes extension text prompts through multiline editor
   │   ├─ todo-widget            # persistent project todo tool/widget
   │   ├─ ddotz-footer           # custom two-line footer
   │   ├─ fff-search             # FFF-backed find/grep and @mention search
@@ -286,6 +288,8 @@ This is a UI-only layer: it does not mutate tool results or session content. It 
 ~/.pi/agent/fff/
 ```
 
+`extensions/input-newline/` treats ddotz-pi as one coherent Pi environment by routing extension text prompts through Pi's multiline editor. `Ctrl+J` follows the same newline behavior as the main prompt instead of being interpreted as a single-line submit.
+
 `extensions/raw-paste/` owns the editor component for bracketed paste. `/paste` arms raw paste mode so the next bracketed paste is inserted into the editor as visible text instead of being interpreted as keystroke commands. `/paste cancel` disarms it.
 
 `extensions/btw.ts` owns `/btw` side conversations as a local ddotz-pi feature. It is adapted from `pi-btw` under MIT license, localized for Korean respectful side-session answers, and no longer needs a separate `npm:pi-btw` package entry.
@@ -318,6 +322,7 @@ Tests are organized by subsystem: approval boundary, completion boundary, commit
 Pi runtime
   ├─ package.json pi.extensions[]
   │   ├─ ddotz-autopilot        # PM 루프, guard, 상태, 명령, reload tool
+  │   ├─ input-newline          # extension text prompt를 multiline editor로 라우팅
   │   ├─ todo-widget            # 프로젝트 todo tool/widget
   │   ├─ ddotz-footer           # 2줄 footer
   │   ├─ fff-search             # FFF 기반 find/grep 및 @mention 검색
@@ -524,6 +529,8 @@ Source registry는 실제로 채택했거나 사용자가 명시적으로 추적
 ```text
 ~/.pi/agent/fff/
 ```
+
+`extensions/input-newline/`은 ddotz-pi를 하나의 Pi 환경으로 다루기 위해 extension text prompt를 Pi multiline editor로 라우팅합니다. 그래서 `Ctrl+J`가 단일행 submit으로 해석되지 않고 main prompt와 같은 newline 동작을 따릅니다.
 
 `extensions/raw-paste/`는 bracketed paste용 editor component를 소유합니다. `/paste`는 다음 bracketed paste를 arm해서 keystroke command가 아니라 editor text로 삽입하게 하고, `/paste cancel`은 해제합니다.
 
