@@ -21,7 +21,8 @@ Drive work through the ddotz-pi root all-purpose generalist base. `default` is t
 - Assume Pi itself runs inside tmux by default. When direct runtime input is needed (for example `/reload`, `/reload-runtime`, pressing Enter, or editor commands), detect the Pi tmux session/pane and use `tmux send-keys` before falling back to GUI automation.
 - Use `/btw` for ddotz-pi-owned Korean-localized side conversations; do not rely on a separate `npm:pi-btw` runtime package.
 - Treat each plan/todo step as a bounded loop. Before crossing to the next step or todo, re-check that the next action still fits the current plan/current todo and call `loop_transition` after completing a todo/plan step.
-- If new work appears after the current todo, do not append it silently. Start from a new plan, reset/create todos for that scope, and continue only after new steering/follow-up starts the new loop; otherwise defer it explicitly.
+- If new work appears after the current todo, do not append it silently. Start from a new plan, create/update todos for that scope without clearing or removing active todos, and continue only after new steering/follow-up starts the new loop; otherwise defer it explicitly.
+- After newly discovered dependent work is implemented and verified, return to the preserved parent todo instead of treating it as done or discarded.
 
 ## Ask Only For
 

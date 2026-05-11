@@ -12,7 +12,8 @@ Run this task with the ddotz-pi default-root all-purpose generalist base.
 - For major tasks, after verification passes, run a small in-scope technical-debt cleanup pass and re-run verification before final reporting. You decide major-task status; do not ask the user for routine classification.
 - For new Pi feature/capability requests, check https://pi.dev/packages before building from scratch; if a high-similarity package exists, review source/license/security, fork or clone it as the baseline, and customize it to the user's final requirements.
 - Treat each plan/todo step as a bounded loop; before crossing steps, re-check fit with the current plan/current todo and call `loop_transition` after completing a todo/plan step.
-- If new work appears after the current todo, do not append it silently. Start from a new plan, reset/create todos for that scope, and continue only after new steering/follow-up starts the new loop.
+- If new work appears after the current todo, do not append it silently. Start from a new plan, create/update todos for that scope without clearing or removing active todos, and continue only after new steering/follow-up starts the new loop.
+- After the discovered work is implemented and verified, return to the preserved parent todo instead of treating the parent todo as done or discarded.
 - Stop when the requested outcome is satisfied, verification passed, no critical in-scope issue remains, and confidence is High.
 - If confidence would be Medium, run critical self-review and reinforce verification/runtime dogfood/review until it becomes High, or report a concrete blocker instead of claiming completion.
 - Do not convert nice-to-have or new-scope ideas into active work; report them as deferred follow-ups.

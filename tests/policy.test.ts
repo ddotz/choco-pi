@@ -84,6 +84,8 @@ describe("ddotz autonomous PM policy", () => {
     expect(prompt).toContain("new steering");
     expect(prompt).toContain("new loop");
     expect(prompt).toContain("loop_transition");
+    expect(prompt).toContain("Do not clear or remove active todos when newly discovered work starts");
+    expect(prompt).toContain("return to the preserved parent todo");
   });
 
   it("requires collision-resistant area partitioning before writable parallel development", () => {

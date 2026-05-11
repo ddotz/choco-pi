@@ -6,7 +6,7 @@ Personal Pi package for a default-root all-purpose generalist workflow.
 
 ## Status
 
-- Current package version: `0.7.0`.
+- Current package version: `0.7.1`.
 - Implemented work modes: `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`.
 - Planned work modes: none.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
@@ -162,7 +162,7 @@ For non-trivial turns, the `message_end` hook checks whether the gate passed. If
 
 #### Loop-governance guard
 
-The structural gate tracks completed todo steps and loop transitions. If a todo is marked done but no `loop_transition` is recorded before crossing to the next step or final answer, the gate fails. If new work appears after a completed todo, the gate requires explicit handling: deferred, new steering, new loop, or approval boundary.
+The structural gate tracks completed todo steps and loop transitions. If a todo is marked done but no `loop_transition` is recorded before crossing to the next step or final answer, the gate fails. If new work appears after a completed todo, the gate requires explicit handling: deferred, new steering, new loop, or approval boundary. The todo tool also refuses accidental `clear`/`remove` of active todos unless a destructive override is explicitly provided, so parent todos remain resumable after dependent work finishes.
 
 #### Completion-boundary guard
 
@@ -419,7 +419,7 @@ non-trivial turn에서 gate가 통과되지 않으면 `message_end` hook이 최�
 
 #### Loop-governance guard
 
-Structural gate는 todo 완료와 loop transition 수를 추적합니다. todo를 `done`으로 바꾼 뒤 다음 step이나 final로 넘어가기 전에 `loop_transition`이 없으면 gate가 실패합니다. 완료된 todo 이후 새 작업이 생기면 deferred, new steering, new loop, approval boundary 중 하나로 명시 처리해야 합니다.
+Structural gate는 todo 완료와 loop transition 수를 추적합니다. todo를 `done`으로 바꾼 뒤 다음 step이나 final로 넘어가기 전에 `loop_transition`이 없으면 gate가 실패합니다. 완료된 todo 이후 새 작업이 생기면 deferred, new steering, new loop, approval boundary 중 하나로 명시 처리해야 합니다. todo tool은 active todo의 우발적 `clear`/`remove`를 destructive override 없이는 거부하므로, 의존 작업이 끝난 뒤 parent todo로 복귀할 수 있습니다.
 
 #### Completion-boundary guard
 
@@ -607,7 +607,7 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 - The `source_registry` tool is the Pi-native LLM path for autonomous source tracking; use `watch` when a source is relevant but not safe or ready to adopt.
 - Commit and push autonomously after verification when the working tree contains intentional in-scope changes and a remote is configured; normal `git push` is routine source synchronization, not deployment.
 - Treat each plan/todo step as a bounded loop. Complete a step, verify fit, record `loop_transition`, then move on.
-- If new work appears after the current todo, start a new loop or defer it explicitly. Do not silently append scope.
+- If new work appears after the current todo, start a new loop or defer it explicitly. Do not silently append scope, and do not clear/remove active parent todos while switching loops.
 - Run the structural gate before final completion on non-trivial work.
 - For major tasks, after verification passes, run a small in-scope technical-debt cleanup pass and re-run verification before final reporting; the agent decides the major-task threshold.
 - Medium confidence is not a completion state; reinforce verification to `High` or report a concrete blocker.

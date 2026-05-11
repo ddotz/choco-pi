@@ -263,7 +263,7 @@ describe("structural gate guard", () => {
         currentTodoFit: "Current todo is complete; the new task is separated into a fresh loop.",
         newWorkDiscovered: true,
         newWorkHandling: "new-loop",
-        newLoopPlan: "Plan the new task, reset/create todos for that scope, then continue after new steering.",
+        newLoopPlan: "Plan the new task, create/update todos for that scope without deleting active todos, then continue after new steering.",
       },
       undefined,
       undefined,

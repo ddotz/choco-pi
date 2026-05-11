@@ -114,6 +114,49 @@ describe("todo widget persistence", () => {
     expect(project.todos.map((todo) => todo.text)).toEqual(["shared"]);
   });
 
+  it("refuses to clear active todos without an explicit force flag", async () => {
+    const cwd = await makeTempCwd();
+    const { tool } = setupTodoWidget();
+
+    await runTodo(tool, cwd, { action: "add", text: "resume parent todo after dependency" });
+    await runTodo(tool, cwd, { action: "set_status", id: 1, status: "in_progress" });
+
+    await expect(runTodo(tool, cwd, { action: "clear" })).rejects.toThrow("Refusing to clear active todos");
+
+    const state = JSON.parse(await readFile(join(cwd, ".pi", "sessions", "session-default", "todos.json"), "utf8")) as {
+      todos: Array<{ id: number; text: string; status: string }>;
+    };
+    expect(state.todos.map((todo) => [todo.id, todo.text, todo.status])).toEqual([[1, "resume parent todo after dependency", "in_progress"]]);
+  });
+
+  it("refuses to remove an active todo without an explicit force flag", async () => {
+    const cwd = await makeTempCwd();
+    const { tool } = setupTodoWidget();
+
+    await runTodo(tool, cwd, { action: "add", text: "parent todo must remain resumable" });
+    await runTodo(tool, cwd, { action: "set_status", id: 1, status: "blocked" });
+
+    await expect(runTodo(tool, cwd, { action: "remove", id: 1 })).rejects.toThrow("Refusing to remove active todo #1");
+
+    const state = JSON.parse(await readFile(join(cwd, ".pi", "sessions", "session-default", "todos.json"), "utf8")) as {
+      todos: Array<{ id: number; text: string; status: string }>;
+    };
+    expect(state.todos.map((todo) => [todo.id, todo.text, todo.status])).toEqual([[1, "parent todo must remain resumable", "blocked"]]);
+  });
+
+  it("allows explicit force for user-requested destructive todo cleanup", async () => {
+    const cwd = await makeTempCwd();
+    const { tool } = setupTodoWidget();
+
+    await runTodo(tool, cwd, { action: "add", text: "delete only when explicitly requested" });
+    await runTodo(tool, cwd, { action: "set_status", id: 1, status: "in_progress" });
+
+    await runTodo(tool, cwd, { action: "clear", force: true });
+
+    const state = JSON.parse(await readFile(join(cwd, ".pi", "sessions", "session-default", "todos.json"), "utf8")) as { todos: unknown[] };
+    expect(state.todos).toEqual([]);
+  });
+
   it("clears only the current session todos when a new session starts", async () => {
     const cwd = await makeTempCwd();
     const currentPath = join(cwd, ".pi", "sessions", "session-a", "todos.json");

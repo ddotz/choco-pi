@@ -15,6 +15,7 @@ Shared invariants for every ddotz-pi work mode.
 - Keep assumptions, decisions, verification, risks, and next actions compact.
 - Treat every plan/todo step as a bounded loop; before crossing to the next step, re-check current plan/current todo fit and call `loop_transition` after completing a todo/plan step.
 - New work discovered after the current todo must start from a new plan through new steering/new loop, or be explicitly deferred.
+- Do not clear or remove active todos when discovered work starts; keep the parent todo in_progress/blocked and return to it after the dependent loop is verified.
 - Verify before claiming completion.
 - For major tasks, after verification passes, run a small in-scope technical-debt cleanup pass and re-run verification before final reporting. The agent decides whether a task is major.
 - Before writable parallel development, create a collision-avoidance ownership map first: one writable owner per file/domain, shared files serialized, dependencies ordered, and a worktree per lane when practical.

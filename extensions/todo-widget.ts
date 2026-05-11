@@ -45,6 +45,7 @@ const TodoParams = Type.Object({
   text: Type.Optional(Type.String({ description: "Todo text for add and update" })),
   status: Type.Optional(StringEnum(["pending", "in_progress", "done", "blocked"] as const)),
   scope: Type.Optional(StringEnum(["session", "project"] as const, { description: "Todo scope; session is isolated per Pi session, project is shared per cwd" })),
+  force: Type.Optional(Type.Boolean({ description: "Destructive override for remove/clear. Only set true when the user explicitly requested deleting todos; never use it to reset a dependent new loop." })),
 });
 
 function cloneState(state: TodoState): TodoState {
@@ -163,8 +164,24 @@ function updateTodoText(state: TodoState, id: number, text: string): TodoState {
   return next;
 }
 
-function removeTodo(state: TodoState, id: number): TodoState {
-  findTodo(state, id);
+function isActiveTodo(todo: TodoItem): boolean {
+  return todo.status !== "done";
+}
+
+function assertCanRemoveTodo(todo: TodoItem, force: boolean): void {
+  if (!force && isActiveTodo(todo)) throw new Error(`Refusing to remove active todo #${todo.id}; mark it done first, or pass force=true only for explicit user-requested deletion.`);
+}
+
+function assertCanClearTodos(state: TodoState, force: boolean): void {
+  const active = state.todos.filter(isActiveTodo);
+  if (!force && active.length > 0) {
+    throw new Error(`Refusing to clear active todos (${active.map((todo) => `#${todo.id}`).join(", ")}); finish or preserve them before starting dependent work.`);
+  }
+}
+
+function removeTodo(state: TodoState, id: number, force = false): TodoState {
+  const todo = findTodo(state, id);
+  assertCanRemoveTodo(todo, force);
   const next = cloneState(state);
   next.todos = next.todos.filter((todo) => todo.id !== id);
   return next;
@@ -398,6 +415,8 @@ export default function todoWidgetExtension(pi: ExtensionAPI) {
     promptGuidelines: [
       "Use todo for problem-solving task lists when the user asks for planning, execution tracking, or completion review.",
       "Use todo set_status to keep items current as work progresses.",
+      "Do not clear or remove active todos when newly discovered work starts; keep the parent todo in_progress/blocked, add the dependent work, then return to the preserved parent todo.",
+      "Use force=true for remove/clear only when the user explicitly requested deleting todos; never use it to reset between dependent loops.",
       "Default todo scope is the current Pi session; use project scope only when shared todos are explicitly needed.",
     ],
     parameters: TodoParams,
@@ -444,15 +463,18 @@ export default function todoWidgetExtension(pi: ExtensionAPI) {
         }
         case "remove": {
           const id = requireId(params.id);
+          const force = params.force === true;
           const next = await withLoadedState(ctx, scope, async () => {
-            const next = removeTodo(state, id);
+            const next = removeTodo(state, id, force);
             await persist(ctx, next, scope);
             return next;
           });
           return { content: [{ type: "text", text: `Removed #${id}` }], details: toolDetails("remove", ctx, scope, next) };
         }
         case "clear": {
+          const force = params.force === true;
           const { count, next } = await withLoadedState(ctx, scope, async () => {
+            assertCanClearTodos(state, force);
             const count = state.todos.length;
             const next = clearTodos();
             await persist(ctx, next, scope);

@@ -89,7 +89,8 @@ function buildLoopGovernanceGuidance(): string {
     "- Before crossing from one step or todo item to the next, re-check that the next action still fits the current plan, current todo, and requested scope.",
     "- Call loop_transition after completing a todo/plan step and before moving to the next step or final completion.",
     "- If new work appears after the current todo, do not silently append it to the active loop.",
-    "- Start fresh for that work: write a new plan, create or reset the todo list for the new scope, then continue only after a new steering/follow-up starts the new loop.",
+    "- Do not clear or remove active todos when newly discovered work starts; keep the parent todo in_progress/blocked, create the dependent todo or scope, then return to the preserved parent todo after the new loop is verified.",
+    "- Start fresh for that work: write a new plan and create/update todos for that scope without deleting the existing active todo list, then continue only after a new steering/follow-up starts the new loop.",
     "- If the new work is optional, new-scope, or blocked by approval boundaries, defer it explicitly instead of starting it in the current loop.",
     "- Before final completion, structural_gate.loopGovernance must cite the step/todo transition decision and whether any new steering/new loop was required.",
   ].join("\n");
