@@ -111,7 +111,7 @@ function tmuxDeferredReloadScript(targetPane: string): string {
     `if [ -f ${markerPath} ]; then submitted=1; break 2; fi`,
     "done",
     "done",
-  ].join("; ");
+  ].join("\n");
 }
 
 async function submitReloadWithTmux(

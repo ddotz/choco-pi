@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -121,6 +122,9 @@ describe("runtime reload", () => {
           expect.objectContaining({ timeout: 2000 }),
         );
         const tmuxScript = exec.mock.calls[0][1][2] as string;
+        const syntaxCheck = spawnSync("/bin/sh", ["-n"], { input: tmuxScript, encoding: "utf8" });
+        expect(syntaxCheck.status, syntaxCheck.stderr).toBe(0);
+        expect(tmuxScript).not.toContain("do;");
         const markerPath = reloadResumeMarkerPath(agentDir);
         expect(tmuxScript).toContain(`rm -f '${markerPath}'`);
         expect(tmuxScript).toContain("submitted=0");
