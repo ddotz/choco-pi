@@ -48,6 +48,8 @@ import {
   createWorkModeRegistry,
   ensureBuiltInModes,
   findWorkMode,
+  findWorkModeBySelectionOption,
+  listWorkModeSelectionOptions,
   listWorkModes,
   removeCustomWorkMode,
   type WorkModeRegistry,
@@ -190,6 +192,33 @@ async function setExecutionIntensity(executionIntensity: ExecutionIntensity, ctx
   state.runtime = createRuntimeState(state.runtime.workMode, executionIntensity);
   await saveState(state);
   ctx.ui.notify(`intensity: ${executionIntensity}`, "info");
+}
+
+async function selectWorkMode(state: DdotzState, ctx: ExtensionCommandContext): Promise<void> {
+  const options = listWorkModeSelectionOptions(state.workModeRegistry, state.runtime.workMode);
+  const selected = await ctx.ui.select(`Current mode: ${state.runtime.workMode}`, options);
+  if (!selected) {
+    ctx.ui.notify(`Mode unchanged: ${state.runtime.workMode}`, "info");
+    return;
+  }
+
+  const mode = findWorkModeBySelectionOption(state.workModeRegistry, selected, state.runtime.workMode);
+  if (!mode) {
+    ctx.ui.notify("Selected work mode could not be resolved. Mode unchanged.", "error");
+    return;
+  }
+  if (mode.status !== "implemented") {
+    ctx.ui.notify(`Work mode '${mode.id}' is planned but not implemented. Staying in ${state.runtime.workMode} mode.`, "warning");
+    return;
+  }
+
+  const workMode = parseWorkMode(mode.id);
+  if (!workMode || !isWorkModeImplemented(workMode)) {
+    ctx.ui.notify(`Work mode '${mode.id}' is registered but cannot be activated by this runtime. Mode unchanged.`, "warning");
+    return;
+  }
+
+  await setWorkMode(workMode, ctx);
 }
 
 async function checkSource(pi: ExtensionAPI, source: ExternalSource): Promise<{ id: string; ok: boolean; message: string; ref?: string }> {
@@ -370,10 +399,16 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   });
 
   pi.registerCommand("mode", {
-    description: "Manage work modes: list, set, add, remove",
+    description: "Open work mode selector or manage modes: status, list, set, add, remove",
     handler: async (args: string, ctx: ExtensionCommandContext) => {
-      const [command = "status", ...rest] = splitCommandArgs(args);
       const state = await loadState();
+      const trimmed = args.trim();
+      if (!trimmed) {
+        await selectWorkMode(state, ctx);
+        return;
+      }
+
+      const [command, ...rest] = splitCommandArgs(trimmed);
 
       if (command === "status") {
         ctx.ui.notify(`mode: ${state.runtime.workMode}`, "info");
@@ -427,7 +462,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
 
       const modeArg = command === "set" ? rest[0] : command;
       if (!modeArg) {
-        ctx.ui.notify("Usage: /mode [status|list|set <mode>|add <id> <description>|remove <id>]", "error");
+        ctx.ui.notify("Usage: /mode [status|list|set <mode>|add <id> <description>|remove <id>]. Run /mode with no arguments to open the selector.", "error");
         return;
       }
       const workMode = parseWorkMode(modeArg);
@@ -437,7 +472,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
           ctx.ui.notify(`Work mode '${registeredMode.id}' is registered at ${registeredMode.instructionFile} but not implemented. Staying in default mode.`, "warning");
           return;
         }
-        ctx.ui.notify("Usage: /mode [status|list|set <mode>|add <id> <description>|remove <id>]", "error");
+        ctx.ui.notify("Usage: /mode [status|list|set <mode>|add <id> <description>|remove <id>]. Run /mode with no arguments to open the selector.", "error");
         return;
       }
 

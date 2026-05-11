@@ -104,6 +104,16 @@ function buildModeOverlayGuidance(mode: WorkMode): string {
   return "";
 }
 
+function buildModeIsolationGuidance(): string {
+  return [
+    "### Mode isolation",
+    "- Mode isolation is mandatory for every work mode, including all future planned or custom modes.",
+    "- New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.",
+    "- No mode may change default or any other mode as a side effect; shared changes must live in the base mode policy and be justified as mode-agnostic.",
+    "- Future mode folder structure stays isolated: shared rules in modes/_base/MODE.md, mode overlays in modes/<mode-id>/MODE.md, and runtime-created custom modes under ~/.pi/agent/ddotz-pi/modes/<mode-id>/MODE.md.",
+  ].join("\n");
+}
+
 export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): string {
   const ledger = options.ledgerSummary?.trim()
     ? `\n\n## Current Context Ledger\n${options.ledgerSummary.trim()}`
@@ -140,6 +150,8 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "- Deep: split responsibilities across PM, Architect, Worker, Reviewer, Verifier, and Polish roles before execution.",
     "- Do not ask the user for routine implementation choices. Choose defaults and move forward.",
     "- Before final response, perform critical self-review, fix discovered issues, and verify with observable evidence.",
+    "",
+    buildModeIsolationGuidance(),
     "",
     buildNewFeaturePackageReuseGuidance(),
     "",

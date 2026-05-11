@@ -23,7 +23,7 @@ export interface AddCustomWorkModeInput {
 const BUILT_IN_MODES: Array<Omit<WorkModeDefinition, "createdAt" | "folder" | "instructionFile">> = [
   {
     id: "default",
-    description: "General autonomous PM/development-team behavior. The only currently implemented work mode.",
+    description: "General autonomous PM/development-team behavior with no specialized overlay.",
     status: "implemented",
     custom: false,
   },
@@ -134,8 +134,31 @@ export function findWorkMode(registry: WorkModeRegistry, id: string): WorkModeDe
   }
 }
 
+function modeStatusLabel(mode: WorkModeDefinition, currentMode?: string): string {
+  const tags: string[] = [mode.status];
+  if (mode.custom) tags.push("custom");
+  if (mode.id === currentMode) tags.push("current");
+  return tags.join(", ");
+}
+
+export function formatWorkModeSelectionOption(mode: WorkModeDefinition, currentMode: string): string {
+  return `${mode.id} [${modeStatusLabel(mode, currentMode)}] — ${mode.description}`;
+}
+
+export function listWorkModeSelectionOptions(registry: WorkModeRegistry, currentMode: string): string[] {
+  return registry.modes.map((mode) => formatWorkModeSelectionOption(mode, currentMode));
+}
+
+export function findWorkModeBySelectionOption(
+  registry: WorkModeRegistry,
+  selectedOption: string,
+  currentMode: string,
+): WorkModeDefinition | undefined {
+  return registry.modes.find((mode) => formatWorkModeSelectionOption(mode, currentMode) === selectedOption);
+}
+
 export function listWorkModes(registry: WorkModeRegistry): string {
   return registry.modes
-    .map((mode) => `- ${mode.id} [${mode.status}${mode.custom ? ", custom" : ""}] ${mode.instructionFile} — ${mode.description}`)
+    .map((mode) => `- ${mode.id} [${modeStatusLabel(mode)}] ${mode.instructionFile} — ${mode.description}`)
     .join("\n");
 }

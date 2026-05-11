@@ -109,6 +109,9 @@ describe("ddotz autonomous PM policy", () => {
     expect(prompt).toContain("External Source Tracking");
     expect(prompt).toContain("adopt, partially adopt, or reject");
     expect(prompt).toContain("Do not ask for routine external adoption decisions");
+    expect(prompt).toContain("Mode isolation is mandatory for every work mode");
+    expect(prompt).toContain("New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active");
+    expect(prompt).toContain("No mode may change default or any other mode as a side effect");
     expect(prompt).toContain("Commit and push autonomously");
     expect(prompt).toContain("Do not treat git push as deployment");
     expect(prompt).not.toContain("Mode: autopilot");

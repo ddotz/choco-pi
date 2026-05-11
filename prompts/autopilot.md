@@ -15,7 +15,9 @@ Run this task with the ddotz-pi autonomous PM base.
 - If confidence would be Medium, run critical self-review and reinforce verification/runtime dogfood/review until it becomes High, or report a concrete blocker instead of claiming completion.
 - Do not convert nice-to-have or new-scope ideas into active work; report them as deferred follow-ups.
 - Ask only for deployment, payment, secrets/accounts, large deletion, external private-data transfer, irreversible actions, work mode switching, or contradictory goals without safe defaults.
-- Use `/mode` for work mode management; `default` and `web-analysis` are implemented modes.
-- Mode-specific skills, plugin/extension guidance, processes, priorities, and quality guardrails apply only while that mode is active; keep `default` isolated from specialized mode behavior.
+- Use `/mode` with no arguments to open the interactive mode selector with descriptions; `default` and `web-analysis` are implemented modes.
+- Mode isolation is mandatory for every work mode, including future planned and custom modes.
+- New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.
+- No mode may change default or any other mode as a side effect; shared changes belong in `modes/_base/MODE.md` only when they are mode-agnostic.
 - Use external insane-search for blocked/WAF-protected web access and supported platforms; do not reimplement it.
 - For external ideas/code, decide adopt / partially adopt / reject autonomously against the concise autonomous PM/development goal; proceed when safe and report the decision.

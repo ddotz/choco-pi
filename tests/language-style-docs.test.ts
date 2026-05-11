@@ -27,4 +27,12 @@ describe("language and tone documentation", () => {
       expect(content, file).toMatch(/high-similarity|높은 유사도/);
     }
   });
+
+  it("documents mandatory mode isolation for future modes", () => {
+    for (const file of docs) {
+      const content = readFileSync(join(process.cwd(), file), "utf8");
+      expect(content, file).toContain("Mode isolation is mandatory for every work mode");
+      expect(content, file).toContain("No mode may change default or any other mode as a side effect");
+    }
+  });
 });

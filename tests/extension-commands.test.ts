@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import ddotzAutopilot from "../extensions/ddotz-autopilot/index";
 
 interface RegisteredCommand {
-  handler: (args: string, ctx: { ui: { notify: ReturnType<typeof vi.fn> } }) => Promise<void>;
+  handler: (args: string, ctx: { ui: { notify: ReturnType<typeof vi.fn>; select?: ReturnType<typeof vi.fn> } }) => Promise<void>;
 }
 
 let tempAgentDir: string | undefined;
@@ -44,14 +44,37 @@ describe("extension command names", () => {
     expect([...commands.keys()].filter((name) => name.startsWith("ddotz-"))).toEqual([]);
   });
 
-  it("shows mode status when /mode is invoked without argument text", async () => {
+  it("opens interactive mode selector when /mode is invoked without argument text", async () => {
     await useTempAgentDir();
     const commands = registeredCommands();
     const notify = vi.fn();
 
-    await commands.get("mode")!.handler("", { ui: { notify } });
+    const select = vi.fn().mockResolvedValue(undefined);
 
-    expect(notify).toHaveBeenCalledWith(expect.stringContaining("mode: default"), "info");
+    await commands.get("mode")!.handler("", { ui: { notify, select } });
+
+    expect(select).toHaveBeenCalledWith(
+      expect.stringContaining("Current mode: default"),
+      expect.arrayContaining([
+        expect.stringContaining("default [implemented, current]"),
+        expect.stringContaining("web-analysis [implemented]"),
+      ]),
+    );
+    expect(select.mock.calls[0][1].join("\n")).toContain("General autonomous PM/development-team behavior");
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("Mode unchanged: default"), "info");
+  });
+
+  it("switches mode from the interactive /mode selector", async () => {
+    await useTempAgentDir();
+    const commands = registeredCommands();
+    const notify = vi.fn();
+    const select = vi.fn().mockResolvedValue("web-analysis [implemented] — Implemented mode for retrieval-first external web research, source confidence scoring, and critical review.");
+
+    await commands.get("mode")!.handler("", { ui: { notify, select } });
+    await commands.get("mode")!.handler("status", { ui: { notify, select } });
+
+    expect(notify).toHaveBeenCalledWith("mode: web-analysis", "info");
+    expect(notify).toHaveBeenLastCalledWith(expect.stringContaining("mode: web-analysis"), "info");
   });
 
   it("allows switching to implemented web-analysis mode without changing command names", async () => {

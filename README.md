@@ -6,7 +6,7 @@ Personal Pi package for an autonomous PM/development-team workflow.
 
 ## Status
 
-- Current package version: `0.2.0`.
+- Current package version: `0.2.1`.
 - Implemented work modes: `default`, `web-analysis`.
 - Planned work modes: `coding`, `report`, `adoption-analysis`.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
@@ -172,7 +172,7 @@ The structural gate tracks completed todo steps and loop transitions. If a todo 
 
 Work mode and intensity are intentionally separate.
 
-- **Work mode** is a policy overlay. Only `default` is implemented.
+- **Work mode** is a policy overlay. `default` and `web-analysis` are implemented; other built-in modes remain planned.
 - **Execution intensity** controls process weight: `micro`, `standard`, or `deep`.
 
 Mode files live under:
@@ -409,7 +409,7 @@ Structural gate는 todo 완료와 loop transition 수를 추적합니다. todo�
 
 Work mode와 execution intensity는 분리되어 있습니다.
 
-- **Work mode**: policy overlay입니다. 현재 구현된 mode는 `default`뿐입니다.
+- **Work mode**: policy overlay입니다. 현재 구현된 mode는 `default`, `web-analysis`이고 나머지 built-in mode는 planned 상태입니다.
 - **Execution intensity**: 처리 강도입니다. `micro`, `standard`, `deep` 중 하나입니다.
 
 mode file 위치는 다음입니다.
@@ -526,6 +526,7 @@ pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test
 
 ## Commands
 
+- `/mode` — open the interactive work-mode selector with each mode description.
 - `/mode [status|list|set <mode>|add <id> <description>|remove <id>]` — manage work modes. `default` and `web-analysis` are implemented modes.
 - `/intensity [micro|standard|deep|status]` — show or set process weight.
 - `/source [list|add|adopt|reject|due|changed|check]` — track adopted or explicitly tracked external sources.
@@ -551,7 +552,10 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 
 - Ask only for hard approval boundaries: production deployment/package publishing, payment, secrets/accounts, large deletion, external private-data transfer, irreversible actions, work mode switching, or contradictory goals without safe defaults.
 - For new Pi feature/capability requests, check https://pi.dev/packages before building from scratch. If a high-similarity package exists, inspect source/license/security, fork or clone it as the baseline, and customize it to the user's final requirements.
-- Mode-specific skills, extension/plugin guidance, processes, priorities, and quality guardrails must be mode-isolated. `web-analysis` retrieval/review policy and message-end quality guardrail are active only while that mode is active.
+- Mode isolation is mandatory for every work mode, including future planned and custom modes.
+- New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.
+- No mode may change default or any other mode as a side effect; shared changes belong in `modes/_base/MODE.md` only when they are mode-agnostic.
+- `web-analysis` retrieval/review policy and message-end quality guardrail are active only while that mode is active.
 - Commit and push autonomously after verification when the working tree contains intentional in-scope changes and a remote is configured; normal `git push` is routine source synchronization, not deployment.
 - Treat each plan/todo step as a bounded loop. Complete a step, verify fit, record `loop_transition`, then move on.
 - If new work appears after the current todo, start a new loop or defer it explicitly. Do not silently append scope.

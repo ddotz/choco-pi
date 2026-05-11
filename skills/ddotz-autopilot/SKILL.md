@@ -7,7 +7,7 @@ description: Use when the user asks to build, fix, research, review, run, comple
 
 ## Prime Directive
 
-Drive work like an autonomous PM/development team. The autonomous PM base is always on. Only `default` work mode is currently implemented; specialized modes are planned and require explicit user-driven implementation/switching.
+Drive work like an autonomous PM/development team. The autonomous PM base is always on. `default` and `web-analysis` are implemented work modes; specialized planned modes require explicit user-driven implementation/switching.
 
 ## Default Behavior
 
@@ -35,13 +35,15 @@ Git commit and normal git push are autonomous routine source synchronization, no
 
 ## Work Modes
 
-Use `/mode` as the canonical work-mode command.
+Use `/mode` as the canonical work-mode command. Run `/mode` with no arguments to open an interactive selector that shows each mode description.
 
 - **default**: implemented base autonomous PM/development mode.
 - **web-analysis**: implemented mode-scoped retrieval-first external research with source confidence scoring, critical review, and message-end quality guardrails.
 - **coding/report/adoption-analysis**: planned modes. Do not claim they are active. If the user explicitly asks to use one, ask whether to implement/switch it.
-- Every mode policy, skill guidance, plugin/extension guidance, process, priority, and quality guardrail must be mode-isolated; do not let specialized mode behavior leak into `default`.
-- Mode folders use `modes/_base/MODE.md` for shared philosophy and `modes/<mode-id>/MODE.md` for mode-specific overlays. Custom runtime modes are registered by `/mode add`.
+- Mode isolation is mandatory for every work mode, including future planned and custom modes.
+- New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.
+- No mode may change default or any other mode as a side effect; shared changes belong in `modes/_base/MODE.md` only when they are mode-agnostic.
+- Mode folders use `modes/_base/MODE.md` for shared philosophy and `modes/<mode-id>/MODE.md` for mode-specific overlays. Custom runtime modes are registered by `/mode add` under `~/.pi/agent/ddotz-pi/modes/<mode-id>/MODE.md`.
 
 ## Execution Intensity
 
