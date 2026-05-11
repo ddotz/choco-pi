@@ -22,6 +22,17 @@ describe("response style", () => {
     expect(guidance).toContain("GREEN");
   });
 
+  it("keeps user-facing replies in respectful Korean by default without praise openers or opt-in endings", () => {
+    const guidance = buildResponseStyleGuidance();
+    expect(guidance).toContain("Korean by default");
+    expect(guidance).toContain("respectful Korean");
+    expect(guidance).toContain("존댓말");
+    expect(guidance).toContain("Do not use praise or validation openers");
+    expect(guidance).toContain("좋은 질문이에요");
+    expect(guidance).toContain("Do not end replies with suggestion-led opt-in phrasing");
+    expect(guidance).toContain("원하면");
+  });
+
   it("folds noisy code operation details by default", () => {
     expect(shouldFoldOperationDetails("code-create")).toBe(true);
     expect(shouldFoldOperationDetails("code-modify")).toBe(true);

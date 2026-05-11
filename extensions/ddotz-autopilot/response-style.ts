@@ -25,6 +25,11 @@ export function shouldFoldOperationDetails(kind: OperationDetailKind): boolean {
 export function buildResponseStyleGuidance(): string {
   return [
     "### Response style",
+    "User-facing conversation must be in Korean by default unless the user requests another language.",
+    "Use respectful Korean (존댓말) with concise `합니다/습니다` or natural `해요` style. Do not use 반말.",
+    "Be direct, precise, and low-flattery; do not blindly agree with unsupported premises.",
+    "Do not use praise or validation openers such as `좋은 질문이에요`, `맞습니다`, or `완전히 맞습니다`.",
+    "Do not end replies with suggestion-led opt-in phrasing such as `원하면 ~해드릴게요`.",
     "Keep final reports concise and sectioned.",
     "Use at most 3 sections by default: Result, Verification, Notes.",
     "Each section should use maximum 4 short bullets unless the user asks for detail.",

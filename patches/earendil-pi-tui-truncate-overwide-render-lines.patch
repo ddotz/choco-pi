@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ddotz-pi local patch <local@ddotz-pi>
+Date: Mon, 11 May 2026 00:00:00 +0900
+Subject: [PATCH] Truncate over-wide TUI lines instead of crashing
+
+Apply from the pi-mono upstream repository root.
+
+Target package:
+- @earendil-works/pi-tui 0.74.0
+- packages/tui/src/tui.ts
+
+Reason:
+TUI.doRender() can receive a rendered raw line whose visible width exceeds the
+terminal width after boxed output already truncated the same message elsewhere.
+The renderer's final guard should be defensive and truncate the line instead of
+writing pi-crash.log, stopping the app, and throwing.
+
+diff --git a/packages/tui/src/tui.ts b/packages/tui/src/tui.ts
+--- a/packages/tui/src/tui.ts
++++ b/packages/tui/src/tui.ts
+@@ -1175,35 +1175,10 @@ export class TUI extends Container {
+ 		for (let i = firstChanged; i <= renderEnd; i++) {
+ 			if (i > firstChanged) buffer += "\r\n";
+ 			buffer += "\x1b[2K"; // Clear current line
+-			const line = newLines[i];
++			let line = newLines[i];
+ 			const isImage = isImageLine(line);
+ 			if (!isImage && visibleWidth(line) > width) {
+-				// Log all lines to crash file for debugging
+-				const crashLogPath = path.join(os.homedir(), ".pi", "agent", "pi-crash.log");
+-				const crashData = [
+-					`Crash at ${new Date().toISOString()}`,
+-					`Terminal width: ${width}`,
+-					`Line ${i} visible width: ${visibleWidth(line)}`,
+-					"",
+-					"=== All rendered lines ===",
+-					...newLines.map((l, idx) => `[${idx}] (w=${visibleWidth(l)}) ${l}`),
+-					"",
+-				].join("\n");
+-				fs.mkdirSync(path.dirname(crashLogPath), { recursive: true });
+-				fs.writeFileSync(crashLogPath, crashData);
+-
+-				// Clean up terminal state before throwing
+-				this.stop();
+-
+-				const errorMsg = [
+-					`Rendered line ${i} exceeds terminal width (${visibleWidth(line)} > ${width}).`,
+-					"",
+-					"This is likely caused by a custom TUI component not truncating its output.",
+-					"Use visibleWidth() to measure and truncateToWidth() to truncate lines.",
+-					"",
+-					`Debug log written to: ${crashLogPath}`,
+-				].join("\n");
+-				throw new Error(errorMsg);
++				line = sliceByColumn(line, 0, width, true);
+ 			}
+ 			buffer += line;
+ 		}
+-- 
+2.50.1

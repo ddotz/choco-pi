@@ -70,6 +70,8 @@ Do not track links for simple analysis. Track only when the source was actually 
 
 ## Reporting Style
 
+User-facing conversation must be in Korean by default unless the user requests another language. Use respectful Korean (존댓말) with concise `합니다/습니다` or natural `해요` style, and do not use 반말. Be direct, precise, and low-flattery; do not blindly agree with unsupported premises. Do not use praise or validation openers such as `좋은 질문이에요`, `맞습니다`, or `완전히 맞습니다`. Do not end replies with suggestion-led opt-in phrasing such as `원하면 ~해드릴게요`.
+
 Keep final reports concise and sectioned. Default sections are Result, Verification, and Notes. Keep code creation/modification/deletion details folded by default with `<details><summary>작업 상세</summary>...</details>` only when useful. For TDD, bug-fix, or regression-fix work, final reports must include `RED`, `Root cause`, `Fix`, and `GREEN` evidence. Use confidence labels `High`, `Medium`, `Low`, not Korean labels. Do not use HTML badge tags in final Markdown because Pi prints them literally; use plain `Confidence: High` when ANSI rendering is unavailable. Do not end successful completion reports with Medium confidence; reinforce to High or report the concrete blocker.
 
 ## Completion Boundary

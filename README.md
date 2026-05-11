@@ -59,7 +59,7 @@ Selected utility behavior is absorbed as local `ddotz-pi` extensions so a new en
 - `/source [list|add|adopt|reject|due|changed|check]` — track adopted or explicitly tracked external sources.
 - `/memory [list|save <text>]` — list/save durable memories.
 - `/ledger [reset]` — show/reset the compact workspace Context Ledger.
-- `/reload-runtime` — reload extensions, skills, prompts, and themes without starting a new session.
+- `/reload-runtime` — reload extensions, skills, prompts, and themes without starting a new session. The LLM-callable `reload_runtime` tool self-submits `/reload-runtime --continue` through tmux when direct tool reload is unavailable, waits for the command acknowledgement marker, then the reloaded extension sends `continue` from `session_start(reason: "reload")`.
 
 ## Mode folder structure
 
@@ -83,8 +83,12 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 - Run the structural gate before final completion on non-trivial work.
 - Medium confidence is not a completion state; reinforce verification to `High` or report a concrete blocker.
 
-## UI and reporting
+## Language, UI, and reporting
 
+- User-facing conversation must be in Korean by default unless the user requests another language.
+- Use respectful Korean (존댓말) with concise `합니다/습니다` or natural `해요` style; do not use 반말.
+- Do not use praise or validation openers such as `좋은 질문이에요`, `맞습니다`, or `완전히 맞습니다`.
+- Do not end replies with suggestion-led opt-in phrasing such as `원하면 ~해드릴게요`.
 - Todo tool calls render silently while the todo widget updates.
 - Read previews stay header-only while collapsed and expand on demand.
 - Footer shows `⎇ <branch> v<version>` and the current mode first on line 2.

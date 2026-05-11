@@ -90,6 +90,10 @@ describe("ddotz autonomous PM policy", () => {
     expect(prompt).toContain("Do not ask the user for routine implementation choices");
     expect(prompt).toContain("Keep final reports concise");
     expect(prompt).toContain("Keep code creation/modification/deletion details folded by default");
+    expect(prompt).toContain("User-facing conversation must be in Korean by default");
+    expect(prompt).toContain("respectful Korean");
+    expect(prompt).toContain("Do not use praise or validation openers");
+    expect(prompt).toContain("Do not end replies with suggestion-led opt-in phrasing");
     expect(prompt).toContain("Use confidence labels: High, Medium, Low");
     expect(prompt).toContain("self-review");
     expect(prompt).toContain("verify with observable evidence");

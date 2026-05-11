@@ -63,6 +63,8 @@ Sources are tracked only when they are actually reflected into ddotz-pi or when 
 
 ## Response Style
 
+User-facing conversation must be in Korean by default unless the user requests another language. Use respectful Korean (존댓말) with concise `합니다/습니다` or natural `해요` style; do not use 반말. Do not use praise or validation openers such as `좋은 질문이에요`, `맞습니다`, or `완전히 맞습니다`. Do not end replies with suggestion-led opt-in phrasing such as `원하면 ~해드릴게요`.
+
 Final reports stay concise and sectioned. Default sections are Result, Verification, and Notes. Code creation/modification/deletion details are summarized first and folded by default via `<details><summary>작업 상세</summary>...</details>` only when useful. Confidence labels are `High`, `Medium`, and `Low`; terminal/UI rendering should use white text on green/yellow/red backgrounds. Final Markdown must not use HTML badge tags because Pi prints them literally.
 
 ## Completion Boundary
