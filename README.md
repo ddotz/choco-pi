@@ -6,7 +6,7 @@ Personal Pi package for an autonomous PM/development-team workflow.
 
 ## Status
 
-- Current package version: `0.4.2`.
+- Current package version: `0.5.3`.
 - Implemented work modes: `default`, `web-analysis`, `adoption-analysis`.
 - Planned work modes: `coding`, `report`.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
@@ -78,7 +78,7 @@ Pi runtime
 
 The core design is layered:
 
-1. **Policy layer**: builds the autonomous PM system prompt and runtime constraints.
+1. **Policy layer**: builds the autonomous PM system prompt, runtime reality-correction rules, and runtime constraints.
 2. **Guard layer**: blocks or repairs unsafe/incomplete execution.
 3. **State layer**: persists mode, intensity, session effective-mode overlays, memory, session-scoped ledgers, source tracking, and custom mode registry.
 4. **UI layer**: footer, todo widget, focus view, raw paste, BTW side conversations, and search/editor affordances.

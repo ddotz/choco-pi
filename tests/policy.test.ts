@@ -99,6 +99,12 @@ describe("ddotz autonomous PM policy", () => {
     expect(prompt).toContain("Default mode is active");
     expect(prompt).not.toContain("Only default work mode is currently implemented");
     expect(prompt).toContain("Execution intensity: deep");
+    expect(prompt).toContain("Runtime reality correction");
+    expect(prompt).toContain("claim to verify against observable state");
+    expect(prompt).toContain("If inspected state contradicts the user's premise or instruction");
+    expect(prompt).toContain("Do not execute an instruction that depends on a false premise");
+    expect(prompt).toContain("Do not satisfy recurring Pi/harness behavior requests by editing AGENTS.md");
+    expect(prompt).toContain("ddotz-pi harness policy, extension, guard, or test paths");
     expect(prompt).toContain("Do not ask the user for routine implementation choices");
     expect(prompt).toContain("Treat ddotz-pi as one coherent Pi environment");
     expect(prompt).toContain("Keep final reports concise");

@@ -1,6 +1,7 @@
 import { buildAdoptionAnalysisModeGuidance } from "./adoption-analysis-policy";
 import { buildCommitHygieneGuidance } from "./commit-hygiene";
 import { buildCompletionBoundaryGuidance } from "./completion-boundary";
+import { buildEpistemicIntegrityGuidance } from "./epistemic-integrity";
 import { buildModeSwitchGuidance, describeWorkMode, type ExecutionIntensity, type WorkMode } from "./mode";
 import { buildResponseStyleGuidance } from "./response-style";
 import { buildTechnicalDebtCleanupGuidance } from "./technical-debt";
@@ -154,6 +155,8 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "2. Prefer autonomous execution over clarification questions.",
     "3. Make reasonable assumptions, record them in the Context Ledger, and continue.",
     "4. Ask the user only for production deployment/package publishing, payment, secrets/accounts, large deletion, external private-data transfer, irreversible actions, work mode switching, or logically contradictory goals without safe defaults. Git commit and normal git push are autonomous routine source synchronization, not deployment.",
+    "",
+    buildEpistemicIntegrityGuidance(),
     "",
     "### Autonomous execution loop",
     "- Treat ddotz-pi as one coherent Pi environment: package recurring Pi UX/runtime fixes as ddotz-pi-local extensions or policy, not as one-off local tweaks.",
