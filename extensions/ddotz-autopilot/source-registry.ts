@@ -1,3 +1,5 @@
+import type { AdoptionDepth } from "./adoption-depth";
+
 export type ExternalSourceKind = "github" | "url";
 export type ExternalSourceStatus = "candidate" | "watching" | "adopted" | "rejected";
 
@@ -17,6 +19,11 @@ export interface ExternalSource {
   lastCheckOk?: boolean;
   lastCheckError?: string;
   lastAdoptionReview?: string;
+  adoptionDepth?: AdoptionDepth;
+  rejectedItems: string[];
+  lastReviewedRef?: string;
+  lastReviewedAt?: string;
+  scopeRationale?: string;
 }
 
 export interface SourceRegistry {
@@ -41,6 +48,16 @@ export interface SourceCheckResult {
 export interface SourceAnalysisTrackingDecision {
   appliedToDdotzPi: boolean;
   explicitTrackRequest: boolean;
+}
+
+export interface MarkSourceAdoptedOptions {
+  adoptionDepth?: AdoptionDepth;
+  adoptedItems?: string[];
+  rejectedItems?: string[];
+  reviewedRef?: string;
+  reviewedAt?: Date;
+  scopeRationale?: string;
+  clearChangedFlag?: boolean;
 }
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -83,6 +100,7 @@ export function createExternalSource(url: string, options: CreateExternalSourceO
     status: "candidate",
     rationale: options.rationale?.trim() || undefined,
     adoptedItems: [],
+    rejectedItems: [],
     addedAt: now.toISOString(),
     nextCheckAt: addWeek(now),
     changedSinceLastCheck: false,
@@ -106,12 +124,23 @@ export function upsertExternalSource(registry: SourceRegistry, source: ExternalS
   };
 }
 
+function normalizeAdoptedOptions(options: string[] | MarkSourceAdoptedOptions): MarkSourceAdoptedOptions {
+  return Array.isArray(options) ? { adoptedItems: options } : options;
+}
+
+function mergeItems(existing: string[], incoming: string[] | undefined): string[] {
+  return Array.from(new Set([...existing, ...(incoming ?? []).map((item) => item.trim()).filter(Boolean)]));
+}
+
 export function markSourceAdopted(
   registry: SourceRegistry,
   id: string,
   review: string,
-  adoptedItems: string[] = [],
+  adoptedItemsOrOptions: string[] | MarkSourceAdoptedOptions = [],
 ): SourceRegistry {
+  const options = normalizeAdoptedOptions(adoptedItemsOrOptions);
+  const reviewedAt = options.reviewedAt?.toISOString();
+  const scopeRationale = options.scopeRationale?.trim();
   return {
     ...registry,
     sources: registry.sources.map((source) =>
@@ -120,7 +149,13 @@ export function markSourceAdopted(
             ...source,
             status: "adopted",
             lastAdoptionReview: review.trim() || source.lastAdoptionReview,
-            adoptedItems: Array.from(new Set([...source.adoptedItems, ...adoptedItems.map((item) => item.trim()).filter(Boolean)])),
+            adoptionDepth: options.adoptionDepth ?? source.adoptionDepth,
+            adoptedItems: mergeItems(source.adoptedItems ?? [], options.adoptedItems),
+            rejectedItems: mergeItems(source.rejectedItems ?? [], options.rejectedItems),
+            lastReviewedRef: options.reviewedRef ?? source.lastReviewedRef,
+            lastReviewedAt: reviewedAt ?? source.lastReviewedAt,
+            scopeRationale: scopeRationale || source.scopeRationale,
+            changedSinceLastCheck: options.clearChangedFlag ? false : source.changedSinceLastCheck,
           }
         : source,
     ),

@@ -29,6 +29,36 @@ describe("external source registry", () => {
 
     expect(registry.sources[0].status).toBe("adopted");
     expect(registry.sources[0].adoptedItems).toEqual(["source-registry"]);
+    expect(registry.sources[0].rejectedItems).toEqual([]);
+  });
+
+  it("records adoption depth, reviewed ref, and scoped adoption decisions", () => {
+    let registry = createSourceRegistry();
+    const source = createExternalSource("https://github.com/example/upstream-utility", {
+      now: new Date("2026-05-01T00:00:00Z"),
+    });
+    registry = { ...registry, sources: [{ ...source, changedSinceLastCheck: true, lastKnownRef: "abc123" }] };
+
+    registry = markSourceAdopted(registry, source.id, "Partially port the guard pattern, reject vendoring.", {
+      adoptionDepth: "partial-port",
+      adoptedItems: ["mode-scoped quality guard"],
+      rejectedItems: ["vendor whole runtime"],
+      reviewedRef: "abc123",
+      reviewedAt: new Date("2026-05-11T00:00:00Z"),
+      scopeRationale: "Use the idea, not the package boundary.",
+      clearChangedFlag: true,
+    });
+
+    expect(registry.sources[0]).toMatchObject({
+      status: "adopted",
+      adoptionDepth: "partial-port",
+      adoptedItems: ["mode-scoped quality guard"],
+      rejectedItems: ["vendor whole runtime"],
+      lastReviewedRef: "abc123",
+      lastReviewedAt: "2026-05-11T00:00:00.000Z",
+      scopeRationale: "Use the idea, not the package boundary.",
+      changedSinceLastCheck: false,
+    });
   });
 
   it("marks sources due once per week and summarizes them for autonomous analysis", () => {

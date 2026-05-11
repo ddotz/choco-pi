@@ -1,3 +1,4 @@
+import { buildAdoptionAnalysisModeGuidance } from "./adoption-analysis-policy";
 import { buildCommitHygieneGuidance } from "./commit-hygiene";
 import { buildCompletionBoundaryGuidance } from "./completion-boundary";
 import { buildModeSwitchGuidance, describeWorkMode, type ExecutionIntensity, type WorkMode } from "./mode";
@@ -101,6 +102,7 @@ function buildNewFeaturePackageReuseGuidance(): string {
 
 function buildModeOverlayGuidance(mode: WorkMode): string {
   if (mode === "web-analysis") return buildWebAnalysisModeGuidance();
+  if (mode === "adoption-analysis") return buildAdoptionAnalysisModeGuidance();
   return "";
 }
 

@@ -7,7 +7,7 @@ description: Use when the user asks to build, fix, research, review, run, comple
 
 ## Prime Directive
 
-Drive work like an autonomous PM/development team. The autonomous PM base is always on. `default` and `web-analysis` are implemented work modes; specialized planned modes require explicit user-driven implementation/switching.
+Drive work like an autonomous PM/development team. The autonomous PM base is always on. `default`, `web-analysis`, and `adoption-analysis` are implemented work modes; remaining specialized planned modes require explicit user-driven implementation/switching.
 
 ## Default Behavior
 
@@ -39,7 +39,8 @@ Use `/mode` as the canonical work-mode command. Run `/mode` with no arguments to
 
 - **default**: implemented base autonomous PM/development mode.
 - **web-analysis**: implemented mode-scoped retrieval-first external research with source confidence scoring, critical review, and message-end quality guardrails.
-- **coding/report/adoption-analysis**: planned modes. Do not claim they are active. If the user explicitly asks to use one, ask whether to implement/switch it.
+- **adoption-analysis**: implemented mode-scoped external source/package/repo adoption review with explicit adoption depth, fit/risk review, scope, tracking decision, and message-end quality guardrails. It does not replace default adoption capability.
+- **coding/report**: planned modes. Do not claim they are active. If the user explicitly asks to use one, ask whether to implement/switch it.
 - Mode isolation is mandatory for every work mode, including future planned and custom modes.
 - New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.
 - No mode may change default or any other mode as a side effect; shared changes belong in `modes/_base/MODE.md` only when they are mode-agnostic.

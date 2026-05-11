@@ -3,8 +3,8 @@ export type ExecutionIntensity = "micro" | "standard" | "deep";
 
 export const DEFAULT_WORK_MODE: WorkMode = "default";
 export const DEFAULT_EXECUTION_INTENSITY: ExecutionIntensity = "standard";
-export const IMPLEMENTED_WORK_MODES: WorkMode[] = ["default", "web-analysis"];
-export const PLANNED_WORK_MODES: Exclude<WorkMode, "default" | "web-analysis">[] = ["coding", "report", "adoption-analysis"];
+export const IMPLEMENTED_WORK_MODES: WorkMode[] = ["default", "web-analysis", "adoption-analysis"];
+export const PLANNED_WORK_MODES: Exclude<WorkMode, "default" | "web-analysis" | "adoption-analysis">[] = ["coding", "report"];
 
 export interface RuntimeState {
   workMode: WorkMode;
@@ -63,7 +63,7 @@ export function describeWorkMode(mode: WorkMode): string {
     case "web-analysis":
       return "Web-analysis mode is active. Apply only the web-analysis mode-scoped overlay for retrieval-first external research, source confidence scoring, and critical review; keep default mode behavior isolated.";
     case "adoption-analysis":
-      return "Adoption-analysis mode is planned, not active yet. Keep using default mode unless the user explicitly asks to implement/switch this mode.";
+      return "Adoption-analysis mode is active. Keep default adoption capability intact, then apply only the adoption-analysis mode-scoped overlay for external source/package/repo adoption decisions, adoption depth, fit/risk review, tracking decision, and critical scope control.";
     case "default":
       return "Default mode is active. Execute autonomously using the base PM philosophy without specialized mode overlays.";
   }

@@ -38,6 +38,7 @@ import {
   type ExternalSource,
   type SourceRegistry,
 } from "./source-registry";
+import { guardAdoptionAnalysisQualityMessage } from "./adoption-analysis-quality";
 import { classifyApprovalBoundaryToolCall, formatApprovalBoundaryBlock } from "./approval-boundary";
 import { registerRuntimeReload } from "./runtime-reload";
 import { installStructuralGate } from "./structural-gate";
@@ -383,19 +384,33 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   pi.on("message_end", async (event) => {
     if (event.message.role !== "assistant") return undefined;
     const state = await loadState();
-    const result = guardWebResearchQualityMessage(state.runtime.workMode, event.message);
-    if (result.followUp) {
+    const webResult = guardWebResearchQualityMessage(state.runtime.workMode, event.message);
+    if (webResult.followUp) {
       pi.sendMessage(
         {
           customType: "ddotz.web_analysis_quality.repair",
-          content: result.followUp,
+          content: webResult.followUp,
           display: false,
           details: { repairQueued: true },
         },
         { deliverAs: "followUp", triggerTurn: true },
       );
     }
-    return result.message ? { message: result.message } : undefined;
+    if (webResult.message) return { message: webResult.message };
+
+    const adoptionResult = guardAdoptionAnalysisQualityMessage(state.runtime.workMode, event.message);
+    if (adoptionResult.followUp) {
+      pi.sendMessage(
+        {
+          customType: "ddotz.adoption_analysis_quality.repair",
+          content: adoptionResult.followUp,
+          display: false,
+          details: { repairQueued: true },
+        },
+        { deliverAs: "followUp", triggerTurn: true },
+      );
+    }
+    return adoptionResult.message ? { message: adoptionResult.message } : undefined;
   });
 
   pi.registerCommand("mode", {

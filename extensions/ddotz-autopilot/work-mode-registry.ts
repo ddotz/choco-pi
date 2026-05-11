@@ -47,8 +47,8 @@ const BUILT_IN_MODES: Array<Omit<WorkModeDefinition, "createdAt" | "folder" | "i
   },
   {
     id: "adoption-analysis",
-    description: "Planned mode for analyzing external repos/links and adopting improvements into ddotz-pi.",
-    status: "planned",
+    description: "Implemented mode for external source/package/repo adoption decisions with explicit adoption depth, fit, risk, scope, and tracking review.",
+    status: "implemented",
     custom: false,
   },
 ];

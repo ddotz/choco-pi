@@ -58,6 +58,7 @@ describe("extension command names", () => {
       expect.arrayContaining([
         expect.stringContaining("default [implemented, current]"),
         expect.stringContaining("web-analysis [implemented]"),
+        expect.stringContaining("adoption-analysis [implemented]"),
       ]),
     );
     expect(select.mock.calls[0][1].join("\n")).toContain("General autonomous PM/development-team behavior");
