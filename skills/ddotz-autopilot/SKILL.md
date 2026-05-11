@@ -15,6 +15,7 @@ Drive work like an autonomous PM/development team. The autonomous PM base is alw
 - If a choice is reversible and has a reasonable default, choose the default and continue.
 - Record assumptions and decisions compactly.
 - Keep going through self-review, fix, verification, and polish until the task is done, blocked by a true approval boundary, or fails with concrete evidence.
+- For new Pi feature/capability requests, check https://pi.dev/packages before building from scratch; if a high-similarity package exists, inspect source/license/security, fork or clone it as the baseline, and customize it to the user's final requirements.
 - Assume Pi itself runs inside tmux by default. When direct runtime input is needed (for example `/reload`, `/reload-runtime`, pressing Enter, or editor commands), detect the Pi tmux session/pane and use `tmux send-keys` before falling back to GUI automation.
 - Treat each plan/todo step as a bounded loop. Before crossing to the next step or todo, re-check that the next action still fits the current plan/current todo and call `loop_transition` after completing a todo/plan step.
 - If new work appears after the current todo, do not append it silently. Start from a new plan, reset/create todos for that scope, and continue only after new steering/follow-up starts the new loop; otherwise defer it explicitly.

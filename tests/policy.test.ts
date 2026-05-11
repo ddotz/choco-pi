@@ -97,6 +97,10 @@ describe("ddotz autonomous PM policy", () => {
     expect(prompt).toContain("Use confidence labels: High, Medium, Low");
     expect(prompt).toContain("self-review");
     expect(prompt).toContain("verify with observable evidence");
+    expect(prompt).toContain("New feature package reuse policy");
+    expect(prompt).toContain("https://pi.dev/packages");
+    expect(prompt).toContain("high-similarity Pi package");
+    expect(prompt).toContain("fork or clone it");
     expect(prompt).toContain("Context Ledger");
     expect(prompt).toContain("insane-search");
     expect(prompt).toContain("Do not reimplement insane-search");

@@ -8,6 +8,7 @@ Run this task with the ddotz-pi autonomous PM base.
 - Do not ask routine clarification questions.
 - Choose reasonable defaults and record assumptions.
 - Execute, self-review, fix, verify, and polish.
+- For new Pi feature/capability requests, check https://pi.dev/packages before building from scratch; if a high-similarity package exists, review source/license/security, fork or clone it as the baseline, and customize it to the user's final requirements.
 - Treat each plan/todo step as a bounded loop; before crossing steps, re-check fit with the current plan/current todo and call `loop_transition` after completing a todo/plan step.
 - If new work appears after the current todo, do not append it silently. Start from a new plan, reset/create todos for that scope, and continue only after new steering/follow-up starts the new loop.
 - Stop when the requested outcome is satisfied, verification passed, no critical in-scope issue remains, and confidence is High.

@@ -6,7 +6,7 @@ Personal Pi package for an autonomous PM/development-team workflow.
 
 ## Status
 
-- Current package version: `0.1.6`.
+- Current package version: `0.1.7`.
 - Implemented work mode: `default` only.
 - Planned work modes: `coding`, `report`, `web-analysis`, `adoption-analysis`.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
@@ -436,7 +436,7 @@ ledger는 hook에서 자동 갱신됩니다. write/edit tool call은 changed fil
 
 Memory는 명시적으로 저장하는 durable state입니다. `/memory save`는 장기적으로 유효한 사실만 저장하는 용도입니다.
 
-Source registry는 실제로 채택했거나 사용자가 명시적으로 추적 요청한 외부 source만 기록합니다. GitHub source는 주 1회 `git ls-remote`로 확인하고, 변경된 source는 autopilot prompt에 포함되어 adopt / partially adopt / reject 판단을 유도합니다.
+Source registry는 실제로 채택했거나 사용자가 명시적으로 추적 요청한 외부 source만 기록합니다. 신규 Pi 기능 요청은 먼저 https://pi.dev/packages 에서 유사 패키지를 확인하고, 높은 유사도의 패키지가 있으면 source/license/security를 검토한 뒤 fork/clone 기반으로 커스터마이징합니다. GitHub source는 주 1회 `git ls-remote`로 확인하고, 변경된 source는 autopilot prompt에 포함되어 adopt / partially adopt / reject 판단을 유도합니다.
 
 ### 7. Todo subsystem
 
@@ -550,6 +550,7 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 ## Runtime behavior
 
 - Ask only for hard approval boundaries: production deployment/package publishing, payment, secrets/accounts, large deletion, external private-data transfer, irreversible actions, work mode switching, or contradictory goals without safe defaults.
+- For new Pi feature/capability requests, check https://pi.dev/packages before building from scratch. If a high-similarity package exists, inspect source/license/security, fork or clone it as the baseline, and customize it to the user's final requirements.
 - Commit and push autonomously after verification when the working tree contains intentional in-scope changes and a remote is configured; normal `git push` is routine source synchronization, not deployment.
 - Treat each plan/todo step as a bounded loop. Complete a step, verify fit, record `loop_transition`, then move on.
 - If new work appears after the current todo, start a new loop or defer it explicitly. Do not silently append scope.

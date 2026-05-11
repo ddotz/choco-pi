@@ -19,4 +19,12 @@ describe("language and tone documentation", () => {
       expect(content, file).toContain("Do not end replies with suggestion-led opt-in phrasing");
     }
   });
+
+  it("documents package-gallery reuse before new Pi feature implementation", () => {
+    for (const file of docs) {
+      const content = readFileSync(join(process.cwd(), file), "utf8");
+      expect(content, file).toContain("https://pi.dev/packages");
+      expect(content, file).toMatch(/high-similarity|높은 유사도/);
+    }
+  });
 });

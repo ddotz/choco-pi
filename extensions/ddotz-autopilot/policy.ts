@@ -87,6 +87,17 @@ function buildLoopGovernanceGuidance(): string {
   ].join("\n");
 }
 
+function buildNewFeaturePackageReuseGuidance(): string {
+  return [
+    "### New feature package reuse policy",
+    "- When the user requests a new Pi feature/capability, check https://pi.dev/packages before building from scratch.",
+    "- If a high-similarity Pi package exists, prefer using it as the baseline: inspect source, license, and security first, then fork or clone it and customize it to the user's final requirements.",
+    "- If no suitable package exists, or the closest package is unsafe, incompatible, unlicensed for reuse, or lower-fit than a local implementation, build locally and record that decision.",
+    "- Treat routine public-package adoption/forking as an autonomous implementation choice, but stop at hard approval boundaries such as package publishing, payment, secrets/accounts, private-data transfer, or irreversible actions.",
+    "- Track adopted package sources only when their code or design is actually reflected into ddotz-pi or the user explicitly asks to track them.",
+  ].join("\n");
+}
+
 export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): string {
   const ledger = options.ledgerSummary?.trim()
     ? `\n\n## Current Context Ledger\n${options.ledgerSummary.trim()}`
@@ -121,6 +132,8 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "- Deep: split responsibilities across PM, Architect, Worker, Reviewer, Verifier, and Polish roles before execution.",
     "- Do not ask the user for routine implementation choices. Choose defaults and move forward.",
     "- Before final response, perform critical self-review, fix discovered issues, and verify with observable evidence.",
+    "",
+    buildNewFeaturePackageReuseGuidance(),
     "",
     "### Structural execution gate",
     "This gate is non-negotiable and must not be skipped or softened when context is long.",
