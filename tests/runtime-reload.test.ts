@@ -79,6 +79,14 @@ function reloadResumeMarkerPath(agentDir: string): string {
   return join(agentDir, "ddotz-pi", "reload-runtime-resume.json");
 }
 
+function deferred(): { promise: Promise<void>; resolve: () => void } {
+  let resolve!: () => void;
+  const promise = new Promise<void>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
 describe("runtime reload", () => {
   it("registers a reload_runtime tool that reloads directly when Pi exposes reload on the tool context", async () => {
     const { tools } = setupAutopilot();
@@ -164,6 +172,30 @@ describe("runtime reload", () => {
     expect(waitForIdle).toHaveBeenCalledTimes(1);
     expect(reload).toHaveBeenCalledTimes(1);
     expect(waitForIdle.mock.invocationCallOrder[0]).toBeLessThan(reload.mock.invocationCallOrder[0]);
+  });
+
+  it("does not arm the resume marker while reload is waiting for the current turn to become idle", async () => {
+    await withTempAgentDir(async (agentDir) => {
+      const { commands } = setupAutopilot();
+      const idle = deferred();
+      const waitForIdle = vi.fn(() => idle.promise);
+      const reload = vi.fn().mockResolvedValue(undefined);
+
+      const pendingReload = commands.get("reload-runtime")!.handler("--continue", { waitForIdle, reload, ui: { notify: vi.fn() } });
+      for (let attempt = 0; attempt < 20 && waitForIdle.mock.calls.length === 0; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+
+      expect(waitForIdle).toHaveBeenCalledTimes(1);
+      expect(reload).not.toHaveBeenCalled();
+      await expect(readFile(reloadResumeMarkerPath(agentDir), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+
+      idle.resolve();
+      await pendingReload;
+
+      const marker = JSON.parse(await readFile(reloadResumeMarkerPath(agentDir), "utf8")) as { command: string };
+      expect(marker.command).toBe("/reload-runtime --continue");
+    });
   });
 
   it("queues continue from the post-reload session_start event after a resume-marked reload", async () => {

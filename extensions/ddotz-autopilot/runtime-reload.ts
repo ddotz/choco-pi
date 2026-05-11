@@ -199,9 +199,9 @@ export function registerRuntimeReload(pi: ReloadRuntimeAPI): void {
     description: "Reload extensions, skills, prompts, and themes without starting a new session",
     handler: async (args: string, ctx: ExtensionCommandContext) => {
       const resumeAfterReload = shouldResumeAfterReload(args);
-      if (resumeAfterReload) await writeReloadResumeMarker();
       try {
         await ctx.waitForIdle();
+        if (resumeAfterReload) await writeReloadResumeMarker();
         await ctx.reload();
       } catch (error) {
         if (resumeAfterReload) await clearReloadResumeMarker();
