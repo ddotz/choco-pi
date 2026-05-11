@@ -1,5 +1,11 @@
 import type { AssistantMessage, TextContent } from "@mariozechner/pi-ai";
-import { GUARD_REPAIR_STATUS_TEXT } from "./guard-repair-status";
+import {
+  clearRepairState,
+  GUARD_REPAIR_STATUS_TEXT,
+  queueRepairForAttempt,
+  repairAttemptKey,
+  type GuardRepairState,
+} from "./guard-repair-status";
 import type { WorkMode } from "./mode";
 import { sectionContent } from "./quality-section";
 
@@ -21,9 +27,7 @@ export interface WebResearchQualityGuardResult {
   followUp?: string;
 }
 
-export interface WebResearchRepairState {
-  repairQueued: boolean;
-}
+export interface WebResearchRepairState extends GuardRepairState {}
 
 function countUniqueUrls(text: string): number {
   return new Set(text.match(/https?:\/\/\S+/g) ?? []).size;
@@ -101,12 +105,12 @@ export function guardWebResearchQualityMessage(
 
   const quality = evaluateWebResearchQuality(mode, text);
   if (quality.passed) {
-    if (repairState) repairState.repairQueued = false;
+    clearRepairState(repairState);
     return {};
   }
 
-  const followUp = repairState?.repairQueued ? undefined : repairPrompt(quality);
-  if (repairState) repairState.repairQueued = true;
+  const key = repairAttemptKey(message, text, quality.issues);
+  const followUp = queueRepairForAttempt(repairState, key, repairPrompt(quality));
 
   return {
     message: {

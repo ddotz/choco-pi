@@ -1,5 +1,11 @@
 import type { AssistantMessage, TextContent } from "@mariozechner/pi-ai";
-import { GUARD_REPAIR_STATUS_TEXT } from "./guard-repair-status";
+import {
+  clearRepairState,
+  GUARD_REPAIR_STATUS_TEXT,
+  queueRepairForAttempt,
+  repairAttemptKey,
+  type GuardRepairState,
+} from "./guard-repair-status";
 import type { WorkMode } from "./mode";
 import { sectionContent } from "./quality-section";
 
@@ -20,9 +26,7 @@ export interface CodingQualityGuardResult {
   followUp?: string;
 }
 
-export interface CodingRepairState {
-  repairQueued: boolean;
-}
+export interface CodingRepairState extends GuardRepairState {}
 
 function firstSectionContent(text: string, labels: string[]): string {
   for (const label of labels) {
@@ -116,12 +120,12 @@ export function guardCodingQualityMessage(
 
   const quality = evaluateCodingQuality(mode, text);
   if (quality.passed) {
-    if (repairState) repairState.repairQueued = false;
+    clearRepairState(repairState);
     return {};
   }
 
-  const followUp = repairState?.repairQueued ? undefined : repairPrompt(quality);
-  if (repairState) repairState.repairQueued = true;
+  const key = repairAttemptKey(message, text, quality.issues);
+  const followUp = queueRepairForAttempt(repairState, key, repairPrompt(quality));
 
   return {
     message: {

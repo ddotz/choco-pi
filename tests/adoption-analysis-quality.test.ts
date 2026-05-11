@@ -212,4 +212,52 @@ describe("adoption-analysis quality guardrails", () => {
     const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "ddotz.adoption_analysis_quality.repair");
     expect(repairCalls).toHaveLength(1);
   });
+
+  it("queues another adoption-analysis repair follow-up for a later failed repair attempt", async () => {
+    await useTempAgentDir();
+    const handlers: Record<string, Array<(event: never, ctx: never) => unknown>> = {};
+    type RegisteredCommand = { handler: (args: string, ctx: { ui: { notify: ReturnType<typeof vi.fn> } }) => Promise<void> };
+    const commands = new Map<string, RegisteredCommand>();
+    const sendMessage = vi.fn();
+
+    ddotzAutopilot({
+      on: (name: string, handler: (event: never, ctx: never) => unknown) => {
+        handlers[name] = [...(handlers[name] ?? []), handler];
+      },
+      registerCommand: (name: string, definition: RegisteredCommand) => {
+        commands.set(name, definition);
+      },
+      registerTool: vi.fn(),
+      sendUserMessage: vi.fn(),
+      sendMessage,
+      exec: vi.fn(),
+      getFlag: vi.fn(),
+    } as never);
+
+    await commands.get("mode")!.handler("set adoption-analysis", { ui: { notify: vi.fn() } });
+
+    const firstFailure = {
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Decision: adopt\nConfidence: High" }],
+        stopReason: "stop",
+        timestamp: 1,
+      },
+    } as never;
+    const laterFailedRepair = {
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: ["Decision: adopt", "Adoption depth: idea-only", "Fit review: ddotz-pi mode isolation reviewed.", "Confidence: High"].join("\n") }],
+        stopReason: "stop",
+        timestamp: 2,
+      },
+    } as never;
+
+    for (const handler of handlers.message_end ?? []) await handler(firstFailure, { cwd: "/repo" } as never);
+    for (const handler of handlers.message_end ?? []) await handler(laterFailedRepair, { cwd: "/repo" } as never);
+
+    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "ddotz.adoption_analysis_quality.repair");
+    expect(repairCalls).toHaveLength(2);
+    expect(repairCalls[1][0].content).toContain("missing-risk-review");
+  });
 });

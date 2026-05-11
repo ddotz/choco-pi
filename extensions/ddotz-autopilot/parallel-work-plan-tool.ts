@@ -1,11 +1,12 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { formatParallelWorkPlan, planParallelWorkAreas, type ParallelWorkItemInput } from "./worktree-planner";
+import { formatParallelWorkPlan, planParallelWorkAreas, type ParallelStrategy, type ParallelWorkItemInput } from "./worktree-planner";
 
 interface ParallelWorkPlanToolParams {
   goal?: string;
   items: ParallelWorkItemInput[];
   maxLanes?: number;
+  parallelStrategy?: ParallelStrategy;
 }
 
 const ParallelWorkItemParams = Type.Object({
@@ -31,6 +32,11 @@ export function registerParallelWorkPlanTool(pi: ExtensionAPI): void {
       goal: Type.Optional(Type.String({ description: "Overall user goal for the parallel work" })),
       items: Type.Array(ParallelWorkItemParams, { description: "Candidate work items to partition" }),
       maxLanes: Type.Optional(Type.Number({ description: "Optional maximum number of parallel owner lanes" })),
+      parallelStrategy: Type.Optional(Type.Union([
+        Type.Literal("hybrid"),
+        Type.Literal("worktree-first"),
+        Type.Literal("spawn-only"),
+      ], { description: "Execution strategy: hybrid uses worktrees for writable lanes and spawned agents for read-only lanes; worktree-first prefers filesystem isolation; spawn-only avoids worktree creation for strictly owned lanes." })),
     }),
     async execute(_toolCallId, params) {
       const input = params as ParallelWorkPlanToolParams;
@@ -38,6 +44,7 @@ export function registerParallelWorkPlanTool(pi: ExtensionAPI): void {
         goal: input.goal,
         items: input.items,
         maxLanes: input.maxLanes,
+        parallelStrategy: input.parallelStrategy,
       });
       return {
         content: [{ type: "text", text: formatParallelWorkPlan(plan) }],

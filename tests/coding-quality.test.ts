@@ -158,4 +158,52 @@ describe("coding quality guardrails", () => {
     const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "ddotz.coding_quality.repair");
     expect(repairCalls).toHaveLength(1);
   });
+
+  it("queues another coding repair follow-up for a later failed repair attempt", async () => {
+    await useTempAgentDir();
+    const handlers: Record<string, Array<(event: never, ctx: never) => unknown>> = {};
+    type RegisteredCommand = { handler: (args: string, ctx: { ui: { notify: ReturnType<typeof vi.fn> } }) => Promise<void> };
+    const commands = new Map<string, RegisteredCommand>();
+    const sendMessage = vi.fn();
+
+    ddotzAutopilot({
+      on: (name: string, handler: (event: never, ctx: never) => unknown) => {
+        handlers[name] = [...(handlers[name] ?? []), handler];
+      },
+      registerCommand: (name: string, definition: RegisteredCommand) => {
+        commands.set(name, definition);
+      },
+      registerTool: vi.fn(),
+      sendUserMessage: vi.fn(),
+      sendMessage,
+      exec: vi.fn(),
+      getFlag: vi.fn(),
+    } as never);
+
+    await commands.get("mode")!.handler("set coding", { ui: { notify: vi.fn() } });
+
+    const firstFailure = {
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "구현 완료했습니다. Confidence: High" }],
+        stopReason: "stop",
+        timestamp: 1,
+      },
+    } as never;
+    const laterFailedRepair = {
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: ["## Result", "구현 완료했습니다.", "## Verification", "- 확인했습니다."].join("\n") }],
+        stopReason: "stop",
+        timestamp: 2,
+      },
+    } as never;
+
+    for (const handler of handlers.message_end ?? []) await handler(firstFailure, { cwd: "/repo" } as never);
+    for (const handler of handlers.message_end ?? []) await handler(laterFailedRepair, { cwd: "/repo" } as never);
+
+    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "ddotz.coding_quality.repair");
+    expect(repairCalls).toHaveLength(2);
+    expect(repairCalls[1][0].content).toContain("missing-confidence");
+  });
 });

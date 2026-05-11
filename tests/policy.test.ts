@@ -97,9 +97,11 @@ describe("ddotz autonomous PM policy", () => {
 
     expect(prompt).toContain("Parallel development collision avoidance");
     expect(prompt).toContain("parallel_work_plan");
+    expect(prompt).toContain("default hybrid uses worktrees for writable lanes");
+    expect(prompt).toContain("spawned agents for read-only lanes");
     expect(prompt).toContain("one writable owner per file/domain");
     expect(prompt).toContain("serialize shared files");
-    expect(prompt).toContain("worktree per lane");
+    expect(prompt).toContain("worktree per writable lane");
   });
 
   it("injects autonomous base, default-only work mode, concise response, folded details, confidence, context, memory, and source tracking", () => {

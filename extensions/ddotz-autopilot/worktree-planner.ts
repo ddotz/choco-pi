@@ -17,6 +17,9 @@ export interface SessionWorktreePlan {
   path: string;
 }
 
+export type ParallelStrategy = "hybrid" | "worktree-first" | "spawn-only";
+export type LaneExecutionStrategy = "worktree" | "spawn-agent" | "serial";
+
 export interface ParallelWorkItemInput {
   id?: string;
   description: string;
@@ -48,13 +51,16 @@ export interface ParallelWorkLane {
   descriptions: string[];
   files: string[];
   domains: string[];
+  writable: boolean;
   serial: boolean;
+  executionStrategy: LaneExecutionStrategy;
   blockedByLaneIds: string[];
   rationale: string;
 }
 
 export interface ParallelWorkAreaPlan {
   goal?: string;
+  parallelStrategy: ParallelStrategy;
   items: ParallelWorkItem[];
   lanes: ParallelWorkLane[];
   firstWaveLaneIds: string[];
@@ -71,6 +77,7 @@ export interface ParallelWorkAreaPlanInput {
   goal?: string;
   items: ParallelWorkItemInput[];
   maxLanes?: number;
+  parallelStrategy?: ParallelStrategy;
 }
 
 function taskSlug(taskName: string | undefined): string {
@@ -186,7 +193,9 @@ function mergeLaneDraft(target: ParallelWorkLane, source: ParallelWorkLane): Par
     descriptions: [...target.descriptions, ...source.descriptions],
     files: uniqueStrings([...target.files, ...source.files]).sort(),
     domains: uniqueStrings([...target.domains, ...source.domains]).sort(),
+    writable: target.writable || source.writable,
     serial: target.serial || source.serial || source.itemIds.length > 0,
+    executionStrategy: "serial",
     rationale: `${target.rationale}; capped lane also owns ${source.itemIds.join(", ")}`,
     blockedByLaneIds: [],
   };
@@ -218,7 +227,43 @@ export function planSessionWorktree(input: SessionWorktreePlanInput): SessionWor
   };
 }
 
+function normalizeParallelStrategy(strategy: ParallelStrategy | undefined): ParallelStrategy {
+  return strategy ?? "hybrid";
+}
+
+function laneExecutionStrategy(lane: Pick<ParallelWorkLane, "serial" | "writable">, strategy: ParallelStrategy): LaneExecutionStrategy {
+  if (lane.serial) return "serial";
+  if (strategy === "spawn-only") return "spawn-agent";
+  if (strategy === "worktree-first") return "worktree";
+  return lane.writable ? "worktree" : "spawn-agent";
+}
+
+function parallelRecommendations(strategy: ParallelStrategy): string[] {
+  const shared = [
+    "Assign exactly one writable owner per file/domain before spawning parallel workers.",
+    "Serialize lanes with blockedByLaneIds until prerequisites pass verification.",
+    "Keep shared files/domains inside the same lane and merge only after lane-level tests pass.",
+  ];
+  if (strategy === "spawn-only") {
+    return [
+      ...shared,
+      "Use spawn-only only for read-only lanes or strictly owned writable lanes; prefer hybrid when writable lanes need filesystem isolation.",
+    ];
+  }
+  if (strategy === "worktree-first") {
+    return [
+      ...shared,
+      "Prefer a worktree per lane, including read-only review lanes, when maximum filesystem/session isolation is more important than speed.",
+    ];
+  }
+  return [
+    ...shared,
+    "Hybrid default: writable lanes run in isolated worktrees, read-only lanes may use spawned agents, and integration lanes stay serial.",
+  ];
+}
+
 export function planParallelWorkAreas(input: ParallelWorkAreaPlanInput): ParallelWorkAreaPlan {
+  const parallelStrategy = normalizeParallelStrategy(input.parallelStrategy);
   const items = normalizeItems(input.items);
   const itemById = new Map(items.map((item) => [item.id, item]));
   const conflicts = [
@@ -246,7 +291,9 @@ export function planParallelWorkAreas(input: ParallelWorkAreaPlanInput): Paralle
       descriptions: laneItems.map((item) => item.description),
       files: uniqueStrings(laneItems.flatMap((item) => item.files)).sort(),
       domains: uniqueStrings(laneItems.flatMap((item) => item.domains)).sort(),
+      writable: laneItems.some((item) => item.write),
       serial: itemIds.length > 1,
+      executionStrategy: "serial",
       blockedByLaneIds: [],
       rationale: itemIds.length > 1
         ? "shared writable file/domain scope is serialized in one owner lane"
@@ -276,21 +323,22 @@ export function planParallelWorkAreas(input: ParallelWorkAreaPlanInput): Paralle
           .filter((laneId) => laneId && laneId !== lane.id);
       }),
     ).sort();
-    return { ...lane, blockedByLaneIds };
+    return {
+      ...lane,
+      blockedByLaneIds,
+      executionStrategy: laneExecutionStrategy(lane, parallelStrategy),
+    };
   });
 
   const firstWaveLaneIds = lanesWithDependencies
     .filter((lane) => lane.blockedByLaneIds.length === 0)
     .map((lane) => lane.id);
   const serialLaneIds = lanesWithDependencies.filter((lane) => lane.serial).map((lane) => lane.id);
-  const recommendations = [
-    "Assign exactly one writable owner per file/domain before spawning parallel workers.",
-    "Run first-wave lanes in separate worktrees; serialize lanes with blockedByLaneIds until prerequisites pass verification.",
-    "Keep shared files/domains inside the same lane and merge only after lane-level tests pass.",
-  ];
+  const recommendations = parallelRecommendations(parallelStrategy);
 
   return {
     goal: input.goal?.trim() || undefined,
+    parallelStrategy,
     items,
     lanes: lanesWithDependencies,
     firstWaveLaneIds,
@@ -308,6 +356,7 @@ function formatList(values: string[]): string {
 export function formatParallelWorkPlan(plan: ParallelWorkAreaPlan): string {
   const lines = ["# Parallel work ownership plan"];
   if (plan.goal) lines.push("", `Goal: ${plan.goal}`);
+  lines.push("", `Parallel strategy: ${plan.parallelStrategy}`);
   lines.push("", "## First parallel wave");
   lines.push(plan.firstWaveLaneIds.length ? `- ${plan.firstWaveLaneIds.join(", ")}` : "- none; resolve blockers before parallel execution");
 
@@ -316,7 +365,9 @@ export function formatParallelWorkPlan(plan: ParallelWorkAreaPlan): string {
     lines.push(`- ${lane.id}: ${lane.itemIds.join(", ")}`);
     lines.push(`  - files: ${formatList(lane.files)}`);
     lines.push(`  - domains: ${formatList(lane.domains)}`);
+    lines.push(`  - writable: ${lane.writable ? "yes" : "no"}`);
     lines.push(`  - execution: ${lane.serial ? "serial lane" : "parallel-safe lane"}`);
+    lines.push(`  - run: ${lane.executionStrategy}`);
     lines.push(`  - blocked by: ${formatList(lane.blockedByLaneIds)}`);
     lines.push(`  - rationale: ${lane.rationale}`);
   }
@@ -343,10 +394,11 @@ export function buildWorktreeGuidance(): string {
   return [
     "### Parallel development collision avoidance",
     "- Before launching 2+ writable parallel agents/sessions, create a file/domain ownership map first; use the parallel_work_plan tool when available.",
+    "- Choose a parallel strategy before dispatch: default hybrid uses worktrees for writable lanes, spawned agents for read-only lanes, and serial execution for shared/integration lanes.",
     "- Enforce one writable owner per file/domain. Do not assign the same writable path, package, mode, prompt, test fixture, or runtime state file to multiple lanes.",
     "- If work touches shared files or shared domains, serialize shared files in one owner lane or split the prerequisite refactor into a separate first step before fanout.",
     "- Run read-only research/review in parallel freely, but writable implementation requires the ownership map, dependency order, and verification owner before dispatch.",
-    "- Prefer a worktree per lane for writable parallel development, then merge only after lane-local verification and a final integration verification pass.",
+    "- Prefer a worktree per writable lane for parallel development, then merge only after lane-local verification and a final integration verification pass.",
     "### Multi-session worktree isolation",
     "- When the user asks for parallel or multi-session work, prefer isolated git worktrees instead of sharing one cwd.",
     "- Default local worktree root: ~/.config/superpowers/worktrees/<project>/<session>-<task>.",

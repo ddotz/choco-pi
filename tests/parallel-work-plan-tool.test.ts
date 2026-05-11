@@ -37,10 +37,12 @@ describe("parallel work plan tool", () => {
       "parallel-plan-call",
       {
         goal: "Implement settings changes in parallel",
+        parallelStrategy: "hybrid",
         items: [
           { id: "ui", description: "Settings panel", files: ["src/ui/settings.tsx"], domains: ["ui"] },
           { id: "ui-test", description: "Settings panel tests", files: ["src/ui/settings.tsx"], domains: ["ui"] },
           { id: "api", description: "Settings API", files: ["src/api/settings.ts"], domains: ["api"] },
+          { id: "review", description: "Read-only design review", files: ["src/ui/settings.tsx"], domains: ["ui"], write: false },
         ],
       },
       undefined,
@@ -50,8 +52,13 @@ describe("parallel work plan tool", () => {
 
     const text = result.content?.map((item) => item.text).join("\n") ?? "";
     expect(text).toContain("Parallel work ownership plan");
+    expect(text).toContain("Parallel strategy: hybrid");
+    expect(text).toContain("run: worktree");
+    expect(text).toContain("run: spawn-agent");
     expect(text).toContain("same-lane-serial");
-    const plan = result.details?.plan as { conflicts: Array<Record<string, unknown>> };
+    const plan = result.details?.plan as { parallelStrategy: string; lanes: Array<Record<string, unknown>>; conflicts: Array<Record<string, unknown>> };
+    expect(plan.parallelStrategy).toBe("hybrid");
+    expect(plan.lanes).toContainEqual(expect.objectContaining({ itemIds: ["review"], executionStrategy: "spawn-agent" }));
     expect(plan.conflicts).toContainEqual(expect.objectContaining({
       type: "file",
       scope: "src/ui/settings.tsx",

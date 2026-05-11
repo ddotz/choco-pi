@@ -1,6 +1,12 @@
 import type { AssistantMessage, TextContent } from "@mariozechner/pi-ai";
 import { ADOPTION_DEPTHS } from "./adoption-depth";
-import { GUARD_REPAIR_STATUS_TEXT } from "./guard-repair-status";
+import {
+  clearRepairState,
+  GUARD_REPAIR_STATUS_TEXT,
+  queueRepairForAttempt,
+  repairAttemptKey,
+  type GuardRepairState,
+} from "./guard-repair-status";
 import type { WorkMode } from "./mode";
 import { sectionContent, sectionHas } from "./quality-section";
 
@@ -24,9 +30,7 @@ export interface AdoptionAnalysisQualityGuardResult {
   followUp?: string;
 }
 
-export interface AdoptionAnalysisRepairState {
-  repairQueued: boolean;
-}
+export interface AdoptionAnalysisRepairState extends GuardRepairState {}
 
 function hasDecision(text: string): boolean {
   return /\b(partially adopt|adopt|reject|watch)\b/i.test(sectionContent(text, "Decision"));
@@ -115,12 +119,12 @@ export function guardAdoptionAnalysisQualityMessage(
 
   const quality = evaluateAdoptionAnalysisQuality(mode, text);
   if (quality.passed) {
-    if (repairState) repairState.repairQueued = false;
+    clearRepairState(repairState);
     return {};
   }
 
-  const followUp = repairState?.repairQueued ? undefined : repairPrompt(quality);
-  if (repairState) repairState.repairQueued = true;
+  const key = repairAttemptKey(message, text, quality.issues);
+  const followUp = queueRepairForAttempt(repairState, key, repairPrompt(quality));
 
   return {
     message: {

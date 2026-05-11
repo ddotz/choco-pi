@@ -6,7 +6,7 @@ Personal Pi package for a default-root all-purpose generalist workflow.
 
 ## Status
 
-- Current package version: `0.7.1`.
+- Current package version: `0.8.0`.
 - Implemented work modes: `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`.
 - Planned work modes: none.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
@@ -599,6 +599,7 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 - New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.
 - No mode may change default or any other mode as a side effect; shared changes belong in `modes/_base/MODE.md` only when they are mode-agnostic.
 - In `default`, autopilot treats the user order as one managed project and may apply an implemented specialized mode as a temporary session-scoped effective overlay for the current turn without persistently changing `/mode`.
+- Default parallel strategy is hybrid: writable lanes run in isolated worktrees, read-only lanes may use spawned agents, and shared/integration lanes stay serial.
 - Prefer isolated git worktrees for parallel/multi-session work. Todo and ledger state are session-scoped by default; use project-shared todos only when explicitly needed.
 - `web-analysis` retrieval/review policy and message-end quality guardrail are active only while that mode is active.
 - `adoption-analysis` does not replace default adoption capability; it adds mode-scoped decision, adoption-depth, fit/risk, scope, tracking, and confidence quality guardrails only while active.
