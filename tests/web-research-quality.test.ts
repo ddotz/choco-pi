@@ -83,6 +83,23 @@ describe("web research quality guardrails", () => {
     expect(result.issues).toEqual([]);
   });
 
+  it("passes Markdown section-style web-analysis answers", () => {
+    const answer = [
+      "## Conclusion",
+      "A가 더 낫습니다.",
+      "## Evidence",
+      "- https://example.com/a — published 2026-05-01 — full text.",
+      "- https://example.org/b — updated 2026-05-02 — full text.",
+      "## Critical review",
+      "Sources are independent; one caveat is regional coverage.",
+      "## Confidence",
+      "High",
+    ].join("\n");
+    const result = evaluateWebResearchQuality("web-analysis", answer);
+    expect(result.passed).toBe(true);
+    expect(result.issues).toEqual([]);
+  });
+
   it("blocks final web-analysis assistant messages that fail the quality guardrail", () => {
     const result = guardWebResearchQualityMessage("web-analysis", {
       role: "assistant",
@@ -147,5 +164,42 @@ describe("web research quality guardrails", () => {
       expect.objectContaining({ customType: "ddotz.web_analysis_quality.repair" }),
       { deliverAs: "followUp", triggerTurn: true },
     );
+  });
+
+  it("queues only one web-analysis repair follow-up for repeated failures in a session", async () => {
+    await useTempAgentDir();
+    const handlers: Record<string, Array<(event: never, ctx: never) => unknown>> = {};
+    type RegisteredCommand = { handler: (args: string, ctx: { ui: { notify: ReturnType<typeof vi.fn> } }) => Promise<void> };
+    const commands = new Map<string, RegisteredCommand>();
+    const sendMessage = vi.fn();
+
+    ddotzAutopilot({
+      on: (name: string, handler: (event: never, ctx: never) => unknown) => {
+        handlers[name] = [...(handlers[name] ?? []), handler];
+      },
+      registerCommand: (name: string, definition: RegisteredCommand) => {
+        commands.set(name, definition);
+      },
+      registerTool: vi.fn(),
+      sendUserMessage: vi.fn(),
+      sendMessage,
+      exec: vi.fn(),
+      getFlag: vi.fn(),
+    } as never);
+
+    await commands.get("mode")!.handler("set web-analysis", { ui: { notify: vi.fn() } });
+
+    const badEvent = {
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Conclusion: 최신입니다. Confidence: High" }],
+        stopReason: "stop",
+      },
+    } as never;
+    for (const handler of handlers.message_end ?? []) await handler(badEvent, { cwd: "/repo" } as never);
+    for (const handler of handlers.message_end ?? []) await handler(badEvent, { cwd: "/repo" } as never);
+
+    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "ddotz.web_analysis_quality.repair");
+    expect(repairCalls).toHaveLength(1);
   });
 });

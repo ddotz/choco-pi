@@ -87,6 +87,29 @@ describe("adoption-analysis quality guardrails", () => {
     expect(result.issues).toEqual([]);
   });
 
+  it("passes Markdown section-style adoption-analysis answers", () => {
+    const answer = [
+      "## Decision",
+      "partially adopt the source for report-mode policy only.",
+      "## Adoption depth",
+      "partial-port",
+      "## Fit review",
+      "ddotz-pi philosophy fit is high; mode isolation stays intact; default behavior does not change.",
+      "## Risk review",
+      "license, security, source freshness, maintenance, privacy, and runtime conflict risk reviewed.",
+      "## Scope",
+      "adopt report-mode policy patterns, reject wholesale vendoring, and defer runtime dependencies.",
+      "## Tracking decision",
+      "track in the source registry as watch until reflected code lands.",
+      "## Confidence",
+      "High",
+    ].join("\n");
+
+    const result = evaluateAdoptionAnalysisQuality("adoption-analysis", answer);
+    expect(result.passed).toBe(true);
+    expect(result.issues).toEqual([]);
+  });
+
   it("blocks final adoption-analysis assistant messages that fail the quality guardrail", () => {
     const result = guardAdoptionAnalysisQualityMessage("adoption-analysis", {
       role: "assistant",
@@ -141,5 +164,42 @@ describe("adoption-analysis quality guardrails", () => {
       expect.objectContaining({ customType: "ddotz.adoption_analysis_quality.repair" }),
       { deliverAs: "followUp", triggerTurn: true },
     );
+  });
+
+  it("queues only one adoption-analysis repair follow-up for repeated failures in a session", async () => {
+    await useTempAgentDir();
+    const handlers: Record<string, Array<(event: never, ctx: never) => unknown>> = {};
+    type RegisteredCommand = { handler: (args: string, ctx: { ui: { notify: ReturnType<typeof vi.fn> } }) => Promise<void> };
+    const commands = new Map<string, RegisteredCommand>();
+    const sendMessage = vi.fn();
+
+    ddotzAutopilot({
+      on: (name: string, handler: (event: never, ctx: never) => unknown) => {
+        handlers[name] = [...(handlers[name] ?? []), handler];
+      },
+      registerCommand: (name: string, definition: RegisteredCommand) => {
+        commands.set(name, definition);
+      },
+      registerTool: vi.fn(),
+      sendUserMessage: vi.fn(),
+      sendMessage,
+      exec: vi.fn(),
+      getFlag: vi.fn(),
+    } as never);
+
+    await commands.get("mode")!.handler("set adoption-analysis", { ui: { notify: vi.fn() } });
+
+    const badEvent = {
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Decision: adopt\nConfidence: High" }],
+        stopReason: "stop",
+      },
+    } as never;
+    for (const handler of handlers.message_end ?? []) await handler(badEvent, { cwd: "/repo" } as never);
+    for (const handler of handlers.message_end ?? []) await handler(badEvent, { cwd: "/repo" } as never);
+
+    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "ddotz.adoption_analysis_quality.repair");
+    expect(repairCalls).toHaveLength(1);
   });
 });

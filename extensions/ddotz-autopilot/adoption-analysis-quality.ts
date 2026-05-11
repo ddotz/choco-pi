@@ -2,6 +2,7 @@ import type { AssistantMessage, TextContent } from "@mariozechner/pi-ai";
 import { ADOPTION_DEPTHS } from "./adoption-depth";
 import { GUARD_REPAIR_STATUS_TEXT } from "./guard-repair-status";
 import type { WorkMode } from "./mode";
+import { sectionContent, sectionHas } from "./quality-section";
 
 export type AdoptionAnalysisQualityIssue =
   | "missing-decision"
@@ -23,29 +24,37 @@ export interface AdoptionAnalysisQualityGuardResult {
   followUp?: string;
 }
 
+export interface AdoptionAnalysisRepairState {
+  repairQueued: boolean;
+}
+
 function hasDecision(text: string): boolean {
-  return /^Decision:\s*(adopt|partially adopt|reject|watch)\b/im.test(text);
+  return /\b(partially adopt|adopt|reject|watch)\b/i.test(sectionContent(text, "Decision"));
 }
 
 function hasAdoptionDepth(text: string): boolean {
   const depthPattern = ADOPTION_DEPTHS.join("|");
-  return new RegExp(`^Adoption depth:\\s*(${depthPattern})\\b`, "im").test(text);
+  return new RegExp(`\\b(${depthPattern})\\b`, "i").test(sectionContent(text, "Adoption depth"));
 }
 
 function hasFitReview(text: string): boolean {
-  return /Fit review:/i.test(text) && /ddotz-pi|mode isolation|default behavior|Pi-native|philosophy|철학|격리/i.test(text);
+  return sectionHas(text, "Fit review", /ddotz-pi|mode isolation|default behavior|Pi-native|philosophy|철학|격리/i);
 }
 
 function hasRiskReview(text: string): boolean {
-  return /Risk review:/i.test(text) && /license|security|source freshness|privacy|maintenance|reversibility|runtime conflict|라이선스|보안|개인정보|유지보수/i.test(text);
+  return sectionHas(text, "Risk review", /license|security|source freshness|privacy|maintenance|reversibility|runtime conflict|라이선스|보안|개인정보|유지보수/i);
 }
 
 function hasScope(text: string): boolean {
-  return /Scope:/i.test(text) && /adopt|reject|defer|files|policy|scope|범위|도입|거절|보류/i.test(text);
+  return sectionHas(text, "Scope", /adopt|reject|defer|files|policy|scope|범위|도입|거절|보류/i);
 }
 
 function hasTrackingDecision(text: string): boolean {
-  return /Tracking decision:/i.test(text) && /track|source registry|watch|adopt|reject|추적|등록/i.test(text);
+  return sectionHas(text, "Tracking decision", /track|source registry|watch|adopt|reject|추적|등록/i);
+}
+
+function hasConfidence(text: string): boolean {
+  return /\b(High|Medium|Low)\b/.test(sectionContent(text, "Confidence"));
 }
 
 export function evaluateAdoptionAnalysisQuality(mode: WorkMode, answer: string): AdoptionAnalysisQualityResult {
@@ -58,7 +67,7 @@ export function evaluateAdoptionAnalysisQuality(mode: WorkMode, answer: string):
   if (!hasRiskReview(answer)) issues.push("missing-risk-review");
   if (!hasScope(answer)) issues.push("missing-scope");
   if (!hasTrackingDecision(answer)) issues.push("missing-tracking-decision");
-  if (!/Confidence:\s*(High|Medium|Low)/.test(answer)) issues.push("missing-confidence");
+  if (!hasConfidence(answer)) issues.push("missing-confidence");
 
   return { required: true, passed: issues.length === 0, issues };
 }
@@ -87,13 +96,23 @@ function repairPrompt(quality: AdoptionAnalysisQualityResult): string {
   ].join("\n\n");
 }
 
-export function guardAdoptionAnalysisQualityMessage(mode: WorkMode, message: AssistantMessage): AdoptionAnalysisQualityGuardResult {
+export function guardAdoptionAnalysisQualityMessage(
+  mode: WorkMode,
+  message: AssistantMessage,
+  repairState?: AdoptionAnalysisRepairState,
+): AdoptionAnalysisQualityGuardResult {
   if (mode !== "adoption-analysis") return {};
   if (message.stopReason === "toolUse" || message.stopReason === "error" || message.stopReason === "aborted") return {};
   if (hasToolCall(message)) return {};
 
   const quality = evaluateAdoptionAnalysisQuality(mode, assistantText(message));
-  if (quality.passed) return {};
+  if (quality.passed) {
+    if (repairState) repairState.repairQueued = false;
+    return {};
+  }
+
+  const followUp = repairState?.repairQueued ? undefined : repairPrompt(quality);
+  if (repairState) repairState.repairQueued = true;
 
   return {
     message: {
@@ -101,6 +120,6 @@ export function guardAdoptionAnalysisQualityMessage(mode: WorkMode, message: Ass
       content: [{ type: "text", text: GUARD_REPAIR_STATUS_TEXT }],
       stopReason: "stop",
     },
-    followUp: repairPrompt(quality),
+    followUp,
   };
 }

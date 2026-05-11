@@ -1,6 +1,7 @@
 import type { AssistantMessage, TextContent } from "@mariozechner/pi-ai";
 import { GUARD_REPAIR_STATUS_TEXT } from "./guard-repair-status";
 import type { WorkMode } from "./mode";
+import { sectionContent } from "./quality-section";
 
 export type WebResearchQualityIssue =
   | "missing-evidence-or-provenance"
@@ -18,6 +19,10 @@ export interface WebResearchQualityResult {
 export interface WebResearchQualityGuardResult {
   message?: AssistantMessage;
   followUp?: string;
+}
+
+export interface WebResearchRepairState {
+  repairQueued: boolean;
 }
 
 function countUniqueUrls(text: string): number {
@@ -40,9 +45,10 @@ export function evaluateWebResearchQuality(mode: WorkMode, answer: string): WebR
 
   const issues: WebResearchQualityIssue[] = [];
   const evidence = evidenceCount(answer);
-  const hasCriticalReview = /Critical review|비판|한계|caveat|conflict|충돌|불확실/i.test(answer);
-  const hasConfidence = /Confidence:\s*(High|Medium|Low)/.test(answer);
-  const claimsHigh = /Confidence:\s*High/.test(answer);
+  const hasCriticalReview = /\S/.test(sectionContent(answer, "Critical review")) || /비판|한계|caveat|conflict|충돌|불확실/i.test(answer);
+  const confidence = sectionContent(answer, "Confidence");
+  const hasConfidence = /\b(High|Medium|Low)\b/.test(confidence);
+  const claimsHigh = /\bHigh\b/.test(confidence);
 
   if (evidence === 0) issues.push("missing-evidence-or-provenance");
   if (!hasCriticalReview) issues.push("missing-critical-review");
@@ -76,13 +82,23 @@ function repairPrompt(quality: WebResearchQualityResult): string {
   ].join("\n\n");
 }
 
-export function guardWebResearchQualityMessage(mode: WorkMode, message: AssistantMessage): WebResearchQualityGuardResult {
+export function guardWebResearchQualityMessage(
+  mode: WorkMode,
+  message: AssistantMessage,
+  repairState?: WebResearchRepairState,
+): WebResearchQualityGuardResult {
   if (mode !== "web-analysis") return {};
   if (message.stopReason === "toolUse" || message.stopReason === "error" || message.stopReason === "aborted") return {};
   if (hasToolCall(message)) return {};
 
   const quality = evaluateWebResearchQuality(mode, assistantText(message));
-  if (quality.passed) return {};
+  if (quality.passed) {
+    if (repairState) repairState.repairQueued = false;
+    return {};
+  }
+
+  const followUp = repairState?.repairQueued ? undefined : repairPrompt(quality);
+  if (repairState) repairState.repairQueued = true;
 
   return {
     message: {
@@ -90,6 +106,6 @@ export function guardWebResearchQualityMessage(mode: WorkMode, message: Assistan
       content: [{ type: "text", text: GUARD_REPAIR_STATUS_TEXT }],
       stopReason: "stop",
     },
-    followUp: repairPrompt(quality),
+    followUp,
   };
 }

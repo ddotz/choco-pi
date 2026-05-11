@@ -48,14 +48,14 @@ import {
   type ExternalSource,
   type SourceRegistry,
 } from "./source-registry";
-import { guardAdoptionAnalysisQualityMessage } from "./adoption-analysis-quality";
+import { guardAdoptionAnalysisQualityMessage, type AdoptionAnalysisRepairState } from "./adoption-analysis-quality";
 import { classifyApprovalBoundaryToolCall, formatApprovalBoundaryBlock } from "./approval-boundary";
 import { registerRuntimeReload } from "./runtime-reload";
 import { resolveEffectiveWorkMode, sessionIdFromContext, sessionScopedKey } from "./session-scope";
 import { installStructuralGate } from "./structural-gate";
 import { DDOTZ_PI_VERSION } from "./version";
 import { verificationCommandFromInput } from "./verification-command";
-import { guardWebResearchQualityMessage } from "./web-research-quality";
+import { guardWebResearchQualityMessage, type WebResearchRepairState } from "./web-research-quality";
 import {
   addCustomWorkMode,
   createWorkModeRegistry,
@@ -87,6 +87,16 @@ interface DdotzState {
 }
 
 const STATE_VERSION = 3 as const;
+const WEB_REPAIR_PROMPT_MARKER = "내부 web-analysis 품질 보강이 필요합니다.";
+const ADOPTION_REPAIR_PROMPT_MARKER = "내부 adoption-analysis 품질 보강이 필요합니다.";
+
+function repairStateFor<T extends { repairQueued: boolean }>(states: Map<string, T>, sessionId: string): T {
+  const existing = states.get(sessionId);
+  if (existing) return existing;
+  const created = { repairQueued: false } as T;
+  states.set(sessionId, created);
+  return created;
+}
 
 function agentDir(): string {
   return process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent");
@@ -484,6 +494,8 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   registerSourceRegistryTool(pi);
   registerParallelWorkPlanTool(pi);
   const dogfoodCases = createActiveDogfoodCaseState();
+  const webRepairStates = new Map<string, WebResearchRepairState>();
+  const adoptionRepairStates = new Map<string, AdoptionAnalysisRepairState>();
 
   pi.on("tool_call", async (event, ctx) => {
     const decision = classifyApprovalBoundaryToolCall(event.toolName, event.input);
@@ -519,6 +531,9 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   });
 
   pi.on("session_shutdown", async (_event, ctx) => {
+    const sessionId = sessionIdFromContext(ctx);
+    webRepairStates.delete(sessionId);
+    adoptionRepairStates.delete(sessionId);
     if (ctx.hasUI) ctx.ui.setStatus("mode", undefined);
   });
 
@@ -526,7 +541,10 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     const state = await loadState();
     const cwd = ctx.cwd || process.cwd();
     const sessionId = sessionIdFromContext(ctx);
-    const suggestedWorkMode = inferPlannedWorkMode(event.prompt ?? "");
+    const prompt = event.prompt ?? "";
+    if (!prompt.includes(WEB_REPAIR_PROMPT_MARKER)) repairStateFor(webRepairStates, sessionId).repairQueued = false;
+    if (!prompt.includes(ADOPTION_REPAIR_PROMPT_MARKER)) repairStateFor(adoptionRepairStates, sessionId).repairQueued = false;
+    const suggestedWorkMode = inferPlannedWorkMode(prompt);
     const modeDecision = resolveEffectiveWorkMode({
       persistentMode: state.runtime.workMode,
       suggestedMode: suggestedWorkMode,
@@ -535,7 +553,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     const effectiveWorkMode = modeDecision.effectiveMode;
     const executionIntensity = maxIntensity(
       state.runtime.executionIntensity,
-      classifyExecutionIntensity(event.prompt ?? ""),
+      classifyExecutionIntensity(prompt),
     );
     state.sessions[sessionId] = {
       effectiveWorkMode,
@@ -544,7 +562,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
       executionIntensity,
       updatedAt: nowIso(),
     };
-    const ledger = getLedger(state, cwd, sessionId, event.prompt);
+    const ledger = getLedger(state, cwd, sessionId, prompt);
     await saveState(state);
 
     const ledgerSummary = summarizeLedger(ledger, { maxItemsPerSection: 4 });
@@ -553,7 +571,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     const dueSourceSummary = [changed, due].filter((line) => !line.startsWith("No ")).join("\n\n");
 
     await startDogfoodCase(dogfoodCases, createDogfoodStore(dogfoodRootPath()), {
-      prompt: event.prompt ?? "",
+      prompt,
       cwd,
       salt: await dogfoodSalt(),
       workMode: effectiveWorkMode,
@@ -579,9 +597,10 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
       await finishDogfoodCase(dogfoodCases, createDogfoodStore(dogfoodRootPath()));
     }
     const state = await loadState();
-    const sessionRuntime = state.sessions[sessionIdFromContext(ctx)];
+    const sessionId = sessionIdFromContext(ctx);
+    const sessionRuntime = state.sessions[sessionId];
     const effectiveWorkMode = sessionRuntime?.effectiveWorkMode ?? state.runtime.workMode;
-    const webResult = guardWebResearchQualityMessage(effectiveWorkMode, event.message);
+    const webResult = guardWebResearchQualityMessage(effectiveWorkMode, event.message, repairStateFor(webRepairStates, sessionId));
     if (webResult.followUp) {
       pi.sendMessage(
         {
@@ -595,7 +614,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     }
     if (webResult.message) return { message: webResult.message };
 
-    const adoptionResult = guardAdoptionAnalysisQualityMessage(effectiveWorkMode, event.message);
+    const adoptionResult = guardAdoptionAnalysisQualityMessage(effectiveWorkMode, event.message, repairStateFor(adoptionRepairStates, sessionId));
     if (adoptionResult.followUp) {
       pi.sendMessage(
         {
