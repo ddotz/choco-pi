@@ -8,6 +8,9 @@ patchedDependencies:
   pi-lsp-client@0.1.0:
     hash: 826905a882daec86b865705ae136b1fbbd108a2099b196626810168605bded44
     path: patches/pi-lsp-client@0.1.0.patch
+  vscode-jsonrpc@8.2.1:
+    hash: b4b099c1f99e95f3f6805b19108ada2181190b772db047d5c8234e544795c6d8
+    path: patches/vscode-jsonrpc@8.2.1.patch
 
 importers:
 
@@ -42,7 +45,7 @@ importers:
         version: 1.1.38
       vscode-jsonrpc:
         specifier: ^8.2.1
-        version: 8.2.1
+        version: 8.2.1(patch_hash=b4b099c1f99e95f3f6805b19108ada2181190b772db047d5c8234e544795c6d8)
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: ^0.74.0
@@ -3729,7 +3732,7 @@ snapshots:
       '@mariozechner/pi-coding-agent': '@earendil-works/pi-coding-agent@0.74.0(ws@8.20.0)(zod@4.4.3)'
       '@mariozechner/pi-tui': '@earendil-works/pi-tui@0.74.0'
       typebox: 1.1.38
-      vscode-jsonrpc: 8.2.1
+      vscode-jsonrpc: 8.2.1(patch_hash=b4b099c1f99e95f3f6805b19108ada2181190b772db047d5c8234e544795c6d8)
 
   picocolors@1.1.1: {}
 
@@ -4009,7 +4012,7 @@ snapshots:
     transitivePeerDependencies:
       - msw
 
-  vscode-jsonrpc@8.2.1: {}
+  vscode-jsonrpc@8.2.1(patch_hash=b4b099c1f99e95f3f6805b19108ada2181190b772db047d5c8234e544795c6d8): {}
 
   web-streams-polyfill@3.3.3: {}
 

@@ -1,0 +1,15 @@
+diff --git a/lib/common/connection.js b/lib/common/connection.js
+index 28d273dcd164265c583576166a79b6170a3ba4ae..f7b067c1c2684f5ef54af1c826baad62f53ecfe1 100644
+--- a/lib/common/connection.js
++++ b/lib/common/connection.js
+@@ -1088,7 +1088,9 @@ function createMessageConnection(messageReader, messageWriter, _logger, options)
+                     responsePromises.delete(id);
+                     responsePromise.reject(new messages_1.ResponseError(messages_1.ErrorCodes.MessageWriteError, error.message ? error.message : 'Unknown reason'));
+                     logger.error(`Sending request failed.`);
+-                    throw error;
++                    // The public sendRequest promise was rejected above. Throwing here escapes the
++                    // async Promise executor as a separate unhandled rejection on write EPIPE.
++                    return;
+                 }
+             });
+         },
