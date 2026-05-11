@@ -126,7 +126,7 @@ It also registers user commands:
 | `before_agent_start` | `ddotz-autopilot` | Inject default-root all-purpose policy, current mode/intensity, ledger summary, and source-tracking context. |
 | `tool_call` | `ddotz-autopilot` | Guard dangerous tool calls before execution; record edit/write paths for the ledger. |
 | `tool_result` | `ddotz-autopilot` | Capture verification commands and pass/fail evidence into the ledger. |
-| `message_end` | `structural-gate` | Fail closed if a non-trivial turn tries to finish without passing the structural gate. |
+| `message_end` | `structural-gate` | Fail closed if a non-trivial turn tries to finish without passing the structural gate, and reopen when the final text still asserts an active/current todo remains. |
 | `session_start` | multiple extensions | Rehydrate state, install UI widgets/footer/editor components, clear current-session todos on `/new`, and update runtime status. |
 | `session_shutdown` | multiple extensions | Dispose UI/status/editor patches and clear per-session references. |
 | `agent_start` | `focus-rendering` | Keep Pi's built-in working indicator hidden while the focused tool view is active. |
@@ -159,6 +159,8 @@ This guard runs in the `tool_call` hook and returns `{ block: true }` with a rea
 - `structural_gate`: records the final acceptance/runtime/failure/verification/loop/completion review.
 
 For non-trivial turns, the `message_end` hook checks whether the gate passed. If it did not pass, the final assistant message is replaced with a short visible status message and a hidden repair follow-up is queued. Medium confidence is treated as not complete.
+
+After a gate passes, the final-message continuation guard still scans status-assertion lines for active/current/pending/remaining todo or in-scope work. If the final answer claims that such work remains, Pi reopens the loop with a follow-up instead of stopping at Ready. Explicitly deferred, blocked, optional, new-scope, completed, or empty-active-todo lines are excluded to avoid self-triggering on explanatory text.
 
 #### Loop-governance guard
 
@@ -383,7 +385,7 @@ state schema version `2`는 다음을 저장합니다.
 | `before_agent_start` | `ddotz-autopilot` | default-root all-purpose policy, 현재 mode/intensity, ledger summary, source-tracking context 주입. |
 | `tool_call` | `ddotz-autopilot` | tool 실행 전 위험 호출 차단, edit/write 경로 ledger 기록. |
 | `tool_result` | `ddotz-autopilot` | 검증 명령과 pass/fail evidence를 ledger에 기록. |
-| `message_end` | `structural-gate` | non-trivial turn이 structural gate 없이 끝나면 fail-closed 처리. |
+| `message_end` | `structural-gate` | non-trivial turn이 structural gate 없이 끝나면 fail-closed 처리하고, 최종 문장이 active/current todo 잔존을 상태로 주장하면 재개. |
 | `session_start` | 여러 extension | state 복원, UI widget/footer/editor 설치, `/new` current-session todo clear, runtime status 갱신. |
 | `session_shutdown` | 여러 extension | UI/status/editor reference 정리. |
 | `agent_start` | `focus-rendering` | focused view 활성 시 Pi 기본 working indicator 숨김. |
@@ -416,6 +418,8 @@ Guard는 명시적이고, 가능한 곳에서는 fail-closed로 동작합니다.
 - `structural_gate`: 최종 acceptance/runtime/failure/verification/loop/completion review 기록.
 
 non-trivial turn에서 gate가 통과되지 않으면 `message_end` hook이 최종 assistant message를 짧은 표시용 상태 메시지로 교체하고 hidden repair follow-up을 큐에 넣습니다. `Medium` confidence는 완료 상태가 아닙니다.
+
+Gate가 통과한 뒤에도 final-message continuation guard가 상태 주장 라인에서 active/current/pending/remaining todo 또는 남은 in-scope 작업 표현을 다시 확인합니다. 최종 답변이 그런 작업이 남았다고 주장하면 Ready에서 멈추지 않고 follow-up으로 루프를 재개합니다. 명시적 deferred, blocked, optional, new-scope, 완료, active todo 없음 표현은 제외해 설명 문장 오탐을 줄입니다.
 
 #### Loop-governance guard
 
