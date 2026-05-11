@@ -6,7 +6,7 @@ Personal Pi package for an autonomous PM/development-team workflow.
 
 ## Status
 
-- Current package version: `0.1.3`.
+- Current package version: `0.1.4`.
 - Implemented work mode: `default` only.
 - Planned work modes: `coding`, `report`, `web-analysis`, `adoption-analysis`.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
