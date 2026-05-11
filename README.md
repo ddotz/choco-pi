@@ -6,7 +6,7 @@ Personal Pi package for a default-root all-purpose generalist workflow.
 
 ## Status
 
-- Current package version: `0.9.0`.
+- Current package version: `0.9.1`.
 - Implemented work modes: `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`.
 - Planned work modes: none.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
@@ -605,7 +605,7 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 
 - Ask only for hard approval boundaries: production deployment/package publishing, payment, secrets/accounts, large deletion, external private-data transfer, irreversible actions, work mode switching, or contradictory goals without safe defaults.
 - For new Pi feature/capability requests, check https://pi.dev/packages before building from scratch. If a high-similarity package exists, inspect source/license/security, fork or clone it as the baseline, and customize it to the user's final requirements.
-- Superpowers is treated as an external skill dependency: ddotz-pi clones `https://github.com/obra/superpowers.git` unchanged under `~/.pi/agent/ddotz-pi/deps/superpowers` when no usable install is present, then exposes that checkout via Pi skill discovery.
+- Superpowers is treated as an external skill dependency: ddotz-pi first reuses existing Claude Code/Codex superpowers skill directories when present, otherwise clones `https://github.com/obra/superpowers.git` unchanged under `~/.pi/agent/ddotz-pi/deps/superpowers`, then exposes only the repo's `skills/` directory via Pi skill discovery.
 - Mode isolation is mandatory for every work mode, including future planned and custom modes.
 - New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.
 - No mode may change default or any other mode as a side effect; shared changes belong in `modes/_base/MODE.md` only when they are mode-agnostic.

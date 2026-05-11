@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 
 export const SUPERPOWERS_REPO_URL = "https://github.com/obra/superpowers.git" as const;
 const SUPERPOWERS_SENTINEL_SKILL = join("using-superpowers", "SKILL.md");
+const SUPERPOWERS_REPO_SKILLS_DIR = "skills";
 const INSTALL_TIMEOUT_MS = 2 * 60 * 1000;
 
 type SuperpowersServices = Pick<ExtensionAPI, "exec">;
@@ -38,6 +39,10 @@ function defaultCandidatePaths(installPath: string): string[] {
     installPath,
     join(agentDir(), "skills", "superpowers"),
     join(homedir(), ".agents", "skills", "superpowers"),
+    join(homedir(), ".codex", "superpowers", "skills"),
+    join(homedir(), ".codex", "skills", "superpowers"),
+    join(homedir(), ".claude", "superpowers", "skills"),
+    join(homedir(), ".claude", "skills", "superpowers"),
   ];
 }
 
@@ -48,6 +53,13 @@ async function hasSuperpowersSentinel(path: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function resolveSuperpowersSkillPath(path: string): Promise<string | undefined> {
+  if (await hasSuperpowersSentinel(path)) return path;
+  const upstreamSkillPath = join(path, SUPERPOWERS_REPO_SKILLS_DIR);
+  if (await hasSuperpowersSentinel(upstreamSkillPath)) return upstreamSkillPath;
+  return undefined;
 }
 
 async function pathExists(path: string): Promise<boolean> {
@@ -72,15 +84,15 @@ export async function ensureSuperpowersDependency(
   const candidatePaths = uniquePaths(options.candidatePaths ?? defaultCandidatePaths(installPath));
 
   for (const path of candidatePaths) {
-    if (await hasSuperpowersSentinel(path)) return { status: "present", skillPath: path, repoUrl: SUPERPOWERS_REPO_URL };
+    const skillPath = await resolveSuperpowersSkillPath(path);
+    if (skillPath) return { status: "present", skillPath, repoUrl: SUPERPOWERS_REPO_URL };
   }
 
   if (await pathExists(installPath)) {
     return {
       status: "failed",
-      skillPath: installPath,
       repoUrl: SUPERPOWERS_REPO_URL,
-      reason: `Install target already exists but does not contain ${SUPERPOWERS_SENTINEL_SKILL}.`,
+      reason: `Install target already exists but does not contain ${SUPERPOWERS_REPO_SKILLS_DIR}/${SUPERPOWERS_SENTINEL_SKILL}.`,
     };
   }
 
@@ -91,19 +103,19 @@ export async function ensureSuperpowersDependency(
   });
   if (result.code !== 0) {
     const reason = [result.stderr?.trim(), result.stdout?.trim(), `exit ${result.code}`].filter(Boolean).join(" — ");
-    return { status: "failed", skillPath: installPath, repoUrl: SUPERPOWERS_REPO_URL, reason };
+    return { status: "failed", repoUrl: SUPERPOWERS_REPO_URL, reason };
   }
 
-  if (!(await hasSuperpowersSentinel(installPath))) {
+  const skillPath = await resolveSuperpowersSkillPath(installPath);
+  if (!skillPath) {
     return {
       status: "failed",
-      skillPath: installPath,
       repoUrl: SUPERPOWERS_REPO_URL,
-      reason: `Cloned repo does not contain ${SUPERPOWERS_SENTINEL_SKILL}.`,
+      reason: `Cloned repo does not contain ${SUPERPOWERS_REPO_SKILLS_DIR}/${SUPERPOWERS_SENTINEL_SKILL}.`,
     };
   }
 
-  return { status: "installed", skillPath: installPath, repoUrl: SUPERPOWERS_REPO_URL };
+  return { status: "installed", skillPath, repoUrl: SUPERPOWERS_REPO_URL };
 }
 
 export function formatSuperpowersDependencyNotification(result: SuperpowersDependencyResult): { message?: string; level: "info" | "warning" | "error" } {
@@ -117,9 +129,7 @@ export function formatSuperpowersDependencyNotification(result: SuperpowersDepen
 }
 
 function shouldContributeSkillPath(result: SuperpowersDependencyResult): boolean {
-  if (!result.skillPath) return false;
-  if (result.status === "installed") return true;
-  return result.skillPath === managedSuperpowersInstallPath();
+  return result.status === "installed" || result.status === "present";
 }
 
 export async function discoverSuperpowersSkillPath(

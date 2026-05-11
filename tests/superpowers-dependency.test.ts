@@ -57,10 +57,12 @@ describe("superpowers dependency", () => {
   it("clones the upstream superpowers repo unchanged when no install exists", async () => {
     const agentDir = await useTempAgentDir();
     const installPath = join(agentDir, "ddotz-pi", "deps", "superpowers");
+    const skillPath = join(installPath, "skills");
     const exec = vi.fn(async (command: string, args: string[]): Promise<ExecResult> => {
       if (command === "git" && args[0] === "clone") {
-        await mkdir(join(installPath, "using-superpowers"), { recursive: true });
-        await writeFile(join(installPath, "using-superpowers", "SKILL.md"), "---\nname: using-superpowers\ndescription: Use skills.\n---\n", "utf8");
+        await mkdir(join(skillPath, "using-superpowers"), { recursive: true });
+        await writeFile(join(skillPath, "using-superpowers", "SKILL.md"), "---\nname: using-superpowers\ndescription: Use skills.\n---\n", "utf8");
+        await writeFile(join(installPath, "README.md"), "# upstream repo root, not a Pi skill\n", "utf8");
         return { code: 0, stdout: "", stderr: "", killed: false };
       }
       throw new Error(`Unexpected exec: ${command} ${args.join(" ")}`);
@@ -69,33 +71,51 @@ describe("superpowers dependency", () => {
     const result = await ensureSuperpowersDependency({ exec } as never, { installPath, candidatePaths: [] });
 
     expect(result.status).toBe("installed");
-    expect(result.skillPath).toBe(installPath);
+    expect(result.skillPath).toBe(skillPath);
     expect(exec).toHaveBeenCalledWith("git", ["clone", "--depth", "1", SUPERPOWERS_REPO_URL, installPath], expect.any(Object));
   });
 
-  it("reuses an existing external superpowers checkout without cloning", async () => {
+  it("reuses an existing Claude/Codex superpowers skill directory without cloning", async () => {
     const agentDir = await useTempAgentDir();
-    const existingPath = join(agentDir, "external", "superpowers");
-    await mkdir(join(existingPath, "using-superpowers"), { recursive: true });
-    await writeFile(join(existingPath, "using-superpowers", "SKILL.md"), "---\nname: using-superpowers\ndescription: Use skills.\n---\n", "utf8");
+    const existingSkillPath = join(agentDir, "codex", "superpowers", "skills");
+    await mkdir(join(existingSkillPath, "using-superpowers"), { recursive: true });
+    await writeFile(join(existingSkillPath, "using-superpowers", "SKILL.md"), "---\nname: using-superpowers\ndescription: Use skills.\n---\n", "utf8");
     const exec = vi.fn(async (): Promise<ExecResult> => ({ code: 0, stdout: "", stderr: "", killed: false }));
 
-    const result = await ensureSuperpowersDependency({ exec } as never, { installPath: join(agentDir, "managed", "superpowers"), candidatePaths: [existingPath] });
+    const result = await ensureSuperpowersDependency({ exec } as never, { installPath: join(agentDir, "managed", "superpowers"), candidatePaths: [existingSkillPath] });
 
     expect(result.status).toBe("present");
-    expect(result.skillPath).toBe(existingPath);
+    expect(result.skillPath).toBe(existingSkillPath);
+    expect(exec).not.toHaveBeenCalled();
+  });
+
+  it("reuses an existing upstream superpowers repo root by exposing only its skills directory", async () => {
+    const agentDir = await useTempAgentDir();
+    const existingRepoPath = join(agentDir, "claude", "superpowers");
+    const existingSkillPath = join(existingRepoPath, "skills");
+    await mkdir(join(existingSkillPath, "using-superpowers"), { recursive: true });
+    await writeFile(join(existingSkillPath, "using-superpowers", "SKILL.md"), "---\nname: using-superpowers\ndescription: Use skills.\n---\n", "utf8");
+    await writeFile(join(existingRepoPath, "README.md"), "# upstream repo root, not a Pi skill\n", "utf8");
+    const exec = vi.fn(async (): Promise<ExecResult> => ({ code: 0, stdout: "", stderr: "", killed: false }));
+
+    const result = await ensureSuperpowersDependency({ exec } as never, { installPath: join(agentDir, "managed", "superpowers"), candidatePaths: [existingRepoPath] });
+
+    expect(result.status).toBe("present");
+    expect(result.skillPath).toBe(existingSkillPath);
     expect(exec).not.toHaveBeenCalled();
   });
 
   it("contributes the installed superpowers skill path during Pi resource discovery", async () => {
     const agentDir = await useTempAgentDir();
     const installPath = join(agentDir, "ddotz-pi", "deps", "superpowers");
+    const skillPath = join(installPath, "skills");
     process.env.DDOTZ_PI_SUPERPOWERS_INSTALL_PATH = installPath;
     process.env.DDOTZ_PI_SUPERPOWERS_DISABLE_GLOBAL = "1";
     const exec = vi.fn(async (command: string, args: string[]): Promise<ExecResult> => {
       if (command === "git" && args[0] === "clone") {
-        await mkdir(join(installPath, "using-superpowers"), { recursive: true });
-        await writeFile(join(installPath, "using-superpowers", "SKILL.md"), "---\nname: using-superpowers\ndescription: Use skills.\n---\n", "utf8");
+        await mkdir(join(skillPath, "using-superpowers"), { recursive: true });
+        await writeFile(join(skillPath, "using-superpowers", "SKILL.md"), "---\nname: using-superpowers\ndescription: Use skills.\n---\n", "utf8");
+        await writeFile(join(installPath, "README.md"), "# upstream repo root, not a Pi skill\n", "utf8");
         return { code: 0, stdout: "", stderr: "", killed: false };
       }
       throw new Error(`Unexpected exec: ${command} ${args.join(" ")}`);
@@ -105,8 +125,27 @@ describe("superpowers dependency", () => {
 
     const results = await emitCollect(handlers, "resources_discover", { reason: "startup" }, { hasUI: true, ui: { notify } });
 
-    expect(results).toContainEqual({ skillPaths: [installPath] });
+    expect(results).toContainEqual({ skillPaths: [skillPath] });
+    expect(results).not.toContainEqual({ skillPaths: [installPath] });
     expect(notify).toHaveBeenCalledWith(expect.stringContaining("Installed superpowers skills from upstream"), "info");
-    expect(await readFile(join(installPath, "using-superpowers", "SKILL.md"), "utf8")).toContain("using-superpowers");
+    expect(await readFile(join(skillPath, "using-superpowers", "SKILL.md"), "utf8")).toContain("using-superpowers");
+  });
+
+  it("does not contribute an invalid managed superpowers checkout root as a skill path", async () => {
+    const agentDir = await useTempAgentDir();
+    const installPath = join(agentDir, "ddotz-pi", "deps", "superpowers");
+    process.env.DDOTZ_PI_SUPERPOWERS_INSTALL_PATH = installPath;
+    process.env.DDOTZ_PI_SUPERPOWERS_DISABLE_GLOBAL = "1";
+    await mkdir(installPath, { recursive: true });
+    await writeFile(join(installPath, "README.md"), "# not a skill\n", "utf8");
+    const exec = vi.fn(async (): Promise<ExecResult> => ({ code: 0, stdout: "", stderr: "", killed: false }));
+    const { handlers } = setupAutopilot(exec);
+    const notify = vi.fn();
+
+    const results = await emitCollect(handlers, "resources_discover", { reason: "startup" }, { hasUI: true, ui: { notify } });
+
+    expect(results).toEqual([undefined]);
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("Failed to install superpowers skills from upstream"), "warning");
+    expect(exec).not.toHaveBeenCalled();
   });
 });
