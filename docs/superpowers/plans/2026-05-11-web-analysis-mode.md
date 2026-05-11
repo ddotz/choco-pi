@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement `web-analysis` as the first non-default ddotz-pi work mode, using fivetaku/insane-search for retrieval-first external research while keeping `default` completely unaffected.
+**Goal:** Implement `web-analysis` as the first non-default ddotz-pi work mode, using fivetaku/insane-search for retrieval-first external research and mode-scoped hook/guardrail checks that raise web research answer quality without changing `default`.
 
-**Architecture:** Keep the autonomous PM base global, but move web-analysis behavior into a mode-scoped overlay that is appended only when `runtime.workMode === "web-analysis"`. Mode-specific skills, extension/plugin guidance, retrieval process, output contract, and priority rules are represented by a typed resource policy and mode overlay; default mode receives none of that overlay. `insane-search` remains an external dependency/reference, not vendored into ddotz-pi.
+**Architecture:** Keep the autonomous PM base global, but move web-analysis behavior into a mode-scoped overlay that is appended only when `runtime.workMode === "web-analysis"`. Stage 1 implements the isolated mode overlay and resource policy, then self-reviews and patches leakage or coverage gaps. Stage 2 adds process-level quality guardrails through mode-scoped prompt requirements and final-output validation helpers; it does not build a search engine, router, product UI, saved research service, or custom retrieval backend. `insane-search` remains an external dependency/reference, not vendored into ddotz-pi.
 
-**Tech Stack:** Pi extension hooks (`before_agent_start`, `/mode` command), TypeScript pure policy modules, Vitest contract tests, Pi mode files under `modes/<mode-id>/MODE.md`, external fivetaku/insane-search skill/engine via GitHub/MIT reference.
+**Tech Stack:** Pi extension hooks (`before_agent_start`, `message_end`, `/mode` command), TypeScript pure policy modules, Vitest contract tests, Pi mode files under `modes/<mode-id>/MODE.md`, external fivetaku/insane-search skill/engine via GitHub/MIT reference.
 
 ---
 
@@ -15,8 +15,10 @@
 1. **Mode isolation is mandatory for every mode change.** Any new mode policy, skill guidance, plugin/extension guidance, tool priority, or output contract must be active-mode-only.
 2. **Default must not change behavior.** `buildAutopilotSystemPrompt({ workMode: "default" })` must not include web-analysis overlay names, retrieval-first workflow, source scoring rubric, or fivetaku-specific engine instructions beyond the already-existing minimal base policy mention of `insane-search` for blocked sites.
 3. **No vendoring insane-search.** Use `https://github.com/fivetaku/insane-search` as an external dependency/reference. Do not copy its engine into `ddotz-pi`; do not reimplement its bypass chain.
-4. **No global Pi package install in this implementation.** Public package candidates remain optional adapters. Installing a Pi package globally would affect default unless filtered and mode-scoped, so v1 uses local policy/adapter guidance only.
+4. **No global Pi package install in this implementation.** Public package candidates remain optional adapters. Installing a Pi package globally would affect default unless filtered and mode-scoped, so this version uses local policy/guardrail guidance only.
 5. **Activation is explicit.** `/mode set web-analysis` may activate the mode after implementation. Planned modes other than `web-analysis` remain planned.
+6. **No search engine/router/service UX in this version.** Query routing, custom search provider orchestration, source explorer UI, saved research, export UI, and product-thread features are out of scope.
+7. **Stage steering is required.** Complete Stage 1, run self-review, patch gaps, then steer Stage 2 guardrail implementation from the Stage 1 review findings.
 
 ## External Source and Package Investigation Summary
 
@@ -48,8 +50,11 @@ Create and modify these files only:
   - One typed source of truth for mode-specific skills, extension/plugin guidance, tool priority, and process priorities.
   - Returns empty/default policy for `default`.
 - Create: `extensions/ddotz-autopilot/web-analysis-policy.ts`
-  - Web-analysis-only prompt overlay and source quality rubric.
+  - Web-analysis-only prompt overlay, source quality rubric, required answer contract, and guardrail prompt requirements.
   - Mentions fivetaku/insane-search only inside this active-mode overlay.
+- Create: `extensions/ddotz-autopilot/web-research-quality.ts`
+  - Pure helpers for final-answer quality checks: citation/provenance hints, critical-review presence, confidence gating, and default-mode bypass.
+  - No search engine, no router, no UI, no network access.
 - Modify: `extensions/ddotz-autopilot/policy.ts`
   - Import mode overlay builder.
   - Append overlay only when active mode returns non-empty guidance.
@@ -71,6 +76,8 @@ Create and modify these files only:
   - Keep default-safe wording; mention that specialized mode policies apply only when the mode is active.
 - Test: `tests/web-analysis-mode.test.ts`
   - New mode isolation, overlay, implemented-mode, and resource-policy tests.
+- Test: `tests/web-research-quality.test.ts`
+  - Stage 2 guardrail helper tests for missing evidence, missing critical review, weak confidence eligibility, and default bypass.
 - Modify: `tests/policy.test.ts`
   - Update implemented/planned mode expectations.
 - Modify: `tests/work-mode-registry.test.ts`
@@ -610,7 +617,152 @@ Expected: PASS.
 
 ---
 
-### Task 7: Add full verification and version policy
+### Task 7: Stage 2 — Add web research quality guardrails, no search engine/router
+
+**Files:**
+- Create: `extensions/ddotz-autopilot/web-research-quality.ts`
+- Create: `tests/web-research-quality.test.ts`
+- Modify: `extensions/ddotz-autopilot/web-analysis-policy.ts`
+- Modify: `tests/web-analysis-mode.test.ts`
+
+- [ ] **Step 1: Write failing guardrail tests**
+
+Create `tests/web-research-quality.test.ts` with tests for:
+
+```ts
+import { describe, expect, it } from "vitest";
+import { evaluateWebResearchQuality } from "../extensions/ddotz-autopilot/web-research-quality";
+
+describe("web research quality guardrails", () => {
+  it("bypasses non-web-analysis modes", () => {
+    const result = evaluateWebResearchQuality("default", "짧은 일반 답변");
+    expect(result.required).toBe(false);
+    expect(result.passed).toBe(true);
+  });
+
+  it("flags web-analysis answers without provenance", () => {
+    const result = evaluateWebResearchQuality("web-analysis", "Conclusion: 최신 정보입니다. Confidence: High");
+    expect(result.required).toBe(true);
+    expect(result.passed).toBe(false);
+    expect(result.issues).toContain("missing-evidence-or-provenance");
+  });
+
+  it("flags web-analysis answers without critical review", () => {
+    const answer = [
+      "Conclusion: A가 더 낫습니다.",
+      "Evidence: https://example.com — published 2026-05-01 — full text.",
+      "Confidence: High",
+    ].join("\n");
+    const result = evaluateWebResearchQuality("web-analysis", answer);
+    expect(result.passed).toBe(false);
+    expect(result.issues).toContain("missing-critical-review");
+  });
+
+  it("blocks High confidence when evidence is too thin", () => {
+    const answer = [
+      "Conclusion: A가 더 낫습니다.",
+      "Evidence: https://example.com — published 2026-05-01 — full text.",
+      "Critical review: caveat checked; conflict not found.",
+      "Confidence: High",
+    ].join("\n");
+    const result = evaluateWebResearchQuality("web-analysis", answer);
+    expect(result.passed).toBe(false);
+    expect(result.issues).toContain("high-confidence-with-thin-evidence");
+  });
+
+  it("passes structured web-analysis answers with enough provenance and critical review", () => {
+    const answer = [
+      "Conclusion: A가 더 낫습니다.",
+      "Evidence: https://example.com/a — published 2026-05-01 — full text.",
+      "Evidence: https://example.org/b — updated 2026-05-02 — full text.",
+      "Critical review: sources are independent; one caveat is regional coverage.",
+      "Confidence: High",
+    ].join("\n");
+    const result = evaluateWebResearchQuality("web-analysis", answer);
+    expect(result.passed).toBe(true);
+    expect(result.issues).toEqual([]);
+  });
+});
+```
+
+Run:
+
+```bash
+pnpm vitest run tests/web-research-quality.test.ts
+```
+
+Expected: RED because helper does not exist.
+
+- [ ] **Step 2: Implement pure quality helper**
+
+Create `extensions/ddotz-autopilot/web-research-quality.ts`:
+
+```ts
+import type { WorkMode } from "./mode";
+
+export type WebResearchQualityIssue =
+  | "missing-evidence-or-provenance"
+  | "missing-critical-review"
+  | "missing-confidence"
+  | "high-confidence-with-thin-evidence";
+
+export interface WebResearchQualityResult {
+  required: boolean;
+  passed: boolean;
+  issues: WebResearchQualityIssue[];
+  evidenceCount: number;
+}
+
+function evidenceCount(text: string): number {
+  const urlMatches = text.match(/https?:\/\/\S+/g) ?? [];
+  const evidenceLines = text.split("\n").filter((line) => /Evidence:|출처|근거|published|updated|retrieved|full text|metadata/i.test(line));
+  return Math.max(new Set(urlMatches).size, evidenceLines.length);
+}
+
+export function evaluateWebResearchQuality(mode: WorkMode, answer: string): WebResearchQualityResult {
+  if (mode !== "web-analysis") return { required: false, passed: true, issues: [], evidenceCount: 0 };
+
+  const issues: WebResearchQualityIssue[] = [];
+  const evidence = evidenceCount(answer);
+  const hasCriticalReview = /Critical review|비판|한계|caveat|conflict|충돌|불확실/i.test(answer);
+  const hasConfidence = /Confidence:\s*(High|Medium|Low)/.test(answer);
+  const claimsHigh = /Confidence:\s*High/.test(answer);
+
+  if (evidence === 0) issues.push("missing-evidence-or-provenance");
+  if (!hasCriticalReview) issues.push("missing-critical-review");
+  if (!hasConfidence) issues.push("missing-confidence");
+  if (claimsHigh && evidence < 2) issues.push("high-confidence-with-thin-evidence");
+
+  return { required: true, passed: issues.length === 0, issues, evidenceCount: evidence };
+}
+```
+
+- [ ] **Step 3: Strengthen prompt guardrails instead of building product UX**
+
+Update `web-analysis-policy.ts` so the overlay explicitly says:
+
+- `web-analysis` final answers must include `Conclusion`, `Evidence`, `Critical review`, and `Confidence`.
+- `Confidence: High` is allowed only with at least two relevant source/provenance items and a critical review pass.
+- If the answer lacks enough sources, it must report a blocker or lower confidence instead of claiming High.
+- These requirements are mode-scoped and must not apply in default.
+
+- [ ] **Step 4: Run Stage 2 tests**
+
+Run:
+
+```bash
+pnpm vitest run tests/web-research-quality.test.ts tests/web-analysis-mode.test.ts
+```
+
+Expected: PASS.
+
+- [ ] **Step 5: Retry/review loop**
+
+If any Stage 2 test fails, do not weaken the guardrail. Fix the helper or prompt text, rerun focused tests, then proceed only after green.
+
+---
+
+### Task 8: Add full verification and version policy
 
 **Files:**
 - Modify: `package.json`
@@ -708,7 +860,7 @@ Expected: response does not include `Web Analysis Mode`, source confidence matri
 
 ---
 
-### Task 8: Commit and push after verification
+### Task 9: Commit and push after verification
 
 **Files:**
 - All intentional implementation, docs, and test files.
@@ -761,7 +913,7 @@ Expected: push to `origin/main` succeeds. This is routine source synchronization
 - `coding`, `report`, and `adoption-analysis` remain planned.
 - No Pi package is installed globally for web-analysis v1.
 - No insane-search code is vendored into ddotz-pi.
-- Tests cover mode isolation, mode activation, registry status, and prompt overlay behavior.
+- Tests cover mode isolation, mode activation, registry status, prompt overlay behavior, and web research quality guardrail helpers.
 - `pnpm run check` passes.
 - Runtime reload and mode dogfood pass.
 
@@ -771,7 +923,8 @@ These are deliberately not part of v1:
 
 - Mode-scoped `pi.setActiveTools()` profiles with snapshot/restore. This needs careful tests to avoid disabling structural tools or leaking tool state into default.
 - Optional adapter to `pi-smart-fetch` or `pi-web-access` if a future version can load it under a mode-scoped package filter without default contamination.
-- A dedicated `web_research` Pi tool that wraps an installed external insane-search engine. This should be added only after v1 prompt-mode behavior is stable and dependency detection is designed.
+- A dedicated `web_research` Pi tool that wraps an installed external insane-search engine. This remains out of scope because the requested version manages research quality through mode-scoped process hooks and guardrails, not a search engine/router.
+- Service UX features such as saved research, source explorer UI, exports, follow-up prompt UI, and product thread management.
 
 ## Self-Review
 

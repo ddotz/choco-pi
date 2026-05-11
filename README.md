@@ -6,9 +6,9 @@ Personal Pi package for an autonomous PM/development-team workflow.
 
 ## Status
 
-- Current package version: `0.1.7`.
-- Implemented work mode: `default` only.
-- Planned work modes: `coding`, `report`, `web-analysis`, `adoption-analysis`.
+- Current package version: `0.2.0`.
+- Implemented work modes: `default`, `web-analysis`.
+- Planned work modes: `coding`, `report`, `adoption-analysis`.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
 
 Planned modes are documented but not active. If a user asks to use one, `ddotz-pi` should ask whether to implement/switch it instead of pretending the mode already exists.
@@ -526,7 +526,7 @@ pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test
 
 ## Commands
 
-- `/mode [status|list|set <mode>|add <id> <description>|remove <id>]` — manage work modes. `default` is the only implemented mode.
+- `/mode [status|list|set <mode>|add <id> <description>|remove <id>]` — manage work modes. `default` and `web-analysis` are implemented modes.
 - `/intensity [micro|standard|deep|status]` — show or set process weight.
 - `/source [list|add|adopt|reject|due|changed|check]` — track adopted or explicitly tracked external sources.
 - `/memory [list|save <text>]` — list/save durable memories.
@@ -538,10 +538,10 @@ pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test
 ```text
 modes/
   _base/MODE.md                # shared autonomous PM philosophy
-  default/MODE.md              # only implemented mode
+  default/MODE.md              # base implemented mode
   coding/MODE.md               # planned coding overlay
   report/MODE.md               # planned report-writing overlay
-  web-analysis/MODE.md         # planned web research overlay
+  web-analysis/MODE.md         # implemented web research overlay
   adoption-analysis/MODE.md    # planned source adoption overlay
 ```
 
@@ -551,6 +551,7 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 
 - Ask only for hard approval boundaries: production deployment/package publishing, payment, secrets/accounts, large deletion, external private-data transfer, irreversible actions, work mode switching, or contradictory goals without safe defaults.
 - For new Pi feature/capability requests, check https://pi.dev/packages before building from scratch. If a high-similarity package exists, inspect source/license/security, fork or clone it as the baseline, and customize it to the user's final requirements.
+- Mode-specific skills, extension/plugin guidance, processes, priorities, and quality guardrails must be mode-isolated. `web-analysis` retrieval/review policy and message-end quality guardrail are active only while that mode is active.
 - Commit and push autonomously after verification when the working tree contains intentional in-scope changes and a remote is configured; normal `git push` is routine source synchronization, not deployment.
 - Treat each plan/todo step as a bounded loop. Complete a step, verify fit, record `loop_transition`, then move on.
 - If new work appears after the current todo, start a new loop or defer it explicitly. Do not silently append scope.

@@ -41,8 +41,8 @@ const BUILT_IN_MODES: Array<Omit<WorkModeDefinition, "createdAt" | "folder" | "i
   },
   {
     id: "web-analysis",
-    description: "Planned mode for external web research and requested follow-up actions.",
-    status: "planned",
+    description: "Implemented mode for retrieval-first external web research, source confidence scoring, and critical review.",
+    status: "implemented",
     custom: false,
   },
   {

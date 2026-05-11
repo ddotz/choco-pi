@@ -53,4 +53,31 @@ describe("extension command names", () => {
 
     expect(notify).toHaveBeenCalledWith(expect.stringContaining("mode: default"), "info");
   });
+
+  it("allows switching to implemented web-analysis mode without changing command names", async () => {
+    await useTempAgentDir();
+    const commands = registeredCommands();
+    const notify = vi.fn();
+
+    await commands.get("mode")!.handler("set web-analysis", { ui: { notify } });
+    await commands.get("mode")!.handler("status", { ui: { notify } });
+
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("mode: web-analysis"), "info");
+    expect([...commands.keys()].filter((name) => name.startsWith("ddotz-"))).toEqual([]);
+  });
+
+  it("switches from web-analysis back to default without planned-mode warnings", async () => {
+    await useTempAgentDir();
+    const commands = registeredCommands();
+    const notify = vi.fn();
+
+    await commands.get("mode")!.handler("set web-analysis", { ui: { notify } });
+    await commands.get("mode")!.handler("set default", { ui: { notify } });
+    await commands.get("mode")!.handler("status", { ui: { notify } });
+
+    expect(notify).toHaveBeenCalledWith("mode: web-analysis", "info");
+    expect(notify).toHaveBeenCalledWith("mode: default", "info");
+    expect(notify).toHaveBeenLastCalledWith(expect.stringContaining("mode: default"), "info");
+    expect(notify.mock.calls.flat().join("\n")).not.toContain("planned but not implemented");
+  });
 });

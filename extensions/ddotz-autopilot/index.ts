@@ -42,6 +42,7 @@ import { classifyApprovalBoundaryToolCall, formatApprovalBoundaryBlock } from ".
 import { registerRuntimeReload } from "./runtime-reload";
 import { installStructuralGate } from "./structural-gate";
 import { DDOTZ_PI_VERSION } from "./version";
+import { guardWebResearchQualityMessage } from "./web-research-quality";
 import {
   addCustomWorkMode,
   createWorkModeRegistry,
@@ -348,6 +349,24 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
         suggestedWorkMode,
       })}`,
     };
+  });
+
+  pi.on("message_end", async (event) => {
+    if (event.message.role !== "assistant") return undefined;
+    const state = await loadState();
+    const result = guardWebResearchQualityMessage(state.runtime.workMode, event.message);
+    if (result.followUp) {
+      pi.sendMessage(
+        {
+          customType: "ddotz.web_analysis_quality.repair",
+          content: result.followUp,
+          display: false,
+          details: { repairQueued: true },
+        },
+        { deliverAs: "followUp", triggerTurn: true },
+      );
+    }
+    return result.message ? { message: result.message } : undefined;
   });
 
   pi.registerCommand("mode", {

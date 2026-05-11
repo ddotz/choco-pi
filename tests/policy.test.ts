@@ -15,14 +15,15 @@ import {
 } from "../extensions/ddotz-autopilot/mode";
 
 describe("ddotz autonomous PM policy", () => {
-  it("keeps autonomous PM as the base philosophy and currently implements only default work mode", () => {
+  it("keeps autonomous PM as the base philosophy while implementing default and web-analysis work modes", () => {
     expect(AUTONOMOUS_PM_BASE).toBe(true);
     expect(DEFAULT_WORK_MODE).toBe("default");
-    expect(IMPLEMENTED_WORK_MODES).toEqual(["default"]);
-    expect(PLANNED_WORK_MODES).toEqual(["coding", "report", "web-analysis", "adoption-analysis"]);
+    expect(IMPLEMENTED_WORK_MODES).toEqual(["default", "web-analysis"]);
+    expect(PLANNED_WORK_MODES).toEqual(["coding", "report", "adoption-analysis"]);
     expect(parseWorkMode("autopilot")).toBeUndefined();
     expect(parseWorkMode("coding")).toBe("coding");
     expect(isWorkModeImplemented("default")).toBe(true);
+    expect(isWorkModeImplemented("web-analysis")).toBe(true);
     expect(isWorkModeImplemented("coding")).toBe(false);
   });
 
@@ -85,7 +86,8 @@ describe("ddotz autonomous PM policy", () => {
 
     expect(prompt).toContain("ddotz-pi autonomous PM/development-team base");
     expect(prompt).toContain("Work mode: default");
-    expect(prompt).toContain("Only default work mode is currently implemented");
+    expect(prompt).toContain("Default mode is active");
+    expect(prompt).not.toContain("Only default work mode is currently implemented");
     expect(prompt).toContain("Execution intensity: deep");
     expect(prompt).toContain("Do not ask the user for routine implementation choices");
     expect(prompt).toContain("Keep final reports concise");

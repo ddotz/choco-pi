@@ -2,6 +2,7 @@ import { buildCommitHygieneGuidance } from "./commit-hygiene";
 import { buildCompletionBoundaryGuidance } from "./completion-boundary";
 import { buildModeSwitchGuidance, describeWorkMode, type ExecutionIntensity, type WorkMode } from "./mode";
 import { buildResponseStyleGuidance } from "./response-style";
+import { buildWebAnalysisModeGuidance } from "./web-analysis-policy";
 
 export const AUTONOMOUS_PM_BASE = true as const;
 
@@ -98,6 +99,11 @@ function buildNewFeaturePackageReuseGuidance(): string {
   ].join("\n");
 }
 
+function buildModeOverlayGuidance(mode: WorkMode): string {
+  if (mode === "web-analysis") return buildWebAnalysisModeGuidance();
+  return "";
+}
+
 export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): string {
   const ledger = options.ledgerSummary?.trim()
     ? `\n\n## Current Context Ledger\n${options.ledgerSummary.trim()}`
@@ -106,6 +112,7 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
   const sourceSummary = options.dueSourceSummary?.trim()
     ? `\n\n## External Source Tracking\n${options.dueSourceSummary.trim()}\n${adoptionPolicy}`
     : `\n\n## External Source Tracking\nDo not track links for simple analysis. Track only sources explicitly adopted into ddotz-pi, or sources the user explicitly asks to track. For adopted sources, check weekly for updates, decide whether to adopt, partially adopt, or reject the change, and proceed autonomously when it fits ddotz-pi.\n${adoptionPolicy}`;
+  const modeOverlay = buildModeOverlayGuidance(options.workMode);
 
   return [
     "## ddotz-pi autonomous PM/development-team base",
@@ -118,6 +125,7 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "### Work mode directive",
     describeWorkMode(options.workMode),
     buildModeSwitchGuidance(options.suggestedWorkMode),
+    ...(modeOverlay ? ["", modeOverlay] : []),
     "",
     "### Operating priority",
     "1. Follow the user's latest instruction as the highest task-level authority.",

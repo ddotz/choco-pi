@@ -3,8 +3,8 @@ export type ExecutionIntensity = "micro" | "standard" | "deep";
 
 export const DEFAULT_WORK_MODE: WorkMode = "default";
 export const DEFAULT_EXECUTION_INTENSITY: ExecutionIntensity = "standard";
-export const IMPLEMENTED_WORK_MODES: WorkMode[] = ["default"];
-export const PLANNED_WORK_MODES: Exclude<WorkMode, "default">[] = ["coding", "report", "web-analysis", "adoption-analysis"];
+export const IMPLEMENTED_WORK_MODES: WorkMode[] = ["default", "web-analysis"];
+export const PLANNED_WORK_MODES: Exclude<WorkMode, "default" | "web-analysis">[] = ["coding", "report", "adoption-analysis"];
 
 export interface RuntimeState {
   workMode: WorkMode;
@@ -61,21 +61,24 @@ export function describeWorkMode(mode: WorkMode): string {
     case "report":
       return "Report mode is planned, not active yet. Keep using default mode unless the user explicitly asks to implement/switch this mode.";
     case "web-analysis":
-      return "Web-analysis mode is planned, not active yet. Keep using default mode unless the user explicitly asks to implement/switch this mode.";
+      return "Web-analysis mode is active. Apply only the web-analysis mode-scoped overlay for retrieval-first external research, source confidence scoring, and critical review; keep default mode behavior isolated.";
     case "adoption-analysis":
       return "Adoption-analysis mode is planned, not active yet. Keep using default mode unless the user explicitly asks to implement/switch this mode.";
     case "default":
-      return "Default mode is the only implemented work mode. Execute autonomously using the base PM philosophy; propose specialized mode implementation only when the user asks about changing modes.";
+      return "Default mode is active. Execute autonomously using the base PM philosophy without specialized mode overlays.";
   }
 }
 
 export function buildModeSwitchGuidance(suggestedMode: WorkMode | undefined): string {
   if (!suggestedMode || suggestedMode === "default") {
-    return "Only default work mode is currently implemented. Do not claim specialized modes are active.";
+    return "Default mode is active unless the user explicitly switches to another implemented mode.";
+  }
+  if (isWorkModeImplemented(suggestedMode)) {
+    return `This task resembles implemented ${suggestedMode} mode. Do not switch automatically; use the current active mode unless the user explicitly switches.`;
   }
   return [
-    "Only default work mode is currently implemented.",
+    "Some specialized modes are planned but not implemented.",
     `This task resembles planned ${suggestedMode} mode, but do not switch automatically.`,
-    "If the user explicitly asks to use or add this mode, ask once whether to implement/switch it; otherwise continue in default mode.",
+    "If the user explicitly asks to use or add this mode, ask once whether to implement/switch it; otherwise continue in the active implemented mode.",
   ].join("\n");
 }

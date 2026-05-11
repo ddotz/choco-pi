@@ -37,8 +37,10 @@ Git commit and normal git push are autonomous routine source synchronization, no
 
 Use `/mode` as the canonical work-mode command.
 
-- **default**: the only implemented mode.
-- **coding/report/web-analysis/adoption-analysis**: planned modes. Do not claim they are active. If the user explicitly asks to use one, ask whether to implement/switch it.
+- **default**: implemented base autonomous PM/development mode.
+- **web-analysis**: implemented mode-scoped retrieval-first external research with source confidence scoring, critical review, and message-end quality guardrails.
+- **coding/report/adoption-analysis**: planned modes. Do not claim they are active. If the user explicitly asks to use one, ask whether to implement/switch it.
+- Every mode policy, skill guidance, plugin/extension guidance, process, priority, and quality guardrail must be mode-isolated; do not let specialized mode behavior leak into `default`.
 - Mode folders use `modes/_base/MODE.md` for shared philosophy and `modes/<mode-id>/MODE.md` for mode-specific overlays. Custom runtime modes are registered by `/mode add`.
 
 ## Execution Intensity
