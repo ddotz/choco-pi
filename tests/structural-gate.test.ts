@@ -86,6 +86,21 @@ describe("structural gate guard", () => {
     );
   });
 
+  it("queues another structural repair follow-up for a later failed repair attempt", async () => {
+    const { handlers, sendMessage } = setupAutopilot();
+    await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "버그 고치고 테스트까지 해줘", systemPrompt: "base", systemPromptOptions: {} });
+
+    const firstFailure = { ...assistantMessage("완료했습니다. 테스트도 통과했습니다."), timestamp: 1 };
+    const laterFailedRepair = { ...assistantMessage("아직 structural_gate 호출 없이 완료를 주장합니다."), timestamp: 2 };
+
+    await emitFirst(handlers, "message_end", { type: "message_end", message: firstFailure });
+    await emitFirst(handlers, "message_end", { type: "message_end", message: laterFailedRepair });
+
+    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "ddotz.structural_gate.repair");
+    expect(repairCalls).toHaveLength(2);
+    expect(repairCalls[1][0].content).toContain("structural_gate tool was not called");
+  });
+
   it("rejects structural_gate reviews that omit loop governance evidence", async () => {
     const { handlers, tools } = setupAutopilot();
     await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "기능 구현하고 검증해줘", systemPrompt: "base", systemPromptOptions: {} });
@@ -138,6 +153,80 @@ describe("structural gate guard", () => {
     const result = await emitFirst(handlers, "message_end", { type: "message_end", message: original });
 
     expect(result).toBeUndefined();
+  });
+
+  it("reopens the loop when a passed final answer says an active todo still remains", async () => {
+    const { handlers, tools, sendMessage } = setupAutopilot();
+    await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "todo 복구하고 계속 진행해", systemPrompt: "base", systemPromptOptions: {} });
+
+    await tools.get("structural_gate")!.execute(
+      "gate-1",
+      {
+        acceptanceFit: "Todo state was restored.",
+        runtimeFit: "Todo state was inspected.",
+        failureModes: "A final answer could still claim completion while saying the active todo remains.",
+        verificationEvidence: "todo list was observed.",
+        loopGovernance: "Step transitions stayed within the plan and deferred work was preserved.",
+        completionBoundary: "Trying to stop after restoration.",
+        confidence: "High",
+        readyToComplete: true,
+      },
+      undefined,
+      undefined,
+      { cwd: "/repo" },
+    );
+
+    const result = await emitFirst(handlers, "message_end", {
+      type: "message_end",
+      message: assistantMessage([
+        "복구된 상태:",
+        "- #1~#4: 병렬 전략 기능 구현",
+        "- #5~#7: 기존 모드별 리뷰 작업 보류분",
+        "현재 active todo는 그대로 #1 병렬 전략 기능 구현 준비입니다.",
+        "Confidence: High",
+      ].join("\n")),
+    }) as { message: AssistantMessage };
+
+    const replacementText = (result.message.content[0] as { type: "text"; text: string }).text;
+    expect(replacementText).toContain("답변 검증 가드가 보강을 진행 중입니다");
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customType: "ddotz.structural_gate.repair",
+        display: false,
+        content: expect.stringContaining("active/current todo remains"),
+      }),
+      { deliverAs: "followUp", triggerTurn: true },
+    );
+  });
+
+  it("does not reopen the loop for explicitly deferred pending todos after the gate passes", async () => {
+    const { handlers, tools, sendMessage } = setupAutopilot();
+    await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "todo 보류 상태를 보고해", systemPrompt: "base", systemPromptOptions: {} });
+
+    await tools.get("structural_gate")!.execute(
+      "gate-1",
+      {
+        acceptanceFit: "Deferred todos were reported.",
+        runtimeFit: "Todo state was inspected.",
+        failureModes: "Deferred follow-ups should not be treated as active current work.",
+        verificationEvidence: "todo list was observed.",
+        loopGovernance: "Deferred work stayed outside the active loop.",
+        completionBoundary: "Safe to stop after reporting deferred follow-ups.",
+        confidence: "High",
+        readyToComplete: true,
+      },
+      undefined,
+      undefined,
+      { cwd: "/repo" },
+    );
+
+    const result = await emitFirst(handlers, "message_end", {
+      type: "message_end",
+      message: assistantMessage("보류된 follow-up:\n- #5~#7: [deferred] 기존 모드별 리뷰 작업 pending\n\nConfidence: High"),
+    });
+
+    expect(result).toBeUndefined();
+    expect(sendMessage).not.toHaveBeenCalled();
   });
 
   it("requires loop_transition evidence after a todo step is completed", async () => {

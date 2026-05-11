@@ -2,7 +2,13 @@ import { StringEnum, Type, type AssistantMessage, type TextContent } from "@mari
 import type { ExtensionAPI, ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Container } from "@mariozechner/pi-tui";
 import type { Static } from "typebox";
-import { GUARD_REPAIR_STATUS_TEXT } from "./guard-repair-status";
+import {
+  clearRepairState,
+  GUARD_REPAIR_STATUS_TEXT,
+  queueRepairForAttempt,
+  repairAttemptKey,
+  type GuardRepairState,
+} from "./guard-repair-status";
 
 export const STRUCTURAL_GATE_TOOL_NAME = "structural_gate";
 export const LOOP_TRANSITION_TOOL_NAME = "loop_transition";
@@ -58,11 +64,10 @@ const LoopTransitionParams = Type.Object({
 export type StructuralGateReview = Static<typeof StructuralGateParams>;
 export type LoopTransitionReview = Static<typeof LoopTransitionParams>;
 
-export interface StructuralGateTurnState {
+export interface StructuralGateTurnState extends GuardRepairState {
   prompt: string;
   required: boolean;
   passed: boolean;
-  repairQueued: boolean;
   toolCalls: number;
   todoStepCompletions: number;
   loopTransitionReviews: number;
@@ -218,6 +223,7 @@ export function recordStructuralGateReview(state: StructuralGateState, review: S
 
   turn.passed = true;
   turn.rejectionReason = undefined;
+  clearRepairState(turn);
   return { ok: true };
 }
 
@@ -247,25 +253,76 @@ function repairPromptText(reason: string, originalText: string): string {
     .join("\n\n");
 }
 
+function continuationPromptText(reason: string, originalText: string): string {
+  return [
+    "내부 final-message continuation guard가 재개를 요구합니다.",
+    "이 내부 gate 메시지를 사용자에게 보여주거나 요약하지 마세요.",
+    "최종 assistant 메시지가 완료/Ready처럼 끝났지만 active/current todo 또는 남은 in-scope 작업을 직접 언급했습니다.",
+    "아직 완료를 주장하지 마세요.",
+    "최종 사용자 답변은 반드시 한국어 존댓말로 작성하세요. 사용자가 다른 언어를 명시한 경우에만 그 언어를 따르세요.",
+    "원래 사용자 요청 언어와 출력 형식을 유지하고, 이전 차단/보강 과정을 언급하지 마세요.",
+    `Reason: ${reason}`,
+    "todo 상태를 다시 확인하고 현재 active todo를 계속 진행하세요. 승인 경계, 명시적 보류, 새 범위가 맞는 경우에만 loop_transition과 structural_gate로 근거를 남기고 블록/보류로 보고하세요.",
+    "실제로 완료된 경우에만 structural_gate를 다시 호출해 readyToComplete=true를 사용하세요.",
+    originalText ? `차단된 원래 초안:\n${originalText}` : undefined,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function isDeferredOrBlockedLine(line: string): boolean {
+  return /\b(deferred|optional|nice[- ]?to[- ]?have|new[- ]?scope|blocked|approval|follow[- ]?up)\b|보류|선택|별도\s*범위|새\s*범위|승인\s*경계|블로커|차단/i.test(line);
+}
+
+function isCompletedOrEmptyActiveLine(line: string): boolean {
+  return /\b(done|complete[sd]?|closed|resolved|none|no\s+active|no\s+current)\b|완료|끝났|해결|없(?:습니다|음|다)?/i.test(line);
+}
+
+export function detectRequiredContinuationFromFinalText(text: string): string | undefined {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/^[-*•]\s*/, ""))
+    .filter(Boolean);
+
+  for (const line of lines) {
+    if (isDeferredOrBlockedLine(line) || isCompletedOrEmptyActiveLine(line)) continue;
+
+    const mentionsTodo = /\btodos?\b|할\s*일/i.test(line);
+    const activeTodo = mentionsTodo && (/\b(active|current|in[-_ ]?progress)\b|현재|진행\s*중/i.test(line));
+    const openTodo = mentionsTodo && (/\b(pending|remaining|still|to\s*do)\b|남아|그대로|준비|해야/i.test(line));
+    const unfinishedWork = /\b(remaining\s+work|still\s+need|not\s+(?:done|complete[sd]?))\b|남은\s*작업|아직\s+.*(?:필요|해야)|미완료/i.test(line);
+
+    if (activeTodo || openTodo || unfinishedWork) {
+      return `final message indicates active/current todo remains: ${line}`;
+    }
+  }
+
+  return undefined;
+}
+
 export function guardAssistantMessage(state: StructuralGateState, message: AssistantMessage): { message?: AssistantMessage; followUp?: string } {
   const turn = state.current;
   if (!turn?.required) return {};
-  if (turn.passed) return {};
   if (message.stopReason === "toolUse" || message.stopReason === "error" || message.stopReason === "aborted") return {};
   if (hasToolCall(message)) return {};
 
-  const reason = turn.review
-    ? `structural_gate did not pass (${turn.rejectionReason ?? "unknown reason"})`
-    : "structural_gate tool was not called";
   const text = assistantText(message);
+  const continuationReason = detectRequiredContinuationFromFinalText(text);
+  if (turn.passed && !continuationReason) return {};
+
+  const reason = turn.passed
+    ? continuationReason!
+    : turn.review
+      ? `structural_gate did not pass (${turn.rejectionReason ?? "unknown reason"})`
+      : "structural_gate tool was not called";
   const replacement: AssistantMessage = {
     ...message,
     content: [{ type: "text", text: GUARD_REPAIR_STATUS_TEXT }],
     stopReason: "stop",
   };
 
-  const followUp = turn.repairQueued ? undefined : repairPromptText(reason, text);
-  turn.repairQueued = true;
+  const key = repairAttemptKey(message, text, [reason]);
+  const followUp = queueRepairForAttempt(turn, key, turn.passed ? continuationPromptText(reason, text) : repairPromptText(reason, text));
 
   return { message: replacement, followUp };
 }
