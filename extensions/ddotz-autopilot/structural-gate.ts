@@ -233,12 +233,14 @@ function hasToolCall(message: AssistantMessage): boolean {
 
 function repairPromptText(reason: string, originalText: string): string {
   return [
-    "Internal structural_gate repair needed.",
-    "Do not show or summarize this internal gate message to the user.",
-    "Do not claim completion yet.",
+    "내부 structural_gate 보강이 필요합니다.",
+    "이 내부 gate 메시지를 사용자에게 보여주거나 요약하지 마세요.",
+    "아직 완료를 주장하지 마세요.",
+    "최종 사용자 답변은 반드시 한국어 존댓말로 작성하세요. 사용자가 다른 언어를 명시한 경우에만 그 언어를 따르세요.",
+    "원래 사용자 요청 언어와 출력 형식을 유지하고, 이전 차단/보강 과정을 언급하지 마세요.",
     `Reason: ${reason}`,
-    "Call structural_gate with the gate checks, including loopGovernance, and readyToComplete=true only if the work is actually complete; otherwise continue fixing/verifying first.",
-    originalText ? `Original blocked draft:\n${originalText}` : undefined,
+    "structural_gate를 호출해 gate checks와 loopGovernance를 기록하세요. 실제로 완료된 경우에만 readyToComplete=true를 사용하고, 아니면 먼저 수정/검증을 계속하세요.",
+    originalText ? `차단된 원래 초안:\n${originalText}` : undefined,
   ]
     .filter(Boolean)
     .join("\n\n");

@@ -91,8 +91,10 @@ describe("web research quality guardrails", () => {
     } as never);
 
     expect(result.message?.content).toEqual([{ type: "text", text: "" }]);
-    expect(result.followUp).toContain("web-analysis quality repair needed");
+    expect(result.followUp).toContain("web-analysis 품질 보강이 필요합니다");
     expect(result.followUp).toContain("missing-evidence-or-provenance");
+    expect(result.followUp).toContain("최종 사용자 답변은 반드시 한국어 존댓말로 작성하세요");
+    expect(result.followUp).toContain("원래 사용자 요청 언어와 출력 형식을 유지");
   });
 
   it("does not block default assistant messages", () => {

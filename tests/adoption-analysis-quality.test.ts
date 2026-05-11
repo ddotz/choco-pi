@@ -95,8 +95,10 @@ describe("adoption-analysis quality guardrails", () => {
     } as never);
 
     expect(result.message?.content).toEqual([{ type: "text", text: "" }]);
-    expect(result.followUp).toContain("adoption-analysis quality repair needed");
+    expect(result.followUp).toContain("adoption-analysis 품질 보강이 필요합니다");
     expect(result.followUp).toContain("missing-adoption-depth");
+    expect(result.followUp).toContain("최종 사용자 답변은 반드시 한국어 존댓말로 작성하세요");
+    expect(result.followUp).toContain("원래 사용자 요청 언어와 출력 형식을 유지");
   });
 
   it("installs a mode-scoped message_end hook that repairs low-quality adoption-analysis answers", async () => {

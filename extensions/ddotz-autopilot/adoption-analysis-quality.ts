@@ -75,12 +75,14 @@ function hasToolCall(message: AssistantMessage): boolean {
 
 function repairPrompt(quality: AdoptionAnalysisQualityResult): string {
   return [
-    "Internal adoption-analysis quality repair needed.",
-    "Do not show or summarize this internal guardrail message to the user.",
-    "Do not claim completion yet.",
+    "내부 adoption-analysis 품질 보강이 필요합니다.",
+    "이 내부 guardrail 메시지를 사용자에게 보여주거나 요약하지 마세요.",
+    "아직 완료를 주장하지 마세요.",
+    "최종 사용자 답변은 반드시 한국어 존댓말로 작성하세요. 사용자가 다른 언어를 명시한 경우에만 그 언어를 따르세요.",
+    "원래 사용자 요청 언어와 출력 형식을 유지하고, 이전 차단/보강 과정을 언급하지 마세요.",
     `Issues: ${quality.issues.join(", ")}`,
-    "Revise the final answer with Decision, Adoption depth, Fit review, Risk review, Scope, Tracking decision, and Confidence sections.",
-    "Use Confidence: High only when decision, adoption depth, fit review, risk review, scope, and tracking decision are explicit; otherwise lower confidence or report the concrete blocker.",
+    "Decision, Adoption depth, Fit review, Risk review, Scope, Tracking decision, Confidence 섹션으로 최종 답변을 다시 작성하세요.",
+    "Confidence: High는 decision, adoption depth, fit review, risk review, scope, tracking decision이 명시적일 때만 사용하세요. 아니면 confidence를 낮추거나 구체적인 blocker를 보고하세요.",
   ].join("\n\n");
 }
 

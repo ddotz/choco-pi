@@ -6,7 +6,7 @@ Personal Pi package for an autonomous PM/development-team workflow.
 
 ## Status
 
-- Current package version: `0.3.1`.
+- Current package version: `0.4.0`.
 - Implemented work modes: `default`, `web-analysis`, `adoption-analysis`.
 - Planned work modes: `coding`, `report`.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
@@ -47,6 +47,7 @@ If Pi is already running, run `/reload-runtime` after installation. Otherwise, s
   - `node_modules/pi-lsp-client/src/index.ts`
   - `extensions/focus-rendering/index.ts`
   - `extensions/raw-paste/index.ts`
+  - `extensions/btw.ts`
 - Skills: `skills/`
 - Prompt templates: `prompts/`
 
@@ -67,7 +68,8 @@ Pi runtime
   │   ├─ fff-search             # FFF-backed find/grep and @mention search
   │   ├─ pi-lsp-client          # LSP diagnostics/navigation integration
   │   ├─ focus-rendering        # focused tool-output view
-  │   └─ raw-paste              # bracketed raw paste editor mode
+  │   ├─ raw-paste              # bracketed raw paste editor mode
+  │   └─ btw                    # Korean-localized side conversation overlay
   ├─ package.json pi.skills[]   # skills/ddotz-autopilot
   └─ package.json pi.prompts[]  # prompts/autopilot.md
 ```
@@ -77,7 +79,7 @@ The core design is layered:
 1. **Policy layer**: builds the autonomous PM system prompt and runtime constraints.
 2. **Guard layer**: blocks or repairs unsafe/incomplete execution.
 3. **State layer**: persists mode, intensity, memory, ledgers, source tracking, and custom mode registry.
-4. **UI layer**: footer, todo widget, focus view, raw paste, and search/editor affordances.
+4. **UI layer**: footer, todo widget, focus view, raw paste, BTW side conversations, and search/editor affordances.
 5. **Verification layer**: tests and quality gates enforce behavior before commits.
 
 ### 2. Autopilot extension
@@ -278,6 +280,8 @@ This is a UI-only layer: it does not mutate tool results or session content. It 
 
 `extensions/raw-paste/` owns the editor component for bracketed paste. `/paste` arms raw paste mode so the next bracketed paste is inserted into the editor as visible text instead of being interpreted as keystroke commands. `/paste cancel` disarms it.
 
+`extensions/btw.ts` owns `/btw` side conversations as a local ddotz-pi feature. It is adapted from `pi-btw` under MIT license, localized for Korean respectful side-session answers, and no longer needs a separate `npm:pi-btw` package entry.
+
 `pi-lsp-client` is loaded as a package dependency and supplies LSP diagnostics/navigation tools.
 
 ### 11. Runtime reload
@@ -311,7 +315,8 @@ Pi runtime
   │   ├─ fff-search             # FFF 기반 find/grep 및 @mention 검색
   │   ├─ pi-lsp-client          # LSP diagnostics/navigation
   │   ├─ focus-rendering        # focused tool-output view
-  │   └─ raw-paste              # bracketed raw paste editor mode
+  │   ├─ raw-paste              # bracketed raw paste editor mode
+  │   └─ btw                    # Korean-localized side conversation overlay
   ├─ package.json pi.skills[]   # skills/ddotz-autopilot
   └─ package.json pi.prompts[]  # prompts/autopilot.md
 ```
@@ -321,7 +326,7 @@ Pi runtime
 1. **Policy layer**: autonomous PM system prompt와 런타임 제약을 생성합니다.
 2. **Guard layer**: 위험하거나 불완전한 실행을 차단하거나 복구합니다.
 3. **State layer**: mode, intensity, memory, ledger, source tracking, custom mode registry를 저장합니다.
-4. **UI layer**: footer, todo widget, focus view, raw paste, search/editor 편의 기능을 제공합니다.
+4. **UI layer**: footer, todo widget, focus view, raw paste, BTW side conversation, search/editor 편의 기능을 제공합니다.
 5. **Verification layer**: 테스트와 품질 게이트로 커밋 전 동작을 검증합니다.
 
 ### 2. Autopilot extension
@@ -506,6 +511,8 @@ Source registry는 실제로 채택했거나 사용자가 명시적으로 추적
 
 `extensions/raw-paste/`는 bracketed paste용 editor component를 소유합니다. `/paste`는 다음 bracketed paste를 arm해서 keystroke command가 아니라 editor text로 삽입하게 하고, `/paste cancel`은 해제합니다.
 
+`extensions/btw.ts`는 `/btw` side conversation을 ddotz-pi 로컬 기능으로 소유합니다. MIT 라이선스의 `pi-btw`에서 흡수하되 한국어 존댓말 side-session 답변에 맞게 로컬라이즈했으며, 별도 `npm:pi-btw` package entry는 필요하지 않습니다.
+
 `pi-lsp-client`는 package dependency로 로드되어 LSP diagnostics/navigation tool을 제공합니다.
 
 ### 11. Runtime reload
@@ -530,6 +537,7 @@ pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test
 - `/mode [status|list|set <mode>|add <id> <description>|remove <id>]` — manage work modes. `default`, `web-analysis`, and `adoption-analysis` are implemented modes.
 - `/intensity [micro|standard|deep|status]` — show or set process weight.
 - `/source [list|add|watch|adopt|reject|due|changed|check]` — track adopted, watched, or explicitly tracked external sources.
+- `/btw`, `/btw:new`, `/btw:tangent`, `/btw:inject`, `/btw:summarize`, `/btw:clear`, `/btw:model`, `/btw:thinking` — run Korean-localized side conversations in a focused overlay without installing `npm:pi-btw` separately.
 - `/memory [list|save <text>]` — list/save durable memories.
 - `/ledger [reset]` — show/reset the compact workspace Context Ledger.
 - `/reload-runtime` — reload extensions, skills, prompts, and themes without starting a new session. The LLM-callable `reload_runtime` tool self-submits `/reload-runtime --continue` through tmux when direct tool reload is unavailable, waits for the command acknowledgement marker, then the reloaded extension sends `continue` from `session_start(reason: "reload")`.

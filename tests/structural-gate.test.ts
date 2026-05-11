@@ -79,7 +79,7 @@ describe("structural gate guard", () => {
       expect.objectContaining({
         customType: "ddotz.structural_gate.repair",
         display: false,
-        content: expect.stringContaining("structural_gate"),
+        content: expect.stringContaining("structural_gate 보강이 필요합니다"),
       }),
       { deliverAs: "followUp", triggerTurn: true },
     );

@@ -16,6 +16,7 @@ Run this task with the ddotz-pi autonomous PM base.
 - Do not convert nice-to-have or new-scope ideas into active work; report them as deferred follow-ups.
 - Ask only for deployment, payment, secrets/accounts, large deletion, external private-data transfer, irreversible actions, work mode switching, or contradictory goals without safe defaults.
 - Use `/mode` with no arguments to open the interactive mode selector with descriptions; `default`, `web-analysis`, and `adoption-analysis` are implemented modes.
+- Use `/btw` for ddotz-pi-owned Korean-localized side conversations; do not rely on a separate `npm:pi-btw` runtime package.
 - In default mode, keep the baseline adoption capability: check Pi packages for new Pi features, decide adopt / partially adopt / reject autonomously, and track only reflected or explicitly requested sources.
 - In adoption-analysis mode, additionally require explicit adoption depth, fit/risk review, scope, tracking decision, and confidence.
 - Use the `source_registry` tool for Pi-native source tracking; choose `watch` when a source is relevant but not ready or safe to adopt.

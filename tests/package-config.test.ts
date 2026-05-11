@@ -17,8 +17,10 @@ describe("package configuration", () => {
     expect(packageJson.pi.extensions).toContain("extensions/ddotz-footer/index.ts");
     expect(packageJson.pi.extensions).toContain("extensions/focus-rendering/index.ts");
     expect(packageJson.pi.extensions).toContain("extensions/raw-paste/index.ts");
+    expect(packageJson.pi.extensions).toContain("extensions/btw.ts");
     expect(packageJson.pi.extensions).not.toContain(`node_modules/${absorbedUtilityAlias}/extensions/pi-code-previews/index.ts`);
     expect(JSON.stringify(packageJson.pi)).not.toContain("pi-code-previews");
     expect(JSON.stringify(packageJson)).not.toContain("roach-pi");
+    expect(JSON.stringify(packageJson)).not.toContain("pi-btw");
   });
 });
