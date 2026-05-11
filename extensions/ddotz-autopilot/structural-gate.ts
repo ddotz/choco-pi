@@ -2,6 +2,7 @@ import { StringEnum, Type, type AssistantMessage, type TextContent } from "@mari
 import type { ExtensionAPI, ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Container } from "@mariozechner/pi-tui";
 import type { Static } from "typebox";
+import { GUARD_REPAIR_STATUS_TEXT } from "./guard-repair-status";
 
 export const STRUCTURAL_GATE_TOOL_NAME = "structural_gate";
 export const LOOP_TRANSITION_TOOL_NAME = "loop_transition";
@@ -259,7 +260,7 @@ export function guardAssistantMessage(state: StructuralGateState, message: Assis
   const text = assistantText(message);
   const replacement: AssistantMessage = {
     ...message,
-    content: [{ type: "text", text: "" }],
+    content: [{ type: "text", text: GUARD_REPAIR_STATUS_TEXT }],
     stopReason: "stop",
   };
 

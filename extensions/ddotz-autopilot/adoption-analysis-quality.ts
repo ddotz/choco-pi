@@ -1,5 +1,6 @@
 import type { AssistantMessage, TextContent } from "@mariozechner/pi-ai";
 import { ADOPTION_DEPTHS } from "./adoption-depth";
+import { GUARD_REPAIR_STATUS_TEXT } from "./guard-repair-status";
 import type { WorkMode } from "./mode";
 
 export type AdoptionAnalysisQualityIssue =
@@ -97,7 +98,7 @@ export function guardAdoptionAnalysisQualityMessage(mode: WorkMode, message: Ass
   return {
     message: {
       ...message,
-      content: [{ type: "text", text: "" }],
+      content: [{ type: "text", text: GUARD_REPAIR_STATUS_TEXT }],
       stopReason: "stop",
     },
     followUp: repairPrompt(quality),

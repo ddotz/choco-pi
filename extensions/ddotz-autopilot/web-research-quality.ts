@@ -1,4 +1,5 @@
 import type { AssistantMessage, TextContent } from "@mariozechner/pi-ai";
+import { GUARD_REPAIR_STATUS_TEXT } from "./guard-repair-status";
 import type { WorkMode } from "./mode";
 
 export type WebResearchQualityIssue =
@@ -86,7 +87,7 @@ export function guardWebResearchQualityMessage(mode: WorkMode, message: Assistan
   return {
     message: {
       ...message,
-      content: [{ type: "text", text: "" }],
+      content: [{ type: "text", text: GUARD_REPAIR_STATUS_TEXT }],
       stopReason: "stop",
     },
     followUp: repairPrompt(quality),

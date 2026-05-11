@@ -158,7 +158,7 @@ This guard runs in the `tool_call` hook and returns `{ block: true }` with a rea
 - `loop_transition`: records that a plan/todo boundary was crossed deliberately.
 - `structural_gate`: records the final acceptance/runtime/failure/verification/loop/completion review.
 
-For non-trivial turns, the `message_end` hook checks whether the gate passed. If it did not pass, the final assistant message is replaced with a blocked response and a repair follow-up is queued. Medium confidence is treated as not complete.
+For non-trivial turns, the `message_end` hook checks whether the gate passed. If it did not pass, the final assistant message is replaced with a short visible status message and a hidden repair follow-up is queued. Medium confidence is treated as not complete.
 
 #### Loop-governance guard
 
@@ -415,7 +415,7 @@ Guard는 명시적이고, 가능한 곳에서는 fail-closed로 동작합니다.
 - `loop_transition`: plan/todo step boundary를 의도적으로 넘었다는 기록.
 - `structural_gate`: 최종 acceptance/runtime/failure/verification/loop/completion review 기록.
 
-non-trivial turn에서 gate가 통과되지 않으면 `message_end` hook이 최종 assistant message를 blocked response로 교체하고 repair follow-up을 큐에 넣습니다. `Medium` confidence는 완료 상태가 아닙니다.
+non-trivial turn에서 gate가 통과되지 않으면 `message_end` hook이 최종 assistant message를 짧은 표시용 상태 메시지로 교체하고 hidden repair follow-up을 큐에 넣습니다. `Medium` confidence는 완료 상태가 아닙니다.
 
 #### Loop-governance guard
 

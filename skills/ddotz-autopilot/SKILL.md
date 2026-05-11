@@ -73,7 +73,7 @@ Before claiming completion or asking for a routine decision, explicitly check. M
 5. **Loop governance**: every step/todo transition stayed plan-first; any new work after the current todo used new steering/new loop or was deferred.
 6. **Completion boundary**: stop only when the requested outcome is satisfied, verification passed, and no critical in-scope issue remains.
 
-The `structural_gate` tool is the non-prompt enforcement path: call it before final completion reporting on non-trivial work. A `message_end` hook checks the `structural_gate` state fail-closed; if the tool was skipped or did not pass, the final assistant message is replaced with a blocked response and a follow-up repair turn is queued.
+The `structural_gate` tool is the non-prompt enforcement path: call it before final completion reporting on non-trivial work. A `message_end` hook checks the `structural_gate` state fail-closed; if the tool was skipped or did not pass, the final assistant message is replaced with a short visible repair-status message and a hidden follow-up repair turn is queued.
 
 If this gate was skipped, acknowledge the skip, run the gate immediately, fix what it finds, and then report RED/Root cause/Fix/GREEN for any TDD or bug-fix work.
 

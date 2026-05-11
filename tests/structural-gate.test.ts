@@ -72,7 +72,8 @@ describe("structural gate guard", () => {
     const result = await emitFirst(handlers, "message_end", { type: "message_end", message: original }) as { message: AssistantMessage };
 
     const replacementText = (result.message.content[0] as { type: "text"; text: string }).text;
-    expect(replacementText).toBe("");
+    expect(replacementText).toContain("답변 검증 가드가 보강을 진행 중입니다");
+    expect(replacementText).not.toContain("structural_gate 보강");
     expect(replacementText).not.toContain("Structural gate blocked");
     expect(sendUserMessage).not.toHaveBeenCalled();
     expect(sendMessage).toHaveBeenCalledWith(
@@ -109,7 +110,7 @@ describe("structural gate guard", () => {
 
     const result = await emitFirst(handlers, "message_end", { type: "message_end", message: assistantMessage("완료했습니다.") }) as { message: AssistantMessage };
     const replacementText = (result.message.content[0] as { type: "text"; text: string }).text;
-    expect(replacementText).toBe("");
+    expect(replacementText).toContain("답변 검증 가드가 보강을 진행 중입니다");
   });
 
   it("allows a non-trivial final answer after structural_gate passes with loop governance evidence", async () => {
@@ -368,6 +369,6 @@ describe("structural gate guard", () => {
 
     const result = await emitFirst(handlers, "message_end", { type: "message_end", message: assistantMessage("통과했습니다.") }) as { message: AssistantMessage };
     const replacementText = (result.message.content[0] as { type: "text"; text: string }).text;
-    expect(replacementText).toBe("");
+    expect(replacementText).toContain("답변 검증 가드가 보강을 진행 중입니다");
   });
 });
