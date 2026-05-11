@@ -16,7 +16,7 @@ import {
 } from "./context-ledger";
 import { createActiveDogfoodCaseState, finishDogfoodCase, recordDogfoodToolCall, recordDogfoodToolResult, startDogfoodCase } from "./dogfood-collector";
 import { isoWeekId } from "./dogfood-privacy";
-import { createDogfoodStore, listDogfoodCases, readDogfoodQueue, readDogfoodWeeklyReport, writeDogfoodWeeklyReport } from "./dogfood-store";
+import { cleanupDogfoodCaseRetention, createDogfoodStore, listDogfoodCases, readDogfoodQueue, readDogfoodWeeklyReport, writeDogfoodWeeklyReport } from "./dogfood-store";
 import { buildDogfoodWeeklyReport, formatDogfoodWeeklyReport } from "./dogfood-weekly";
 import { createStoredMemory, classifyMemoryCandidate, type StoredMemory } from "./memory";
 import {
@@ -52,6 +52,7 @@ import { classifyApprovalBoundaryToolCall, formatApprovalBoundaryBlock } from ".
 import { registerRuntimeReload } from "./runtime-reload";
 import { installStructuralGate } from "./structural-gate";
 import { DDOTZ_PI_VERSION } from "./version";
+import { verificationCommandFromInput } from "./verification-command";
 import { guardWebResearchQualityMessage } from "./web-research-quality";
 import {
   addCustomWorkMode,
@@ -418,16 +419,6 @@ function toolInputPath(input: unknown): string | undefined {
   return typeof path === "string" && path.trim() ? path.trim().replace(/^@/, "") : undefined;
 }
 
-function verificationCommand(input: unknown): string | undefined {
-  const command = objectInput(input)?.command;
-  if (typeof command !== "string") return undefined;
-  const trimmed = command.trim();
-  if (!trimmed) return undefined;
-  if (/\b(pnpm|npm|yarn)\s+(run\s+)?(check|test|lint|typecheck|version:check)\b/i.test(trimmed)) return trimmed;
-  if (/\b(vitest|pytest|tsc|eslint|oxlint)\b/i.test(trimmed)) return trimmed;
-  return undefined;
-}
-
 function textContentPreview(content: unknown): string | undefined {
   if (!Array.isArray(content)) return undefined;
   const parts: string[] = [];
@@ -453,7 +444,7 @@ async function updateLedgerForToolCall(cwd: string, toolName: string, input: unk
 
 async function updateLedgerForToolResult(cwd: string, toolName: string, input: unknown, isError: boolean | undefined, content: unknown): Promise<void> {
   if (toolName !== "bash") return;
-  const command = verificationCommand(input);
+  const command = verificationCommandFromInput(input);
   if (!command) return;
   const status: VerificationStatus = isError ? "failed" : "passed";
   const state = await loadState();
@@ -483,6 +474,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   });
 
   pi.on("session_start", async (_event, ctx) => {
+    await cleanupDogfoodCaseRetention(createDogfoodStore(dogfoodRootPath()));
     const state = await loadState();
     const dueGithubSources = sourcesDueForWeeklyCheck(state.sourceRegistry)
       .filter((source) => source.kind === "github")

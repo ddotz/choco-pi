@@ -3,6 +3,7 @@ import { classifyPromptForDogfood, dogfoodHash, isoWeekId, safeProjectLabel } fr
 import { scoreDogfoodCase } from "./dogfood-scoring";
 import { appendDogfoodEvent, type DogfoodStore, writeDogfoodCase } from "./dogfood-store";
 import type { DogfoodCase } from "./dogfood-types";
+import { verificationCommandFromInput } from "./verification-command";
 
 export interface ActiveDogfoodCaseState {
   current?: DogfoodCase;
@@ -10,16 +11,6 @@ export interface ActiveDogfoodCaseState {
 
 export function createActiveDogfoodCaseState(): ActiveDogfoodCaseState {
   return {};
-}
-
-function commandFromInput(input: unknown): string | undefined {
-  const value = input && typeof input === "object" ? (input as { command?: unknown }).command : undefined;
-  return typeof value === "string" ? value.trim() : undefined;
-}
-
-function isVerificationCommand(command: string | undefined): command is string {
-  if (!command) return false;
-  return /\b(pnpm|npm|yarn)\s+(run\s+)?(check|test|lint|typecheck|version:check)\b/i.test(command) || /\b(vitest|pytest|tsc|eslint|oxlint)\b/i.test(command);
 }
 
 export async function startDogfoodCase(state: ActiveDogfoodCaseState, store: DogfoodStore, input: {
@@ -68,8 +59,8 @@ export function recordDogfoodToolResult(state: ActiveDogfoodCaseState, event: { 
   const current = state.current;
   if (!current) return;
   if (event.toolName === "bash") {
-    const command = commandFromInput(event.input);
-    if (isVerificationCommand(command)) {
+    const command = verificationCommandFromInput(event.input);
+    if (command) {
       current.verification.required = true;
       if (event.isError) current.verification.failedCommands.push(command);
       else current.verification.passedCommands.push(command);
