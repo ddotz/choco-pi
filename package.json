@@ -1,6 +1,6 @@
 {
   "name": "ddotz-pi",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "description": "Personal autonomous PM/development-team layer for the pi coding agent.",
   "keywords": [

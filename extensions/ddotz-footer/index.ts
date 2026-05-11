@@ -1,7 +1,7 @@
 import type { AssistantMessage } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth } from "@mariozechner/pi-tui";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -14,6 +14,7 @@ import {
   parseClaudeHudCacheJson,
   parseClaudeStatuslineCache,
   reduceRunState,
+  resolveFooterBranch,
   selectCodexRateLimit,
   summarizeTodosJson,
   type CodexRateLimitResponse,
@@ -28,9 +29,12 @@ import { CODEX_FAST_MODE_EVENT, parseFastModeState } from "../codex-fast-mode/co
 const CODEX_RATE_LIMIT_TTL_MS = 5 * 60 * 1000;
 const CODEX_RATE_LIMIT_TIMEOUT_MS = 8000;
 const CODEX_RETRY_FLOOR_MS = 5000;
+const GIT_BRANCH_FALLBACK_TTL_MS = 1000;
+const GIT_BRANCH_FALLBACK_TIMEOUT_MS = 250;
 const CODEX_FAST_MODE_STATE_PATH = join(homedir(), ".pi", "agent", "codex-fast-mode.json");
 const DDOTZ_STATE_PATH = join(homedir(), ".pi", "agent", "ddotz-pi", "state.json");
-const DDOTZ_PACKAGE_JSON_PATH = join(homedir(), "code", "ddotz-pi", "package.json");
+const DDOTZ_REPO_DIR = join(homedir(), "code", "ddotz-pi");
+const DDOTZ_PACKAGE_JSON_PATH = join(DDOTZ_REPO_DIR, "package.json");
 
 function readDdotzVersion(): string | undefined {
   try {
@@ -58,6 +62,31 @@ function readCodexFastModeEnabled(): boolean {
     return parseFastModeState(readFileSync(CODEX_FAST_MODE_STATE_PATH, "utf8")).state.enabled;
   } catch {
     return true;
+  }
+}
+
+export function readGitBranchFallback(cwd: string): string | null {
+  const result = spawnSync("git", ["-C", cwd, "rev-parse", "--abbrev-ref", "HEAD"], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+    timeout: GIT_BRANCH_FALLBACK_TIMEOUT_MS,
+  });
+  if (result.status !== 0) return null;
+  const branch = typeof result.stdout === "string" ? result.stdout.trim() : "";
+  return branch && branch !== "HEAD" ? branch : null;
+}
+
+class GitBranchFallbackCache {
+  private cached = new Map<string, { branch: string | null; updatedAt: number }>();
+
+  get(cwd: string): string | null {
+    const now = Date.now();
+    const hit = this.cached.get(cwd);
+    if (hit && now - hit.updatedAt < GIT_BRANCH_FALLBACK_TTL_MS) return hit.branch;
+
+    const branch = readGitBranchFallback(cwd);
+    this.cached.set(cwd, { branch, updatedAt: now });
+    return branch;
   }
 }
 
@@ -411,6 +440,7 @@ function collectFooterData(
 
 export default function ddotzFooterExtension(pi: ExtensionAPI) {
   const codexCache = new CodexRateLimitCache();
+  const gitBranchFallbackCache = new GitBranchFallbackCache();
   const renderCallbacks = new Set<() => void>();
   let codexFastModeEnabled = readCodexFastModeEnabled();
   let fastModeUnsubscribed = false;
@@ -452,7 +482,11 @@ export default function ddotzFooterExtension(pi: ExtensionAPI) {
           const baseThinkingLevel = pi.getThinkingLevel();
           const model = ctx.model as MinimalModel | undefined;
           const thinkingLabel = codexFastModeEnabled && detectProviderKind(model) === "codex" ? `${baseThinkingLevel} fast` : baseThinkingLevel;
-          const data = collectFooterData(ctx, footerData.getGitBranch(), thinkingLabel, codexCache, requestRenderAll, runState);
+          const cwd = ctx.sessionManager.getCwd() || ctx.cwd;
+          const footerBranch = footerData.getGitBranch();
+          const cwdBranch = footerBranch ? null : gitBranchFallbackCache.get(cwd);
+          const packageBranch = footerBranch || cwdBranch ? null : gitBranchFallbackCache.get(DDOTZ_REPO_DIR);
+          const data = collectFooterData(ctx, resolveFooterBranch(footerBranch, cwdBranch, packageBranch), thinkingLabel, codexCache, requestRenderAll, runState);
           return renderStyledFooterLines(data, theme, width);
         },
       };

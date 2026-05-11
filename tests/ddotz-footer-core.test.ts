@@ -9,6 +9,7 @@ import {
   parseClaudeStatuslineCache,
   selectCodexRateLimit,
   reduceRunState,
+  resolveFooterBranch,
   summarizeTodosJson,
 } from "../extensions/ddotz-footer/core";
 
@@ -54,6 +55,27 @@ describe("ddotz footer core", () => {
       "GPT-5.5 Codex | ⎇ main v0.1.2 | ~/.pi/agent | ◉ xhigh",
       "  default | 5h:1% wk:18% | ctx 0.8% | $0.01 | tools:4 | todo 1/3 | Ready",
     ]);
+  });
+
+  it("falls back to git branch data when Pi footer branch data is missing", () => {
+    const branch = resolveFooterBranch(null, null, "main");
+    const lines = buildFooterLines({
+      modelLabel: "GPT-5.5 Codex",
+      branch,
+      cwd: "~/code/ddotz-pi",
+      thinkingLevel: "xhigh",
+      appVersion: "0.1.6",
+      modeLabel: "default",
+      rateLimitText: "5h:1% wk:18%",
+      contextText: "0.8%",
+      costText: "$0.01",
+      toolCount: 4,
+      todoLabel: "0/0",
+      runStateLabel: "Ready",
+    });
+
+    expect(branch).toBe("main");
+    expect(lines[0]).toContain("⎇ main v0.1.6");
   });
 
   it("tracks Codex-style run-state transitions", () => {

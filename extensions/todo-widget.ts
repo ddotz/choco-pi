@@ -1,5 +1,6 @@
 import { StringEnum } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
+import { randomUUID } from "node:crypto";
 import { Container, matchesKey, truncateToWidth } from "@mariozechner/pi-tui";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -31,6 +32,7 @@ interface TodoDetails {
 
 const TODO_STATUSES: TodoStatus[] = ["pending", "in_progress", "done", "blocked"];
 const EMPTY_STATE: TodoState = { version: 1, nextId: 1, todos: [] };
+const stateLocks = new Map<string, Promise<void>>();
 
 const TodoParams = Type.Object({
   action: StringEnum(["list", "add", "set_status", "update", "remove", "clear"] as const),
@@ -45,6 +47,24 @@ function cloneState(state: TodoState): TodoState {
     nextId: state.nextId,
     todos: state.todos.map((todo) => ({ ...todo })),
   };
+}
+
+async function withStateLock<T>(path: string, operation: () => Promise<T>): Promise<T> {
+  const previous = stateLocks.get(path) ?? Promise.resolve();
+  let release: () => void = () => {};
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const queued = previous.catch(() => undefined).then(() => current);
+  stateLocks.set(path, queued);
+
+  await previous.catch(() => undefined);
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (stateLocks.get(path) === queued) stateLocks.delete(path);
+  }
 }
 
 function getTodoPath(cwd: string): string {
@@ -97,7 +117,7 @@ async function loadState(cwd: string): Promise<TodoState> {
 async function saveState(cwd: string, state: TodoState): Promise<void> {
   const path = getTodoPath(cwd);
   await mkdir(dirname(path), { recursive: true });
-  const tmpPath = `${path}.${process.pid}.${Date.now()}.tmp`;
+  const tmpPath = `${path}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`;
   await writeFile(tmpPath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
   await rename(tmpPath, path);
 }
@@ -335,9 +355,17 @@ export default function todoWidgetExtension(pi: ExtensionAPI) {
     return status;
   };
 
-  const toolDetails = (action: TodoAction, ctx: ExtensionContext): TodoDetails => ({
+  const withLoadedState = async <T>(ctx: ExtensionContext, operation: () => Promise<T>): Promise<T> => {
+    return withStateLock(getTodoPath(ctx.cwd), async () => {
+      await refreshState(ctx);
+      if (lastError) throw new Error(lastError);
+      return operation();
+    });
+  };
+
+  const toolDetails = (action: TodoAction, ctx: ExtensionContext, snapshot: TodoState = state): TodoDetails => ({
     action,
-    state: cloneState(state),
+    state: cloneState(snapshot),
     path: getTodoPath(ctx.cwd),
   });
 
@@ -354,45 +382,60 @@ export default function todoWidgetExtension(pi: ExtensionAPI) {
     renderShell: "self",
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      await refreshState(ctx);
-      if (lastError) throw new Error(lastError);
-
       switch (params.action) {
         case "list": {
-          const lines = state.todos.length
-            ? state.todos.map((todo) => `${statusIcon(todo.status)} #${todo.id} ${todo.text} [${todo.status}]`)
+          const snapshot = await withLoadedState(ctx, async () => cloneState(state));
+          const lines = snapshot.todos.length
+            ? snapshot.todos.map((todo) => `${statusIcon(todo.status)} #${todo.id} ${todo.text} [${todo.status}]`)
             : ["No todos"];
-          return { content: [{ type: "text", text: lines.join("\n") }], details: toolDetails("list", ctx) };
+          return { content: [{ type: "text", text: lines.join("\n") }], details: toolDetails("list", ctx, snapshot) };
         }
         case "add": {
-          const next = addTodo(state, requireText(params.text));
-          await persist(ctx, next);
-          const added = next.todos[next.todos.length - 1]!;
-          return { content: [{ type: "text", text: `Added #${added.id}: ${added.text}` }], details: toolDetails("add", ctx) };
+          const text = requireText(params.text);
+          const { added, next } = await withLoadedState(ctx, async () => {
+            const next = addTodo(state, text);
+            await persist(ctx, next);
+            return { added: next.todos[next.todos.length - 1]!, next };
+          });
+          return { content: [{ type: "text", text: `Added #${added.id}: ${added.text}` }], details: toolDetails("add", ctx, next) };
         }
         case "set_status": {
           const id = requireId(params.id);
           const status = requireStatus(params.status as TodoStatus | undefined);
-          const next = setTodoStatus(state, id, status);
-          await persist(ctx, next);
-          return { content: [{ type: "text", text: `Set #${id} to ${status}` }], details: toolDetails("set_status", ctx) };
+          const next = await withLoadedState(ctx, async () => {
+            const next = setTodoStatus(state, id, status);
+            await persist(ctx, next);
+            return next;
+          });
+          return { content: [{ type: "text", text: `Set #${id} to ${status}` }], details: toolDetails("set_status", ctx, next) };
         }
         case "update": {
           const id = requireId(params.id);
-          const next = updateTodoText(state, id, requireText(params.text));
-          await persist(ctx, next);
-          return { content: [{ type: "text", text: `Updated #${id}` }], details: toolDetails("update", ctx) };
+          const text = requireText(params.text);
+          const next = await withLoadedState(ctx, async () => {
+            const next = updateTodoText(state, id, text);
+            await persist(ctx, next);
+            return next;
+          });
+          return { content: [{ type: "text", text: `Updated #${id}` }], details: toolDetails("update", ctx, next) };
         }
         case "remove": {
           const id = requireId(params.id);
-          const next = removeTodo(state, id);
-          await persist(ctx, next);
-          return { content: [{ type: "text", text: `Removed #${id}` }], details: toolDetails("remove", ctx) };
+          const next = await withLoadedState(ctx, async () => {
+            const next = removeTodo(state, id);
+            await persist(ctx, next);
+            return next;
+          });
+          return { content: [{ type: "text", text: `Removed #${id}` }], details: toolDetails("remove", ctx, next) };
         }
         case "clear": {
-          const count = state.todos.length;
-          await persist(ctx, clearTodos());
-          return { content: [{ type: "text", text: `Cleared ${count} todos` }], details: toolDetails("clear", ctx) };
+          const { count, next } = await withLoadedState(ctx, async () => {
+            const count = state.todos.length;
+            const next = clearTodos();
+            await persist(ctx, next);
+            return { count, next };
+          });
+          return { content: [{ type: "text", text: `Cleared ${count} todos` }], details: toolDetails("clear", ctx, next) };
         }
       }
     },
@@ -430,19 +473,45 @@ export default function todoWidgetExtension(pi: ExtensionAPI) {
         try {
           if (!action || action.type === "close") return;
           if (action.type === "toggle") {
-            await persist(ctx, setTodoStatus(state, action.id, cycleStatus(findTodo(state, action.id).status)));
+            await withLoadedState(ctx, async () => {
+              const next = setTodoStatus(state, action.id, cycleStatus(findTodo(state, action.id).status));
+              await persist(ctx, next);
+              return next;
+            });
           } else if (action.type === "add") {
             const text = await ctx.ui.input("Add todo", "Describe the task");
-            if (text) await persist(ctx, addTodo(state, text));
+            if (text) {
+              await withLoadedState(ctx, async () => {
+                const next = addTodo(state, text);
+                await persist(ctx, next);
+                return next;
+              });
+            }
           } else if (action.type === "edit") {
-            const todo = findTodo(state, action.id);
+            const todo = await withLoadedState(ctx, async () => ({ ...findTodo(state, action.id) }));
             const text = await ctx.ui.input("Edit todo", todo.text);
-            if (text) await persist(ctx, updateTodoText(state, action.id, text));
+            if (text) {
+              await withLoadedState(ctx, async () => {
+                const next = updateTodoText(state, action.id, text);
+                await persist(ctx, next);
+                return next;
+              });
+            }
           } else if (action.type === "delete") {
-            await persist(ctx, removeTodo(state, action.id));
+            await withLoadedState(ctx, async () => {
+              const next = removeTodo(state, action.id);
+              await persist(ctx, next);
+              return next;
+            });
           } else if (action.type === "clear") {
             const confirmed = await ctx.ui.confirm("Clear todos", "Delete all project todos?");
-            if (confirmed) await persist(ctx, clearTodos());
+            if (confirmed) {
+              await withLoadedState(ctx, async () => {
+                const next = clearTodos();
+                await persist(ctx, next);
+                return next;
+              });
+            }
           }
         } catch (error) {
           ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
@@ -451,9 +520,19 @@ export default function todoWidgetExtension(pi: ExtensionAPI) {
     },
   });
 
-  pi.on("session_start", async (_event, ctx) => {
+  pi.on("session_start", async (event, ctx) => {
     activeContexts.add(ctx);
-    await refreshState(ctx);
+    if (event.reason === "new") {
+      try {
+        await withStateLock(getTodoPath(ctx.cwd), async () => {
+          await persist(ctx, clearTodos());
+        });
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
+      }
+    } else {
+      await refreshState(ctx);
+    }
     renderWidget(ctx);
   });
 

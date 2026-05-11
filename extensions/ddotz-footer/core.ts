@@ -247,6 +247,16 @@ export function summarizeTodosJson(content: string): TodoSummary {
   }
 }
 
+export function resolveFooterBranch(runtimeBranch: string | null | undefined, ...fallbackBranches: Array<string | null | undefined>): string | null {
+  const primary = runtimeBranch?.trim();
+  if (primary && primary !== "-") return primary;
+  for (const candidate of fallbackBranches) {
+    const fallback = candidate?.trim();
+    if (fallback && fallback !== "-") return fallback;
+  }
+  return null;
+}
+
 export function buildFooterLines(input: FooterLineInput): [string, string] {
   const branch = input.branch ? `⎇ ${input.branch}` : "⎇ -";
   const version = input.appVersion ? ` v${input.appVersion}` : "";
