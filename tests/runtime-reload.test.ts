@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -93,8 +92,8 @@ describe("runtime reload", () => {
     expect(result.details).toMatchObject({ mode: "direct", reloaded: true });
   });
 
-  it("submits reload-runtime through tmux with a real submit key and waits for command acknowledgement", async () => {
-    await withTempAgentDir(async (agentDir) => {
+  it("submits reload-runtime through tmux without run-shell status errors", async () => {
+    await withTempAgentDir(async () => {
       const previousPane = process.env.TMUX_PANE;
       process.env.TMUX_PANE = "%7";
       const exec = vi.fn().mockResolvedValue({ code: 0, stdout: "", stderr: "" });
@@ -112,33 +111,11 @@ describe("runtime reload", () => {
         );
 
         expect(setEditorText).not.toHaveBeenCalled();
-        expect(exec).toHaveBeenCalledWith(
-          "tmux",
-          [
-            "run-shell",
-            "-b",
-            expect.stringContaining("tmux send-keys -t '%7' -l '/reload-runtime --continue'"),
-          ],
-          expect.objectContaining({ timeout: 2000 }),
-        );
-        const tmuxScript = exec.mock.calls[0][1][2] as string;
-        const syntaxCheck = spawnSync("/bin/sh", ["-n"], { input: tmuxScript, encoding: "utf8" });
-        expect(syntaxCheck.status, syntaxCheck.stderr).toBe(0);
-        expect(tmuxScript).not.toContain("do;");
-        const markerPath = reloadResumeMarkerPath(agentDir);
-        expect(tmuxScript).toContain(`rm -f '${markerPath}'`);
-        expect(tmuxScript).toContain("submitted=0");
-        expect(tmuxScript).toContain("sleep 1");
-        expect(tmuxScript).toContain("tmux send-keys -t '%7' C-u");
-        expect(tmuxScript).toContain("tmux send-keys -t '%7' Escape");
-        expect(tmuxScript).toContain("tmux send-keys -t '%7' Enter");
-        expect(tmuxScript.indexOf("tmux send-keys -t '%7' -l '/reload-runtime --continue'")).toBeLessThan(tmuxScript.indexOf("tmux send-keys -t '%7' Escape"));
-        expect(tmuxScript.indexOf("tmux send-keys -t '%7' Escape")).toBeLessThan(tmuxScript.indexOf("tmux send-keys -t '%7' Enter"));
-        expect(tmuxScript).not.toContain("tmux send-keys -t '%7' C-m");
-        expect(tmuxScript).toContain(`if [ -f '${markerPath}' ]; then submitted=1; break 2; fi`);
-        expect(tmuxScript).not.toContain("capture-pane");
-        expect(tmuxScript).not.toContain("Reloaded keybindings, extensions, skills, prompts, themes");
-        expect(tmuxScript).not.toContain("tmux send-keys -t '%7' C-u 'continue'");
+        expect(exec.mock.calls.map((call) => call[1][0])).not.toContain("run-shell");
+        expect(exec).toHaveBeenNthCalledWith(1, "tmux", ["send-keys", "-t", "%7", "C-u"], expect.objectContaining({ timeout: 2000 }));
+        expect(exec).toHaveBeenNthCalledWith(2, "tmux", ["send-keys", "-t", "%7", "-l", "/reload-runtime --continue"], expect.objectContaining({ timeout: 2000 }));
+        expect(exec).toHaveBeenNthCalledWith(3, "tmux", ["send-keys", "-t", "%7", "Escape"], expect.objectContaining({ timeout: 2000 }));
+        expect(exec).toHaveBeenNthCalledWith(4, "tmux", ["send-keys", "-t", "%7", "Enter"], expect.objectContaining({ timeout: 2000 }));
         expect(sendUserMessage).not.toHaveBeenCalled();
         expect(notify).toHaveBeenCalledWith(expect.stringContaining("post-reload continue"), "info");
         expect(result.details).toMatchObject({ mode: "tmux-self-input", reloaded: false, submitted: true, resumeQueued: true });

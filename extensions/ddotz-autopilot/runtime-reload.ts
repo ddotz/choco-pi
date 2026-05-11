@@ -29,11 +29,6 @@ const RELOAD_RUNTIME_CONTINUE_ARG = "--continue";
 const RELOAD_RUNTIME_CONTINUE_COMMAND = `/${RELOAD_RUNTIME_COMMAND_NAME} ${RELOAD_RUNTIME_CONTINUE_ARG}`;
 const RELOAD_RESUME_MARKER_FILE = "reload-runtime-resume.json";
 const RELOAD_RESUME_MARKER_MAX_AGE_MS = 2 * 60 * 1000;
-const TMUX_RELOAD_RETRY_COUNT = 12;
-const TMUX_RELOAD_RETRY_DELAY_SECONDS = 5;
-const TMUX_RELOAD_CHECK_COUNT = 20;
-const TMUX_RELOAD_CHECK_DELAY_SECONDS = 1;
-const TMUX_INITIAL_SUBMIT_DELAY_SECONDS = 1;
 
 function reloadFromToolContext(ctx: ExtensionContext): (() => Promise<void>) | undefined {
   const maybeReload = (ctx as ExtensionContext & { reload?: unknown }).reload;
@@ -44,10 +39,6 @@ function tmuxPaneTarget(): string | undefined {
   const pane = process.env.TMUX_PANE?.trim();
   if (!pane || !/^%\d+$/.test(pane)) return undefined;
   return pane;
-}
-
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
 
 function agentDir(): string {
@@ -92,26 +83,18 @@ async function claimReloadResumeMarker(): Promise<boolean> {
   }
 }
 
-function tmuxDeferredReloadScript(targetPane: string): string {
-  const target = shellQuote(targetPane);
-  const reloadCommand = shellQuote(RELOAD_RUNTIME_CONTINUE_COMMAND);
-  const markerPath = shellQuote(reloadResumeMarkerPath());
-  return [
-    `rm -f ${markerPath}`,
-    "submitted=0",
-    `sleep ${TMUX_INITIAL_SUBMIT_DELAY_SECONDS}`,
-    `for attempt in $(seq 1 ${TMUX_RELOAD_RETRY_COUNT}); do`,
-    `if [ "$attempt" -gt 1 ]; then sleep ${TMUX_RELOAD_RETRY_DELAY_SECONDS}; fi`,
-    `tmux send-keys -t ${target} C-u`,
-    `tmux send-keys -t ${target} -l ${reloadCommand}`,
-    `tmux send-keys -t ${target} Escape`,
-    `tmux send-keys -t ${target} Enter`,
-    `for check_tick in $(seq 1 ${TMUX_RELOAD_CHECK_COUNT}); do`,
-    `sleep ${TMUX_RELOAD_CHECK_DELAY_SECONDS}`,
-    `if [ -f ${markerPath} ]; then submitted=1; break 2; fi`,
-    "done",
-    "done",
-  ].join("\n");
+async function sendTmuxKeys(
+  services: ReloadRuntimeServices,
+  targetPane: string,
+  keys: string[],
+  signal: AbortSignal | undefined,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const result = await services.exec("tmux", ["send-keys", "-t", targetPane, ...keys], { timeout: 2000, signal });
+  if (result.code === 0) return { ok: true };
+
+  const stderr = result.stderr?.trim();
+  const renderedKeys = keys.join(" ");
+  return { ok: false, reason: stderr || `tmux send-keys ${renderedKeys} exited ${result.code}` };
 }
 
 async function submitReloadWithTmux(
@@ -122,11 +105,14 @@ async function submitReloadWithTmux(
   if (!targetPane) return { ok: false, reason: "TMUX_PANE is not set for the Pi process." };
   if (!services?.exec) return { ok: false, reason: "ExtensionAPI.exec is unavailable." };
 
-  const result = await services.exec("tmux", ["run-shell", "-b", tmuxDeferredReloadScript(targetPane)], { timeout: 2000, signal });
-  if (result.code !== 0) {
-    const stderr = result.stderr?.trim();
-    return { ok: false, reason: stderr || `tmux run-shell exited ${result.code}` };
+  await clearReloadResumeMarker();
+
+  const submitSequence = [["C-u"], ["-l", RELOAD_RUNTIME_CONTINUE_COMMAND], ["Escape"], ["Enter"]];
+  for (const keys of submitSequence) {
+    const sent = await sendTmuxKeys(services, targetPane, keys, signal);
+    if (!sent.ok) return sent;
   }
+
   return { ok: true, targetPane };
 }
 
