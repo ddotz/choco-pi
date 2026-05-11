@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   buildFooterLines,
+  createRunStateSnapshot,
   formatModelLabel,
   formatPath,
   formatRateLimits,
   parseClaudeHudCacheJson,
   parseClaudeStatuslineCache,
   selectCodexRateLimit,
+  reduceRunState,
   summarizeTodosJson,
 } from "../extensions/ddotz-footer/core";
 
@@ -32,7 +34,7 @@ const codexResponse = {
 };
 
 describe("ddotz footer core", () => {
-  it("formats branch version and mode without a mode prefix", () => {
+  it("formats branch version, mode, and run state at the end", () => {
     const lines = buildFooterLines({
       modelLabel: "GPT-5.5 Codex",
       branch: "main",
@@ -45,12 +47,40 @@ describe("ddotz footer core", () => {
       costText: "$0.01",
       toolCount: 4,
       todoLabel: "1/3",
+      runStateLabel: "Ready",
     });
 
     expect(lines).toEqual([
       "GPT-5.5 Codex | ⎇ main v0.1.2 | ~/.pi/agent | ◉ xhigh",
-      "  default | 5h:1% wk:18% | ctx 0.8% | $0.01 | tools:4 | todo 1/3",
+      "  default | 5h:1% wk:18% | ctx 0.8% | $0.01 | tools:4 | todo 1/3 | Ready",
     ]);
+  });
+
+  it("tracks Codex-style run-state transitions", () => {
+    let state = createRunStateSnapshot();
+    expect(state.label).toBe("Starting");
+
+    state = reduceRunState(state, "session_ready");
+    expect(state).toMatchObject({ label: "Ready", activeTools: 0 });
+
+    state = reduceRunState(state, "before_agent_start");
+    expect(state).toMatchObject({ label: "Starting", activeTools: 0 });
+
+    state = reduceRunState(state, "turn_start");
+    expect(state).toMatchObject({ label: "Thinking", activeTools: 0 });
+
+    state = reduceRunState(state, "tool_execution_start");
+    state = reduceRunState(state, "tool_execution_start");
+    expect(state).toMatchObject({ label: "Working", activeTools: 2 });
+
+    state = reduceRunState(state, "tool_execution_end");
+    expect(state).toMatchObject({ label: "Working", activeTools: 1 });
+
+    state = reduceRunState(state, "tool_execution_end");
+    expect(state).toMatchObject({ label: "Thinking", activeTools: 0 });
+
+    state = reduceRunState(state, "agent_end");
+    expect(state).toMatchObject({ label: "Ready", activeTools: 0 });
   });
 
   it("keeps existing footer parsing behavior", () => {

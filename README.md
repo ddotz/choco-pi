@@ -6,7 +6,7 @@ Personal Pi package for an autonomous PM/development-team workflow.
 
 ## Status
 
-- Current package version: `0.1.4`.
+- Current package version: `0.1.5`.
 - Implemented work mode: `default` only.
 - Planned work modes: `coding`, `report`, `web-analysis`, `adoption-analysis`.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
@@ -77,7 +77,8 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 
 ## Runtime behavior
 
-- Ask only for hard approval boundaries: deployment/publishing, payment, secrets/accounts, large deletion, external private-data transfer, irreversible actions, work mode switching, or contradictory goals without safe defaults.
+- Ask only for hard approval boundaries: production deployment/package publishing, payment, secrets/accounts, large deletion, external private-data transfer, irreversible actions, work mode switching, or contradictory goals without safe defaults.
+- Commit and push autonomously after verification when the working tree contains intentional in-scope changes and a remote is configured; normal `git push` is routine source synchronization, not deployment.
 - Treat each plan/todo step as a bounded loop. Complete a step, verify fit, record `loop_transition`, then move on.
 - If new work appears after the current todo, start a new loop or defer it explicitly. Do not silently append scope.
 - Run the structural gate before final completion on non-trivial work.
@@ -91,7 +92,7 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 - Do not end replies with suggestion-led opt-in phrasing such as `원하면 ~해드릴게요`.
 - Todo tool calls render silently while the todo widget updates.
 - Read previews stay header-only while collapsed and expand on demand.
-- Footer shows `⎇ <branch> v<version>` and the current mode first on line 2.
+- Footer shows `⎇ <branch> v<version>`, and line 2 starts with the current mode and ends with Codex-style run state (`Ready`, `Starting`, `Thinking`, `Working`) after the todo count.
 - Footer usage values (`5h`, `wk`, `ctx`) highlight only numeric values in cyan.
 - Confidence labels are `High`, `Medium`, and `Low`; terminal/UI rendering should use white text on green/yellow/red backgrounds.
 - Final Markdown should use plain labels such as `Confidence: High`, not HTML badges.
@@ -121,4 +122,4 @@ The check runs:
 pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test
 ```
 
-Before a commit, inspect `git status --short --untracked-files=all` and exclude private files, generated artifacts, caches, logs, and unrelated runtime state. If a version bump is chosen, keep `package.json` and `extensions/ddotz-autopilot/version.ts` synchronized.
+Before a commit, inspect `git status --short --untracked-files=all` and exclude private files, generated artifacts, caches, logs, and unrelated runtime state. Version bumping is autonomous: no bump for tiny docs/comments/tests-only/housekeeping commits, patch for bug fixes or small runtime behavior changes, minor for meaningful new capabilities, and major for breaking behavior/config changes. If a version bump is chosen, keep `package.json` and `extensions/ddotz-autopilot/version.ts` synchronized.

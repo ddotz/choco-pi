@@ -21,7 +21,7 @@ Drive work like an autonomous PM/development team. The autonomous PM base is alw
 
 ## Ask Only For
 
-- Deployment or publishing
+- Production deployment or package publishing
 - Payment or paid API use
 - Secret, credential, or account changes
 - Large deletion or destructive migration
@@ -29,6 +29,8 @@ Drive work like an autonomous PM/development team. The autonomous PM base is alw
 - Work mode implementation/switching
 - Irreversible actions
 - Logically contradictory goals without a safe default
+
+Git commit and normal git push are autonomous routine source synchronization, not deployment. Commit and push after verification when the working tree contains intentional in-scope changes and a remote is configured.
 
 ## Work Modes
 
@@ -88,4 +90,4 @@ Use the external `insane-search` skill for blocked/WAF-protected sites and platf
 
 ## Commit and Quality Gate
 
-Before committing, inspect all changed/untracked files and exclude unnecessary development analysis files, Superpowers runtime artifacts, private/personal files, secrets, generated output, caches, logs, and unneeded dotfiles. Run version sync before lint/typecheck/test after code changes. Do not bump versions for every commit; choose no bump/patch/minor/major autonomously based on change magnitude. If a version bump is chosen, update all corresponding version-bearing areas in the same commit.
+Before committing, inspect all changed/untracked files and exclude unnecessary development analysis files, Superpowers runtime artifacts, private/personal files, secrets, generated output, caches, logs, and unneeded dotfiles. Run version sync before lint/typecheck/test after code changes. Do not bump versions for every commit; choose no bump/patch/minor/major autonomously based on change magnitude. Leave the version unchanged for tiny docs, comments, tests-only, or housekeeping commits; use patch for bug fixes and small runtime behavior changes, minor for meaningful new capabilities, and major for breaking behavior/config changes. If a version bump is chosen, update all corresponding version-bearing areas in the same commit. Commit and push autonomously after verification when a remote is configured; do not treat normal git push as deployment.

@@ -1,0 +1,2 @@
+patchedDependencies:
+  pi-lsp-client@0.1.0: patches/pi-lsp-client@0.1.0.patch

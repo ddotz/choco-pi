@@ -85,7 +85,7 @@ function decision(kind: ApprovalBoundaryKind, reason: string): ApprovalBoundaryD
 export function classifyApprovalBoundaryToolCall(toolName: string, input: unknown): ApprovalBoundaryDecision | undefined {
   const command = normalizedCommand(input);
   if (toolName === "bash" && command) {
-    if (matchAny(command, DEPLOYMENT_PATTERNS)) return decision("deployment", "Deployment or publishing requires explicit user approval.");
+    if (matchAny(command, DEPLOYMENT_PATTERNS)) return decision("deployment", "Production deployment or package publishing requires explicit user approval.");
     if (matchAny(command, PAYMENT_PATTERNS)) return decision("payment", "Payment or billing actions require explicit user approval.");
     if (matchAny(command, SECRET_OR_ACCOUNT_COMMAND_PATTERNS)) return decision("secret-or-account", "Secret or account changes require explicit user approval.");
     if (matchAny(command, LARGE_DELETE_PATTERNS)) return decision("large-delete", "Large or destructive deletion requires explicit user approval.");

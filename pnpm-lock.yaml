@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  pi-lsp-client@0.1.0:
+    hash: 826905a882daec86b865705ae136b1fbbd108a2099b196626810168605bded44
+    path: patches/pi-lsp-client@0.1.0.patch
+
 importers:
 
   .:
@@ -28,7 +33,7 @@ importers:
         version: 9.0.0
       pi-lsp-client:
         specifier: github:code-yeongyu/pi-lsp-client
-        version: https://codeload.github.com/code-yeongyu/pi-lsp-client/tar.gz/b94bbd05275916f623983a55d311308f6ac64193(@earendil-works/pi-ai@0.74.0(ws@8.20.0)(zod@4.4.3))(@earendil-works/pi-coding-agent@0.74.0(ws@8.20.0)(zod@4.4.3))(@earendil-works/pi-tui@0.74.0)(typebox@1.1.38)
+        version: https://codeload.github.com/code-yeongyu/pi-lsp-client/tar.gz/b94bbd05275916f623983a55d311308f6ac64193(patch_hash=826905a882daec86b865705ae136b1fbbd108a2099b196626810168605bded44)(@earendil-works/pi-ai@0.74.0(ws@8.20.0)(zod@4.4.3))(@earendil-works/pi-coding-agent@0.74.0(ws@8.20.0)(zod@4.4.3))(@earendil-works/pi-tui@0.74.0)(typebox@1.1.38)
       shiki:
         specifier: ^4.0.2
         version: 4.0.2
@@ -3718,7 +3723,7 @@ snapshots:
 
   pend@1.2.0: {}
 
-  pi-lsp-client@https://codeload.github.com/code-yeongyu/pi-lsp-client/tar.gz/b94bbd05275916f623983a55d311308f6ac64193(@earendil-works/pi-ai@0.74.0(ws@8.20.0)(zod@4.4.3))(@earendil-works/pi-coding-agent@0.74.0(ws@8.20.0)(zod@4.4.3))(@earendil-works/pi-tui@0.74.0)(typebox@1.1.38):
+  pi-lsp-client@https://codeload.github.com/code-yeongyu/pi-lsp-client/tar.gz/b94bbd05275916f623983a55d311308f6ac64193(patch_hash=826905a882daec86b865705ae136b1fbbd108a2099b196626810168605bded44)(@earendil-works/pi-ai@0.74.0(ws@8.20.0)(zod@4.4.3))(@earendil-works/pi-coding-agent@0.74.0(ws@8.20.0)(zod@4.4.3))(@earendil-works/pi-tui@0.74.0)(typebox@1.1.38):
     dependencies:
       '@mariozechner/pi-ai': '@earendil-works/pi-ai@0.74.0(ws@8.20.0)(zod@4.4.3)'
       '@mariozechner/pi-coding-agent': '@earendil-works/pi-coding-agent@0.74.0(ws@8.20.0)(zod@4.4.3)'

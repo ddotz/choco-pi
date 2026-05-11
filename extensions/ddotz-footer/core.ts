@@ -35,6 +35,51 @@ export interface TodoSummary {
   error?: string;
 }
 
+export type RunStateLabel = "Starting" | "Ready" | "Thinking" | "Working";
+
+export type RunStateTransition =
+  | "session_start"
+  | "session_ready"
+  | "before_agent_start"
+  | "agent_start"
+  | "turn_start"
+  | "tool_execution_start"
+  | "tool_execution_end"
+  | "agent_end"
+  | "turn_aborted"
+  | "session_shutdown";
+
+export interface RunStateSnapshot {
+  label: RunStateLabel;
+  activeTools: number;
+}
+
+export function createRunStateSnapshot(label: RunStateLabel = "Starting"): RunStateSnapshot {
+  return { label, activeTools: 0 };
+}
+
+export function reduceRunState(snapshot: RunStateSnapshot, transition: RunStateTransition): RunStateSnapshot {
+  switch (transition) {
+    case "session_start":
+    case "before_agent_start":
+      return { label: "Starting", activeTools: 0 };
+    case "session_ready":
+    case "agent_end":
+    case "turn_aborted":
+    case "session_shutdown":
+      return { label: "Ready", activeTools: 0 };
+    case "agent_start":
+    case "turn_start":
+      return { label: "Thinking", activeTools: 0 };
+    case "tool_execution_start":
+      return { label: "Working", activeTools: snapshot.activeTools + 1 };
+    case "tool_execution_end": {
+      const activeTools = Math.max(0, snapshot.activeTools - 1);
+      return { label: activeTools > 0 ? "Working" : "Thinking", activeTools };
+    }
+  }
+}
+
 export interface FooterLineInput {
   modelLabel: string;
   branch?: string | null;
@@ -47,6 +92,7 @@ export interface FooterLineInput {
   costText: string;
   toolCount: number;
   todoLabel: string;
+  runStateLabel: RunStateLabel;
 }
 
 function lower(value: unknown): string {
@@ -206,6 +252,6 @@ export function buildFooterLines(input: FooterLineInput): [string, string] {
   const version = input.appVersion ? ` v${input.appVersion}` : "";
   const mode = input.modeLabel ?? "-";
   const line1 = `${input.modelLabel} | ${branch}${version} | ${input.cwd} | ◉ ${input.thinkingLevel}`;
-  const line2 = `  ${mode} | ${input.rateLimitText} | ctx ${input.contextText} | ${input.costText} | tools:${input.toolCount} | todo ${input.todoLabel}`;
+  const line2 = `  ${mode} | ${input.rateLimitText} | ctx ${input.contextText} | ${input.costText} | tools:${input.toolCount} | todo ${input.todoLabel} | ${input.runStateLabel}`;
   return [line1, line2];
 }

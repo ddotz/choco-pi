@@ -6,18 +6,22 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
+  createRunStateSnapshot,
   detectProviderKind,
   formatModelLabel,
   formatPath,
   formatRateLimits,
   parseClaudeHudCacheJson,
   parseClaudeStatuslineCache,
+  reduceRunState,
   selectCodexRateLimit,
   summarizeTodosJson,
   type CodexRateLimitResponse,
   type MinimalModel,
   type ProviderKind,
   type RateLimitSnapshot,
+  type RunStateSnapshot,
+  type RunStateTransition,
 } from "./core.ts";
 import { CODEX_FAST_MODE_EVENT, parseFastModeState } from "../codex-fast-mode/core.ts";
 
@@ -78,6 +82,7 @@ interface FooterRenderData {
   todoError?: string;
   appVersion: string | undefined;
   modeLabel: string;
+  runStateLabel: string;
 }
 
 function uniqueStrings(values: Array<string | undefined>): string[] {
@@ -326,6 +331,21 @@ function colorContext(theme: Theme, _percent: number | null, text: string): stri
   return theme.fg("muted", "ctx ") + cyan(theme, text);
 }
 
+function colorRunState(theme: Theme, runStateLabel: string): string {
+  switch (runStateLabel) {
+    case "Ready":
+      return theme.fg("success", runStateLabel);
+    case "Working":
+      return theme.fg("warning", runStateLabel);
+    case "Thinking":
+      return theme.fg("accent", runStateLabel);
+    case "Starting":
+      return theme.fg("mdLink", runStateLabel);
+    default:
+      return theme.fg("muted", runStateLabel);
+  }
+}
+
 function renderStyledFooterLines(data: FooterRenderData, theme: Theme, width: number): string[] {
   const separator = theme.fg("dim", " | ");
   const model = colorByProvider(theme, data.providerKind, theme.bold(data.modelLabel));
@@ -341,7 +361,8 @@ function renderStyledFooterLines(data: FooterRenderData, theme: Theme, width: nu
   const cost = theme.fg("muted", data.costText);
   const tools = theme.fg("muted", `tools:${data.toolCount}`);
   const todo = data.todoError ? theme.fg("warning", `todo ${data.todoLabel}`) : theme.fg("muted", `todo ${data.todoLabel}`);
-  const line2 = theme.fg("dim", `  ${data.modeLabel}`) + separator + rate + separator + context + separator + cost + separator + tools + separator + todo;
+  const runState = colorRunState(theme, data.runStateLabel);
+  const line2 = theme.fg("dim", `  ${data.modeLabel}`) + separator + rate + separator + context + separator + cost + separator + tools + separator + todo + separator + runState;
 
   return [truncateToWidth(line1, width), truncateToWidth(line2, width)];
 }
@@ -352,6 +373,7 @@ function collectFooterData(
   thinkingLevel: string,
   codexCache: CodexRateLimitCache,
   requestRender: () => void,
+  runState: RunStateSnapshot,
 ): FooterRenderData {
   const model = ctx.model as MinimalModel | undefined;
   const providerKind = detectProviderKind(model);
@@ -383,6 +405,7 @@ function collectFooterData(
     todoError: todo.error,
     appVersion: readDdotzVersion(),
     modeLabel: readDdotzModeLabel(),
+    runStateLabel: runState.label,
   };
 }
 
@@ -391,9 +414,15 @@ export default function ddotzFooterExtension(pi: ExtensionAPI) {
   const renderCallbacks = new Set<() => void>();
   let codexFastModeEnabled = readCodexFastModeEnabled();
   let fastModeUnsubscribed = false;
+  let runState = createRunStateSnapshot();
 
   const requestRenderAll = (): void => {
     for (const callback of renderCallbacks) callback();
+  };
+
+  const setRunState = (transition: RunStateTransition): void => {
+    runState = reduceRunState(runState, transition);
+    requestRenderAll();
   };
 
   const unsubscribeFastMode = pi.events.on(CODEX_FAST_MODE_EVENT, (data) => {
@@ -423,7 +452,7 @@ export default function ddotzFooterExtension(pi: ExtensionAPI) {
           const baseThinkingLevel = pi.getThinkingLevel();
           const model = ctx.model as MinimalModel | undefined;
           const thinkingLabel = codexFastModeEnabled && detectProviderKind(model) === "codex" ? `${baseThinkingLevel} fast` : baseThinkingLevel;
-          const data = collectFooterData(ctx, footerData.getGitBranch(), thinkingLabel, codexCache, requestRenderAll);
+          const data = collectFooterData(ctx, footerData.getGitBranch(), thinkingLabel, codexCache, requestRenderAll, runState);
           return renderStyledFooterLines(data, theme, width);
         },
       };
@@ -431,7 +460,9 @@ export default function ddotzFooterExtension(pi: ExtensionAPI) {
   };
 
   pi.on("session_start", (_event, ctx) => {
+    setRunState("session_start");
     installFooter(ctx);
+    queueMicrotask(() => setRunState("session_ready"));
   });
 
   pi.on("session_shutdown", (_event, ctx) => {
@@ -439,11 +470,17 @@ export default function ddotzFooterExtension(pi: ExtensionAPI) {
       unsubscribeFastMode();
       fastModeUnsubscribed = true;
     }
+    setRunState("session_shutdown");
     if (ctx.hasUI) ctx.ui.setFooter(undefined);
   });
 
   pi.on("model_select", () => requestRenderAll());
   pi.on("thinking_level_select", () => requestRenderAll());
+  pi.on("before_agent_start", () => setRunState("before_agent_start"));
+  pi.on("agent_start", () => setRunState("agent_start"));
+  pi.on("turn_start", () => setRunState("turn_start"));
+  pi.on("tool_execution_start", () => setRunState("tool_execution_start"));
+  pi.on("tool_execution_end", () => setRunState("tool_execution_end"));
+  pi.on("agent_end", () => setRunState("agent_end"));
   pi.on("turn_end", () => requestRenderAll());
-  pi.on("tool_execution_end", () => requestRenderAll());
 }

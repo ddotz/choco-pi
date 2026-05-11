@@ -103,6 +103,8 @@ describe("ddotz autonomous PM policy", () => {
     expect(prompt).toContain("External Source Tracking");
     expect(prompt).toContain("adopt, partially adopt, or reject");
     expect(prompt).toContain("Do not ask for routine external adoption decisions");
+    expect(prompt).toContain("Commit and push autonomously");
+    expect(prompt).toContain("Do not treat git push as deployment");
     expect(prompt).not.toContain("Mode: autopilot");
   });
 });

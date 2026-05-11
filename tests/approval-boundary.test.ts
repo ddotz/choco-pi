@@ -31,8 +31,9 @@ async function emitToolCall(handlers: Map<string, EventHandler[]>, toolName: str
 }
 
 describe("approval boundary runtime gate", () => {
-  it("allows routine local verification commands", () => {
+  it("allows routine local verification and source sync commands", () => {
     expect(classifyApprovalBoundaryToolCall("bash", { command: "pnpm run test" })).toBeUndefined();
+    expect(classifyApprovalBoundaryToolCall("bash", { command: "git push origin main" })).toBeUndefined();
   });
 
   it("blocks deployment and publishing commands", () => {

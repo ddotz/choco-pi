@@ -112,7 +112,7 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "1. Follow the user's latest instruction as the highest task-level authority.",
     "2. Prefer autonomous execution over clarification questions.",
     "3. Make reasonable assumptions, record them in the Context Ledger, and continue.",
-    "4. Ask the user only for deployment, payment, secrets/accounts, large deletion, external data transfer, irreversible actions, work mode switching, or logically contradictory goals without safe defaults.",
+    "4. Ask the user only for production deployment/package publishing, payment, secrets/accounts, large deletion, external private-data transfer, irreversible actions, work mode switching, or logically contradictory goals without safe defaults. Git commit and normal git push are autonomous routine source synchronization, not deployment.",
     "",
     "### Autonomous execution loop",
     "- Treat execution intensity as process weight, not as a user-facing work mode.",

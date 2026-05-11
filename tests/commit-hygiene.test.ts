@@ -53,4 +53,15 @@ describe("commit hygiene", () => {
       "pnpm run test",
     ]);
   });
+
+  it("documents autonomous commit, push, and version-bump judgment", async () => {
+    const { buildCommitHygieneGuidance } = await import("../extensions/ddotz-autopilot/commit-hygiene");
+
+    const guidance = buildCommitHygieneGuidance();
+
+    expect(guidance).toContain("Commit and push autonomously");
+    expect(guidance).toContain("Do not treat git push as deployment");
+    expect(guidance).toContain("no bump");
+    expect(guidance).toContain("patch/minor/major");
+  });
 });

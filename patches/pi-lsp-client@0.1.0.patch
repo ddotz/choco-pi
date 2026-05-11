@@ -1,0 +1,25 @@
+diff --git a/src/lsp/transport.ts b/src/lsp/transport.ts
+index 21aac5efc8dd6aa8143a8ff260d71a9f32c3792e..c2fd13d4e003c25dfbd7cdacb44429c2814fb036 100644
+--- a/src/lsp/transport.ts
++++ b/src/lsp/transport.ts
+@@ -156,7 +156,19 @@ export class LspClientTransport {
+ 	protected sendNotification(method: string, ...args: [] | [unknown]): void {
+ 		if (!this.connection) return;
+ 		if (this.processExited || (this.proc && this.proc.exitCode !== null)) return;
+-		(this.connection.sendNotification as (...a: unknown[]) => void)(method, ...args);
++
++		try {
++			// vscode-jsonrpc sendNotification is async; ignoring this promise lets EPIPE
++			// during reload/shutdown escape as an unhandled rejection and crash Pi.
++			const result = (this.connection.sendNotification as (...a: unknown[]) => void | Promise<void>)(method, ...args);
++			if (result && typeof result.catch === "function") {
++				void result.catch(() => {
++					this.processExited = true;
++				});
++			}
++		} catch {
++			this.processExited = true;
++		}
+ 	}
+ 
+ 	isAlive(): boolean {
