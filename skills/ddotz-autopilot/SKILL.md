@@ -49,6 +49,7 @@ Use `/mode` as the canonical work-mode command. Run `/mode` with no arguments to
 - New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.
 - No mode may change default or any other mode as a side effect; shared changes belong in `modes/_base/MODE.md` only when they are mode-agnostic.
 - Mode folders use `modes/_base/MODE.md` for shared philosophy and `modes/<mode-id>/MODE.md` for mode-specific overlays. Custom runtime modes are registered by `/mode add` under `~/.pi/agent/ddotz-pi/modes/<mode-id>/MODE.md`.
+- Before writable parallel development, create a collision-avoidance ownership map first: one writable owner per file/domain, shared files serialized, dependencies ordered, and a worktree per lane when practical.
 - Prefer isolated git worktrees for parallel/multi-session work. Todo and ledger state are session-scoped by default; use project-shared todos only when explicitly needed.
 
 ## Execution Intensity

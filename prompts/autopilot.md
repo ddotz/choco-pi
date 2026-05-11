@@ -25,6 +25,7 @@ Run this task with the ddotz-pi autonomous PM base.
 - Mode isolation is mandatory for every work mode, including future planned and custom modes.
 - New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.
 - No mode may change default or any other mode as a side effect; shared changes belong in `modes/_base/MODE.md` only when they are mode-agnostic.
+- Before writable parallel development, create a collision-avoidance ownership map first: one writable owner per file/domain, shared files serialized, dependencies ordered, and a worktree per lane when practical.
 - Prefer isolated git worktrees for parallel/multi-session work; todos and ledgers are session-scoped by default, with project-shared todos only when explicitly needed.
 - Use external insane-search for blocked/WAF-protected web access and supported platforms; do not reimplement it.
 - For external ideas/code, decide adopt / partially adopt / reject autonomously against the concise autonomous PM/development goal; proceed when safe and report the decision.

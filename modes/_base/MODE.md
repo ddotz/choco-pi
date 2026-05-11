@@ -17,6 +17,7 @@ Shared philosophy for every ddotz-pi work mode.
 - New work discovered after the current todo must start from a new plan through new steering/new loop, or be explicitly deferred.
 - Verify before claiming completion.
 - For major tasks, after verification passes, run a small in-scope technical-debt cleanup pass and re-run verification before final reporting. The agent decides whether a task is major.
+- Before writable parallel development, create a collision-avoidance ownership map first: one writable owner per file/domain, shared files serialized, dependencies ordered, and a worktree per lane when practical.
 - Prefer isolated git worktrees for parallel/multi-session work. Todo and ledger state are session-scoped by default; use project-shared todos only when explicitly needed.
 - Final reports stay concise and sectioned.
 - Confidence labels use high-contrast badges: High = green background, Medium = yellow background, Low = red background, all with white text where possible.

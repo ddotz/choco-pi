@@ -31,6 +31,7 @@ import {
   type RuntimeState,
   type WorkMode,
 } from "./mode";
+import { registerParallelWorkPlanTool } from "./parallel-work-plan-tool";
 import { buildAutopilotSystemPrompt, classifyExecutionIntensity } from "./policy";
 import {
   createExternalSource,
@@ -481,6 +482,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   installStructuralGate(pi);
   registerRuntimeReload(pi);
   registerSourceRegistryTool(pi);
+  registerParallelWorkPlanTool(pi);
   const dogfoodCases = createActiveDogfoodCaseState();
 
   pi.on("tool_call", async (event, ctx) => {

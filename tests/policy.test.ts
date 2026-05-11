@@ -85,6 +85,20 @@ describe("ddotz autonomous PM policy", () => {
     expect(prompt).toContain("loop_transition");
   });
 
+  it("requires collision-resistant area partitioning before writable parallel development", () => {
+    const prompt = buildAutopilotSystemPrompt({
+      workMode: "default",
+      executionIntensity: "standard",
+      cwd: "/repo",
+    });
+
+    expect(prompt).toContain("Parallel development collision avoidance");
+    expect(prompt).toContain("parallel_work_plan");
+    expect(prompt).toContain("one writable owner per file/domain");
+    expect(prompt).toContain("serialize shared files");
+    expect(prompt).toContain("worktree per lane");
+  });
+
   it("injects autonomous base, default-only work mode, concise response, folded details, confidence, context, memory, and source tracking", () => {
     const prompt = buildAutopilotSystemPrompt({
       workMode: "default",
