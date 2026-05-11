@@ -24,12 +24,19 @@ if (!currentPackageJson) {
   process.exit(1);
 }
 
+const currentReadme = read(join(cwd, "README.md"));
+if (!currentReadme) {
+  console.error("README.md not found");
+  process.exit(1);
+}
+
 const result = analyzeVersionSync({
   currentPackageJson,
   headPackageJson: gitShow("package.json"),
   currentLockfile: read(join(cwd, "pnpm-lock.yaml")),
   headLockfile: gitShow("pnpm-lock.yaml"),
   currentPluginVersion: DDOTZ_PI_VERSION,
+  currentReadme,
 });
 
 if (!result.ok) {

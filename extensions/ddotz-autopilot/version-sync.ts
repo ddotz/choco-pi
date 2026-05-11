@@ -4,6 +4,7 @@ export interface VersionSyncInput {
   currentLockfile?: string;
   headLockfile?: string;
   currentPluginVersion: string;
+  currentReadme?: string;
 }
 
 export interface VersionSyncResult {
@@ -34,6 +35,10 @@ function stableDependencyMetadata(pkg: PackageJsonLike): string {
   });
 }
 
+function readmePackageVersion(readme: string): string | undefined {
+  return readme.match(/Current package version:\s*`([^`]+)`/)?.[1];
+}
+
 export function analyzeVersionSync(input: VersionSyncInput): VersionSyncResult {
   const issues: string[] = [];
   const currentPackage = parsePackageJson(input.currentPackageJson);
@@ -45,6 +50,15 @@ export function analyzeVersionSync(input: VersionSyncInput): VersionSyncResult {
 
   if (currentPackageVersion && currentPackageVersion !== input.currentPluginVersion) {
     issues.push("package.json version and plugin version constant differ");
+  }
+
+  if (input.currentReadme !== undefined && currentPackageVersion) {
+    const currentReadmeVersion = readmePackageVersion(input.currentReadme);
+    if (!currentReadmeVersion) {
+      issues.push("README current package version line is missing");
+    } else if (currentReadmeVersion !== currentPackageVersion) {
+      issues.push("README current package version does not match package.json version");
+    }
   }
 
   if (input.headPackageJson) {

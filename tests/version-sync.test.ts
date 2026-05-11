@@ -5,9 +5,17 @@ import { DDOTZ_PI_VERSION } from "../extensions/ddotz-autopilot/version";
 import { analyzeVersionSync } from "../extensions/ddotz-autopilot/version-sync";
 
 describe("version sync", () => {
-  it("keeps the package version and plugin version constant identical", () => {
-    const packageJson = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as { version: string };
+  it("keeps package, plugin, and README current package versions identical", () => {
+    const currentPackageJson = readFileSync(join(process.cwd(), "package.json"), "utf8");
+    const packageJson = JSON.parse(currentPackageJson) as { version: string };
     expect(DDOTZ_PI_VERSION).toBe(packageJson.version);
+
+    const result = analyzeVersionSync({
+      currentPackageJson,
+      currentPluginVersion: DDOTZ_PI_VERSION,
+      currentReadme: readFileSync(join(process.cwd(), "README.md"), "utf8"),
+    });
+    expect(result.ok).toBe(true);
   });
 
   it("allows package metadata changes without forcing a version bump", () => {
@@ -33,6 +41,20 @@ describe("version sync", () => {
 
     expect(result.ok).toBe(false);
     expect(result.issues).toContain("package.json version and plugin version constant differ");
+  });
+
+  it("fails when README current package version is stale after a version bump", () => {
+    const result = analyzeVersionSync({
+      currentPackageJson: JSON.stringify({ version: "0.1.1" }),
+      headPackageJson: JSON.stringify({ version: "0.1.0" }),
+      currentLockfile: "lock-a",
+      headLockfile: "lock-a",
+      currentPluginVersion: "0.1.1",
+      currentReadme: "# ddotz-pi\n\n- Current package version: `0.1.0`.\n",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toContain("README current package version does not match package.json version");
   });
 
   it("fails when dependency metadata changes without lockfile sync", () => {
