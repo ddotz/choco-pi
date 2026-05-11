@@ -238,6 +238,42 @@ describe("structural gate guard", () => {
     expect(sendMessage).not.toHaveBeenCalled();
   });
 
+  it("does not reopen the loop when a final answer describes active/current todo detection rules", async () => {
+    const { handlers, tools, sendMessage } = setupAutopilot();
+    await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "guard 보강 결과를 보고해", systemPrompt: "base", systemPromptOptions: {} });
+
+    await tools.get("structural_gate")!.execute(
+      "gate-1",
+      {
+        acceptanceFit: "The guard hardening work was reported.",
+        runtimeFit: "Runtime reload and tests were observed.",
+        failureModes: "Descriptions of detection rules should not be treated as live active todos.",
+        verificationEvidence: "pnpm run check passed.",
+        loopGovernance: "All todos were completed before final reporting.",
+        completionBoundary: "Safe to stop after reporting the completed guard hardening.",
+        confidence: "High",
+        readyToComplete: true,
+      },
+      undefined,
+      undefined,
+      { cwd: "/repo" },
+    );
+
+    const result = await emitFirst(handlers, "message_end", {
+      type: "message_end",
+      message: assistantMessage([
+        "## Fix",
+        "- active/current todo 감지는 상태 주장 라인으로 제한했습니다.",
+        "- 설명 문장 오탐과 내부 프롬프트 노출을 막았습니다.",
+        "## Confidence",
+        "High",
+      ].join("\n")),
+    });
+
+    expect(result).toBeUndefined();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
   it("does not reopen the loop for explicitly deferred pending todos after the gate passes", async () => {
     const { handlers, tools, sendMessage } = setupAutopilot();
     await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "todo 보류 상태를 보고해", systemPrompt: "base", systemPromptOptions: {} });

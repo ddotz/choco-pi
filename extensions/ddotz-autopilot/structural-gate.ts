@@ -272,7 +272,8 @@ function isCompletedOrEmptyActiveLine(line: string): boolean {
 }
 
 function isStatusAssertionLine(line: string): boolean {
-  return /^(현재|진행\s*중|active|current|in[-_ ]?progress|pending|remaining|still|todo|todos?|할\s*일|남은\s*작업|아직|미완료|#\d)/i.test(line);
+  return /^(현재|진행\s*중|pending|remaining|still|todo|todos?|할\s*일|남은\s*작업|아직|미완료|#\d)/i.test(line)
+    || /^(?:active\/current|active|current|in[-_ ]?progress)\s+todos?\b\s*(?::|=|-|\b(?:is|are|remain|remains|still|pending|open|left)\b)/i.test(line);
 }
 
 export function detectRequiredContinuationFromFinalText(text: string): string | undefined {
