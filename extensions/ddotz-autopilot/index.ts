@@ -1,4 +1,4 @@
-import { StringEnum } from "@mariozechner/pi-ai";
+import { StringEnum, type AssistantMessage } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -51,6 +51,8 @@ import {
 import { guardAdoptionAnalysisQualityMessage, type AdoptionAnalysisRepairState } from "./adoption-analysis-quality";
 import { classifyApprovalBoundaryToolCall, formatApprovalBoundaryBlock } from "./approval-boundary";
 import { guardCodingQualityMessage, type CodingRepairState } from "./coding-quality";
+import { runGuardPipeline } from "./guard-orchestrator";
+import { guardReportQualityMessage, type ReportRepairState } from "./report-quality";
 import { registerRuntimeReload } from "./runtime-reload";
 import { resolveEffectiveWorkMode, sessionIdFromContext, sessionScopedKey } from "./session-scope";
 import { installStructuralGate } from "./structural-gate";
@@ -91,6 +93,7 @@ const STATE_VERSION = 3 as const;
 const WEB_REPAIR_PROMPT_MARKER = "내부 web-analysis 품질 보강이 필요합니다.";
 const ADOPTION_REPAIR_PROMPT_MARKER = "내부 adoption-analysis 품질 보강이 필요합니다.";
 const CODING_REPAIR_PROMPT_MARKER = "내부 coding 품질 보강이 필요합니다.";
+const REPORT_REPAIR_PROMPT_MARKER = "내부 report 품질 보강이 필요합니다.";
 
 function repairStateFor<T extends { repairQueued: boolean }>(states: Map<string, T>, sessionId: string): T {
   const existing = states.get(sessionId);
@@ -499,6 +502,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   const webRepairStates = new Map<string, WebResearchRepairState>();
   const adoptionRepairStates = new Map<string, AdoptionAnalysisRepairState>();
   const codingRepairStates = new Map<string, CodingRepairState>();
+  const reportRepairStates = new Map<string, ReportRepairState>();
 
   pi.on("tool_call", async (event, ctx) => {
     const decision = classifyApprovalBoundaryToolCall(event.toolName, event.input);
@@ -538,6 +542,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     webRepairStates.delete(sessionId);
     adoptionRepairStates.delete(sessionId);
     codingRepairStates.delete(sessionId);
+    reportRepairStates.delete(sessionId);
     if (ctx.hasUI) ctx.ui.setStatus("mode", undefined);
   });
 
@@ -549,6 +554,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     if (!prompt.includes(WEB_REPAIR_PROMPT_MARKER)) repairStateFor(webRepairStates, sessionId).repairQueued = false;
     if (!prompt.includes(ADOPTION_REPAIR_PROMPT_MARKER)) repairStateFor(adoptionRepairStates, sessionId).repairQueued = false;
     if (!prompt.includes(CODING_REPAIR_PROMPT_MARKER)) repairStateFor(codingRepairStates, sessionId).repairQueued = false;
+    if (!prompt.includes(REPORT_REPAIR_PROMPT_MARKER)) repairStateFor(reportRepairStates, sessionId).repairQueued = false;
     const suggestedWorkMode = inferPlannedWorkMode(prompt);
     const modeDecision = resolveEffectiveWorkMode({
       persistentMode: state.runtime.workMode,
@@ -598,54 +604,46 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
 
   pi.on("message_end", async (event, ctx) => {
     if (event.message.role !== "assistant") return undefined;
-    if (event.message.stopReason !== "toolUse" && event.message.stopReason !== "error" && event.message.stopReason !== "aborted") {
+    const assistantMessage = event.message as AssistantMessage;
+    if (assistantMessage.stopReason !== "toolUse" && assistantMessage.stopReason !== "error" && assistantMessage.stopReason !== "aborted") {
       await finishDogfoodCase(dogfoodCases, createDogfoodStore(dogfoodRootPath()));
     }
     const state = await loadState();
     const sessionId = sessionIdFromContext(ctx);
     const sessionRuntime = state.sessions[sessionId];
     const effectiveWorkMode = sessionRuntime?.effectiveWorkMode ?? state.runtime.workMode;
-    const webResult = guardWebResearchQualityMessage(effectiveWorkMode, event.message, repairStateFor(webRepairStates, sessionId));
-    if (webResult.followUp) {
-      pi.sendMessage(
-        {
-          customType: "ddotz.web_analysis_quality.repair",
-          content: webResult.followUp,
-          display: false,
-          details: { repairQueued: true },
-        },
-        { deliverAs: "followUp", triggerTurn: true },
-      );
-    }
-    if (webResult.message) return { message: webResult.message };
+    const guardResult = runGuardPipeline(assistantMessage, [
+      {
+        customType: "ddotz.web_analysis_quality.repair",
+        run: () => guardWebResearchQualityMessage(effectiveWorkMode, assistantMessage, repairStateFor(webRepairStates, sessionId)),
+      },
+      {
+        customType: "ddotz.coding_quality.repair",
+        run: () => guardCodingQualityMessage(effectiveWorkMode, assistantMessage, repairStateFor(codingRepairStates, sessionId)),
+      },
+      {
+        customType: "ddotz.adoption_analysis_quality.repair",
+        run: () => guardAdoptionAnalysisQualityMessage(effectiveWorkMode, assistantMessage, repairStateFor(adoptionRepairStates, sessionId)),
+      },
+      {
+        customType: "ddotz.report_quality.repair",
+        run: () => guardReportQualityMessage(effectiveWorkMode, assistantMessage, repairStateFor(reportRepairStates, sessionId)),
+      },
+    ]);
 
-    const codingResult = guardCodingQualityMessage(effectiveWorkMode, event.message, repairStateFor(codingRepairStates, sessionId));
-    if (codingResult.followUp) {
+    for (const repair of guardResult.repairs) {
       pi.sendMessage(
         {
-          customType: "ddotz.coding_quality.repair",
-          content: codingResult.followUp,
+          customType: repair.customType,
+          content: repair.content,
           display: false,
           details: { repairQueued: true },
         },
         { deliverAs: "followUp", triggerTurn: true },
       );
     }
-    if (codingResult.message) return { message: codingResult.message };
 
-    const adoptionResult = guardAdoptionAnalysisQualityMessage(effectiveWorkMode, event.message, repairStateFor(adoptionRepairStates, sessionId));
-    if (adoptionResult.followUp) {
-      pi.sendMessage(
-        {
-          customType: "ddotz.adoption_analysis_quality.repair",
-          content: adoptionResult.followUp,
-          display: false,
-          details: { repairQueued: true },
-        },
-        { deliverAs: "followUp", triggerTurn: true },
-      );
-    }
-    return adoptionResult.message ? { message: adoptionResult.message } : undefined;
+    return guardResult.message ? { message: guardResult.message } : undefined;
   });
 
   pi.registerCommand("dogfood", {

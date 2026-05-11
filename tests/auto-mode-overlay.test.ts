@@ -98,4 +98,41 @@ describe("auto mode overlay", () => {
     await commands.get("mode")!.handler("status" as never, { ...ctx("session-coding"), ui: { notify } });
     expect(notify).toHaveBeenCalledWith("mode: default", "info");
   });
+
+  it("keeps local implementation analysis in default instead of web-analysis", async () => {
+    await useTempAgentDir();
+    const { handlers } = setupAutopilot();
+    const beforeHandlers = handlers.get("before_agent_start")!;
+    const before = beforeHandlers[beforeHandlers.length - 1]!;
+
+    const result = await before({ systemPrompt: "base", prompt: "모드 구현 분석하고 critic 작성해" }, ctx("session-local-analysis")) as { systemPrompt: string };
+
+    expect(result.systemPrompt).toContain("Effective work mode for this turn: default");
+    expect(result.systemPrompt).not.toContain("Web Analysis Mode");
+  });
+
+  it("routes documentation file edits to coding instead of report", async () => {
+    await useTempAgentDir();
+    const { handlers } = setupAutopilot();
+    const beforeHandlers = handlers.get("before_agent_start")!;
+    const before = beforeHandlers[beforeHandlers.length - 1]!;
+
+    const result = await before({ systemPrompt: "base", prompt: "README 문서 오타 수정해" }, ctx("session-doc-edit")) as { systemPrompt: string };
+
+    expect(result.systemPrompt).toContain("Effective work mode for this turn: coding");
+    expect(result.systemPrompt).toContain("Coding Mode");
+    expect(result.systemPrompt).not.toContain("Report Mode");
+  });
+
+  it("keeps local repo analysis in default instead of adoption-analysis", async () => {
+    await useTempAgentDir();
+    const { handlers } = setupAutopilot();
+    const beforeHandlers = handlers.get("before_agent_start")!;
+    const before = beforeHandlers[beforeHandlers.length - 1]!;
+
+    const result = await before({ systemPrompt: "base", prompt: "이 repo 구조 분석해" }, ctx("session-local-repo")) as { systemPrompt: string };
+
+    expect(result.systemPrompt).toContain("Effective work mode for this turn: default");
+    expect(result.systemPrompt).not.toContain("Adoption Analysis Mode");
+  });
 });

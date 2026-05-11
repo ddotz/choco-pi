@@ -39,10 +39,17 @@ export function parseExecutionIntensity(input: string): ExecutionIntensity | und
 export function inferPlannedWorkMode(input: string): WorkMode | undefined {
   const text = input.trim().toLowerCase();
   if (!text) return undefined;
-  if (/repo|github|도입|채택|업데이트\s*체크|외부\s*(아이디어|링크|소스)/i.test(text)) return "adoption-analysis";
-  if (/웹|사이트|검색|분석|리서치|뉴스|자료|url|https?:\/\//i.test(text)) return "web-analysis";
-  if (/보고서|문서|글|카드뉴스|요약문|리포트|white\s*paper|report/i.test(text)) return "report";
-  if (/코드|구현|수정|버그|테스트|리팩터|리팩토|파일|함수|class|api|build|lint/i.test(text)) return "coding";
+
+  const hasAdoptionIntent = /도입|채택|업데이트\s*체크|외부\s*(아이디어|링크|소스)|adopt|adoption/i.test(text);
+  if (hasAdoptionIntent) return "adoption-analysis";
+
+  const hasCodingIntent = /코드\s*(작성|수정|구현)|구현\s*(해|하고|하라|하세요|해주세요|한다|할)|수정|버그|테스트|리팩터|리팩토|파일|함수|오타|class|api|build|lint|readme|\.md\b/i.test(text);
+  if (hasCodingIntent) return "coding";
+
+  const hasExternalResearchTarget = /https?:\/\/|\burl\b|웹|사이트|검색|리서치|뉴스|자료|external|source-backed/i.test(text);
+  if (hasExternalResearchTarget) return "web-analysis";
+
+  if (/보고서|글|카드뉴스|요약문|리포트|white\s*paper|report/i.test(text)) return "report";
   return undefined;
 }
 

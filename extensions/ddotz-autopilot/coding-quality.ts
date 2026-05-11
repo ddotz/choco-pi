@@ -45,7 +45,16 @@ function verificationContent(text: string): string {
 }
 
 function hasVerification(text: string): boolean {
-  return /pnpm|npm|pytest|vitest|test|lint|typecheck|tsc|passed|pass|통과|실행|확인|green/i.test(verificationContent(text));
+  const content = verificationContent(text);
+  const trimmed = content.trim();
+  if (!trimmed) return false;
+  if (/^[-*\s]*(확인(했습니다|했어요|함)|검증(했습니다|했어요|함)|완료(했습니다|했어요|함)|checked|verified|done)[.!。]?\s*$/i.test(trimmed)) {
+    return false;
+  }
+  const hasCommandEvidence = /\b(pnpm|npm|yarn|bun|pytest|vitest|test|tests|lint|typecheck|tsc|ruff|mypy|cargo|go test|git diff|git status)\b/i.test(content)
+    && /\b(passed|pass|green|clean|success|successful|0 errors|0 warnings)\b|통과|성공|완료/i.test(content);
+  const hasObservableEvidence = /조회|관찰|캡처|스크린샷|로그|출력|tmux|gstack|브라우저|reload.*완료|git status.*clean|todo list/i.test(content);
+  return hasCommandEvidence || hasObservableEvidence;
 }
 
 function hasConfidence(text: string): boolean {

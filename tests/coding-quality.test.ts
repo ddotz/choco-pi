@@ -47,6 +47,36 @@ describe("coding quality guardrails", () => {
     expect(result.issues).toEqual([]);
   });
 
+  it("rejects hollow verification text without concrete command or observable evidence", () => {
+    const answer = [
+      "## Result",
+      "구현을 완료했습니다.",
+      "## Verification",
+      "확인했습니다.",
+      "## Confidence",
+      "High",
+    ].join("\n");
+
+    const result = evaluateCodingQuality("coding", answer);
+    expect(result.passed).toBe(false);
+    expect(result.issues).toContain("missing-verification");
+  });
+
+  it("accepts concrete observable verification evidence without a shell command", () => {
+    const answer = [
+      "## Result",
+      "상태 확인을 완료했습니다.",
+      "## Verification",
+      "- todo list 조회: #1 done, #2 pending 상태를 관찰했습니다.",
+      "## Confidence",
+      "High",
+    ].join("\n");
+
+    const result = evaluateCodingQuality("coding", answer);
+    expect(result.passed).toBe(true);
+    expect(result.issues).toEqual([]);
+  });
+
   it("does not require bug-fix evidence chain for non-bug coding changes", () => {
     const answer = [
       "## Result",
