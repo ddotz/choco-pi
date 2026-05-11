@@ -16,6 +16,8 @@ describe("report mode isolation", () => {
 
     expect(prompt).not.toContain("### Report Mode");
     expect(prompt).not.toContain("Report evidence ledger");
+    expect(prompt).not.toContain("Section-only pass");
+    expect(prompt).not.toContain("Formula-bound numbers");
     expect(prompt).not.toContain("Kami-derived layout");
     expect(prompt).not.toContain("im-not-ai-derived polishing");
   });
@@ -51,6 +53,20 @@ describe("report mode isolation", () => {
     expect(policy.extensionGuidance).toContain("Use Kami-derived layout constraints for report artifacts; do not vendor upstream templates wholesale.");
     expect(policy.extensionGuidance).toContain("Use im-not-ai-derived Korean polishing rules as report-mode policy; do not depend on Claude-only agents or commands.");
     expect(policy.toolPriority).toContain("evidence ledger before synthesis");
+    expect(policy.toolPriority).toContain("formula-based calculation before numeric estimation");
     expect(policy.processPriorities).toContain("factual confidence before narrative polish");
+    expect(policy.processPriorities).toContain("section-only drafting before cross-section review before whole-report critique");
+  });
+
+  it("requires section-only, cross-section, and whole-report passes with strict numeric consistency", () => {
+    const prompt = promptFor("report");
+
+    expect(prompt).toContain("Section-only pass");
+    expect(prompt).toContain("Cross-section pass");
+    expect(prompt).toContain("Whole-report pass");
+    expect(prompt).toContain("partition the report into parts and sections before drafting");
+    expect(prompt).toContain("review and improve each section in isolation before checking other sections");
+    expect(prompt).toContain("cross-check consistency, logical structure, sentence flow, and numeric consistency across sections");
+    expect(prompt).toContain("Formula-bound numbers must be calculated from the stated formula, not estimated");
   });
 });

@@ -26,17 +26,26 @@ Purpose:
 - Multiple sources sharing the same upstream report count as one evidence family.
 - If evidence remains thin, stale, partial, or inaccessible, lower confidence or state the concrete evidence blocker.
 
+## Report assembly order
+
+- Partition the report into parts and sections before drafting; each part must have a purpose, evidence need, and expected conclusion.
+- Section-only pass: draft each section, then review and improve each section in isolation before checking other sections. Tighten claim support, local logic, section-level wording, and numbers inside that section first.
+- Cross-section pass: after section-only quality is stable, cross-check consistency, logical structure, sentence flow, and numeric consistency across sections. Resolve duplicated claims, contradictory assumptions, timeline mismatches, and term drift before whole-report polish.
+- Whole-report pass: review the complete report once more through critique, checking executive summary alignment, conclusion support, narrative flow, evidence gaps, and reader decision value.
+- Formula-bound numbers must be calculated from the stated formula, not estimated. If a formula is available, show or retain the calculation basis in the ledger/notes and block completion when inputs are missing instead of guessing.
+
 ## Report gardening process
 
 1. Define objective, audience, decision context, scope, output format, and user-provided materials.
 2. Collect sources before synthesis; use the external insane-search playbook for blocked, WAF-protected, Korean platform, GitHub, YouTube, Reddit, X/Twitter, Naver, Medium, Substack, Stack Overflow, Coupang, and LinkedIn sources.
 3. Fill the report evidence ledger.
-4. Run logic review: claim → evidence → inference → implication.
-5. Check conflicts, stale data, missing base rates, single-source dependence, incentives, and unsupported causal jumps.
-6. Draft the report in C-level Korean style.
-7. Apply Kami-derived layout constraints.
-8. Apply im-not-ai-derived polishing while preserving meaning.
-9. Final QA: evidence ledger, paragraph length, citation integrity, critical review, and confidence boundary.
+4. Partition the report into parts and sections, then run the section-only pass before cross-section and whole-report review.
+5. Run logic review: claim → evidence → inference → implication.
+6. Check conflicts, stale data, missing base rates, single-source dependence, incentives, unsupported causal jumps, and strict numeric consistency.
+7. Draft the report in C-level Korean style.
+8. Apply Kami-derived layout constraints.
+9. Apply im-not-ai-derived polishing while preserving meaning.
+10. Final QA: evidence ledger, paragraph length, citation integrity, critical review, formula-based calculations, and confidence boundary.
 
 ## Writing style
 
