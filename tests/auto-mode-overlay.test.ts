@@ -81,4 +81,21 @@ describe("auto mode overlay", () => {
     await commands.get("mode")!.handler("status" as never, { ...ctx("session-report"), ui: { notify } });
     expect(notify).toHaveBeenCalledWith("mode: default", "info");
   });
+
+  it("applies a coding effective mode for implementation turns without changing persistent mode", async () => {
+    await useTempAgentDir();
+    const { handlers, commands } = setupAutopilot();
+    const beforeHandlers = handlers.get("before_agent_start")!;
+    const before = beforeHandlers[beforeHandlers.length - 1]!;
+
+    const result = await before({ systemPrompt: "base", prompt: "버그 수정하고 테스트까지 돌려줘" }, ctx("session-coding")) as { systemPrompt: string };
+
+    expect(result.systemPrompt).toContain("Persistent work mode: default");
+    expect(result.systemPrompt).toContain("Effective work mode for this turn: coding");
+    expect(result.systemPrompt).toContain("Coding Mode");
+
+    const notify = vi.fn();
+    await commands.get("mode")!.handler("status" as never, { ...ctx("session-coding"), ui: { notify } });
+    expect(notify).toHaveBeenCalledWith("mode: default", "info");
+  });
 });

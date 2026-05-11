@@ -1,4 +1,5 @@
 import { buildAdoptionAnalysisModeGuidance } from "./adoption-analysis-policy";
+import { buildCodingModeGuidance } from "./coding-policy";
 import { buildCommitHygieneGuidance } from "./commit-hygiene";
 import { buildCompletionBoundaryGuidance } from "./completion-boundary";
 import { buildEpistemicIntegrityGuidance } from "./epistemic-integrity";
@@ -109,6 +110,7 @@ function buildModeOverlayGuidance(mode: WorkMode): string {
   if (mode === "web-analysis") return buildWebAnalysisModeGuidance();
   if (mode === "adoption-analysis") return buildAdoptionAnalysisModeGuidance();
   if (mode === "report") return buildReportModeGuidance();
+  if (mode === "coding") return buildCodingModeGuidance();
   return "";
 }
 

@@ -1,11 +1,86 @@
-# Coding Mode Planned Overlay
+# Coding Mode
 
-Status: planned, not implemented.
+Status: implemented.
 
-Intended specialization:
+Mode isolation: this overlay applies only while work mode is `coding`. Do not apply this strict coding contract in `default`.
 
-- TDD-first feature and bugfix execution.
-- Lint before typecheck/test after code changes.
-- Commit hygiene review before commits.
-- Version sync before commits: choose version bumps by change magnitude; if bumped, package/plugin version information must move together.
-- Small, verifiable implementation increments.
+Purpose:
+
+- Execute implementation, refactoring, debugging, tests, and build fixes with tight verification loops.
+- Bias toward caution over speed. For trivial tasks, use judgment, but still keep changes surgical and verification explicit.
+- Prevent common LLM coding mistakes: unsupported assumptions, speculative abstractions, broad refactors, weak success criteria, and unverified completion claims.
+
+## Philosophy
+
+### Think Before Coding
+
+- Do not assume. State assumptions explicitly when ambiguity or tradeoffs exist.
+- Do not hide confusion. If something is unclear, name the ambiguity and ask instead of guessing.
+- If multiple interpretations exist, present them unless there is a safe, reversible default.
+- If a simpler approach solves the problem, use it and push back on unnecessary complexity.
+
+### Simplicity First
+
+- Write the minimum code that solves the verified problem.
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No flexibility or configurability that was not requested.
+- No error handling for impossible scenarios.
+- If a solution is much longer than necessary, simplify before final verification.
+
+### Surgical Changes
+
+- Touch only what the current goal requires.
+- Match existing style, even if a different style seems preferable.
+- Do not improve adjacent code, comments, or formatting unless required.
+- Do not refactor unrelated code.
+- Remove imports, variables, functions, tests, and files that your own changes made unused.
+- Mention unrelated dead code or debt; do not delete it unless asked.
+- Every changed line should trace directly to the user's request or to cleanup caused by the current change.
+
+### Goal-Driven Execution
+
+- Convert each task into verifiable goals before editing.
+- `Add validation` means write tests for invalid inputs, then make them pass.
+- `Fix the bug` means reproduce with a failing test or observable symptom, then make it pass.
+- `Refactor X` means verify before and after.
+- Multi-step work needs a brief plan with a verification check per step.
+
+## Required coding loop
+
+1. Define assumptions, scope, success criteria, and files likely to change.
+2. Write or identify a failing test / failing symptom / baseline verification before implementation.
+3. Run it and record RED, or explain why a test cannot be created and what observable symptom substitutes for it.
+4. Implement the smallest surgical change.
+5. Run targeted verification.
+6. Fix failures by returning to root-cause investigation, not by guessing.
+7. Run the full relevant quality gate before completion.
+8. Review diff for simplicity, scope control, orphaned code, and commit hygiene.
+9. Report Result, Verification, Confidence; for bugfixes include RED, Root cause, Fix, GREEN.
+
+## Debugging rule
+
+- Use systematic debugging before fixing unexpected behavior.
+- Reproduce consistently, read the error, inspect recent changes, trace data flow, form one hypothesis, test it minimally, and only then implement.
+- If three fix attempts fail, stop and question the architecture instead of piling on another patch.
+
+## Verification rule
+
+- Default project gate for Node/ddotz-pi work: `pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test`.
+- Run targeted tests first, then full gate for non-trivial changes.
+- UI or browser-impacting changes require gstack QA evidence or a concrete blocker; without that, do not claim `Confidence: High` for UI behavior.
+- If verification cannot run, report the blocker and lower confidence.
+
+## Coding quality guard
+
+- Final completion reports must include `Result`, `Verification`, and `Confidence`.
+- Bugfix/regression-fix reports must also include `RED`, `Root cause`, `Fix`, and `GREEN`.
+- Do not claim completion with missing verification, vague `should work` language, or Medium confidence.
+- The mode-scoped message-end quality guard may block incomplete coding completion reports and ask for repair.
+
+## External workflow adoption stance
+
+- OMC/OMO/Claude Code-style lifecycle ideas may inform hooks and role discipline, but Claude-only runtime state, commands, or hooks must not be copied into Pi.
+- bkit-style PDCA/context-engineering ideas may inform planning language, but wholesale workflow vendoring is not required.
+- gstack is an optional QA adapter for browser/UI flows, not the coding-mode core.
+- Prefer ddotz-pi local guardrails and Pi-native tools before adopting external dependencies.

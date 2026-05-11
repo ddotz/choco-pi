@@ -15,18 +15,18 @@ import {
 } from "../extensions/ddotz-autopilot/mode";
 
 describe("ddotz autonomous PM policy", () => {
-  it("keeps autonomous PM as the base philosophy while implementing default, web-analysis, adoption-analysis, and report work modes", () => {
+  it("keeps autonomous PM as the base philosophy while implementing every built-in work mode", () => {
     expect(AUTONOMOUS_PM_BASE).toBe(true);
     expect(DEFAULT_WORK_MODE).toBe("default");
-    expect(IMPLEMENTED_WORK_MODES).toEqual(["default", "web-analysis", "adoption-analysis", "report"]);
-    expect(PLANNED_WORK_MODES).toEqual(["coding"]);
+    expect(IMPLEMENTED_WORK_MODES).toEqual(["default", "web-analysis", "adoption-analysis", "report", "coding"]);
+    expect(PLANNED_WORK_MODES).toEqual([]);
     expect(parseWorkMode("autopilot")).toBeUndefined();
     expect(parseWorkMode("coding")).toBe("coding");
     expect(isWorkModeImplemented("default")).toBe(true);
     expect(isWorkModeImplemented("web-analysis")).toBe(true);
     expect(isWorkModeImplemented("adoption-analysis")).toBe(true);
     expect(isWorkModeImplemented("report")).toBe(true);
-    expect(isWorkModeImplemented("coding")).toBe(false);
+    expect(isWorkModeImplemented("coding")).toBe(true);
   });
 
   it("separates execution intensity from work mode", () => {

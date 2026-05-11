@@ -29,8 +29,8 @@ const BUILT_IN_MODES: Array<Omit<WorkModeDefinition, "createdAt" | "folder" | "i
   },
   {
     id: "coding",
-    description: "Planned mode for implementation, refactoring, debugging, testing, and verification.",
-    status: "planned",
+    description: "Implemented mode for TDD-first implementation, systematic debugging, surgical changes, tight verification, and coding completion quality guards.",
+    status: "implemented",
     custom: false,
   },
   {

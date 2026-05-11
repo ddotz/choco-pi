@@ -6,12 +6,12 @@ Personal Pi package for an autonomous PM/development-team workflow.
 
 ## Status
 
-- Current package version: `0.6.0`.
-- Implemented work modes: `default`, `web-analysis`, `adoption-analysis`, `report`.
-- Planned work modes: `coding`.
+- Current package version: `0.7.0`.
+- Implemented work modes: `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`.
+- Planned work modes: none.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
 
-Planned modes are documented but not active. If a user asks to use a planned mode, `ddotz-pi` should ask whether to implement/switch it instead of pretending the mode already exists.
+No built-in mode is currently planned-only. Future planned modes should be documented but not activated until their implementation and tests exist.
 
 ## Fresh environment setup
 
@@ -98,11 +98,11 @@ State schema version `2` stores:
 - `memories`: durable facts explicitly stored by `/memory`.
 - `ledgers`: cwd-keyed compact work ledgers.
 - `sourceRegistry`: tracked/adopted external sources and weekly check metadata.
-- `workModeRegistry`: built-in and custom planned mode metadata.
+- `workModeRegistry`: built-in and custom work-mode metadata, including implemented/planned status.
 
 The extension hooks into Pi lifecycle events:
 
-- `before_agent_start`: loads state, creates/updates the context ledger, infers planned mode hints, classifies execution intensity, and appends the ddotz autonomous PM prompt.
+- `before_agent_start`: loads state, creates/updates the context ledger, infers work-mode hints, classifies execution intensity, and appends the ddotz autonomous PM prompt.
 - `tool_call`: applies approval-boundary guards and records changed files for write/edit calls.
 - `tool_result`: records verification command results from bash output.
 - `session_start`: checks due tracked GitHub sources and sets the mode/intensity/version status indicator.
@@ -176,7 +176,7 @@ The structural gate tracks completed todo steps and loop transitions. If a todo 
 
 Work mode and intensity are intentionally separate.
 
-- **Work mode** is a policy overlay. `default`, `web-analysis`, `adoption-analysis`, and `report` are implemented; other built-in modes remain planned.
+- **Work mode** is a policy overlay. `default`, `web-analysis`, `adoption-analysis`, `report`, and `coding` are implemented; no built-in modes remain planned.
 - **Execution intensity** controls process weight: `micro`, `standard`, or `deep`.
 
 Mode files live under:
@@ -193,7 +193,7 @@ Custom modes created with `/mode add` are stored under:
 ~/.pi/agent/ddotz-pi/modes/<mode-id>/MODE.md
 ```
 
-Planned modes can be listed and registered, but they are not activated unless implementation is added later.
+Future planned modes can be listed and registered, but they must not be activated unless implementation and tests are added later.
 
 ### 6. Context ledger, memory, and source registry
 
@@ -362,11 +362,11 @@ state schema version `2`는 다음을 저장합니다.
 - `memories`: `/memory`로 명시 저장한 durable fact.
 - `ledgers`: cwd별 compact work ledger.
 - `sourceRegistry`: 추적/채택한 외부 source와 주간 체크 메타데이터.
-- `workModeRegistry`: built-in/custom planned mode 메타데이터.
+- `workModeRegistry`: built-in/custom work-mode 메타데이터와 implemented/planned 상태.
 
 주요 Pi hook 연결은 다음과 같습니다.
 
-- `before_agent_start`: state를 읽고, context ledger를 생성/갱신하고, planned mode hint와 execution intensity를 계산한 뒤 autonomous PM prompt를 추가합니다.
+- `before_agent_start`: state를 읽고, context ledger를 생성/갱신하고, work-mode hint와 execution intensity를 계산한 뒤 autonomous PM prompt를 추가합니다.
 - `tool_call`: approval-boundary guard를 적용하고 write/edit 경로를 ledger에 기록합니다.
 - `tool_result`: bash 검증 명령 결과를 ledger에 기록합니다.
 - `session_start`: due 상태인 GitHub source를 체크하고 mode/intensity/version status를 설정합니다.
@@ -433,7 +433,7 @@ Structural gate는 todo 완료와 loop transition 수를 추적합니다. todo�
 
 Work mode와 execution intensity는 분리되어 있습니다.
 
-- **Work mode**: policy overlay입니다. 현재 구현된 mode는 `default`, `web-analysis`, `adoption-analysis`, `report`이고 나머지 built-in mode는 planned 상태입니다.
+- **Work mode**: policy overlay입니다. 현재 구현된 mode는 `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`이며 planned built-in mode는 없습니다.
 - **Execution intensity**: 처리 강도입니다. `micro`, `standard`, `deep` 중 하나입니다.
 
 mode file 위치는 다음입니다.
@@ -450,7 +450,7 @@ modes/<planned-mode>/MODE.md
 ~/.pi/agent/ddotz-pi/modes/<mode-id>/MODE.md
 ```
 
-planned mode는 등록/표시는 가능하지만, 구현 전에는 활성화하지 않습니다.
+향후 planned mode는 등록/표시는 가능하지만, 구현과 테스트 전에는 활성화하지 않습니다.
 
 ### 6. Context ledger, memory, source registry
 
@@ -569,7 +569,7 @@ pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test
 ## Commands
 
 - `/mode` — open the interactive work-mode selector with each mode description.
-- `/mode [status|list|set <mode>|add <id> <description>|remove <id>]` — manage work modes. `default`, `web-analysis`, `adoption-analysis`, and `report` are implemented modes.
+- `/mode [status|list|set <mode>|add <id> <description>|remove <id>]` — manage work modes. `default`, `web-analysis`, `adoption-analysis`, `report`, and `coding` are implemented modes.
 - `/intensity [micro|standard|deep|status]` — show or set process weight.
 - `/source [list|add|watch|adopt|reject|due|changed|check]` — track adopted, watched, or explicitly tracked external sources.
 - `/btw`, `/btw:new`, `/btw:tangent`, `/btw:inject`, `/btw:summarize`, `/btw:clear`, `/btw:model`, `/btw:thinking` — run Korean-localized side conversations in a focused overlay without installing `npm:pi-btw` separately.
@@ -583,7 +583,7 @@ pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test
 modes/
   _base/MODE.md                # shared autonomous PM philosophy
   default/MODE.md              # base implemented mode
-  coding/MODE.md               # planned coding overlay
+  coding/MODE.md               # implemented TDD-first coding overlay
   report/MODE.md               # implemented evidence-led report overlay
   web-analysis/MODE.md         # implemented web research overlay
   adoption-analysis/MODE.md    # implemented source adoption overlay
@@ -603,6 +603,7 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 - `web-analysis` retrieval/review policy and message-end quality guardrail are active only while that mode is active.
 - `adoption-analysis` does not replace default adoption capability; it adds mode-scoped decision, adoption-depth, fit/risk, scope, tracking, and confidence quality guardrails only while active.
 - `report` adds mode-scoped evidence ledgers, confidence double-check/triple-check rules, Kami-derived layout guidance, and im-not-ai-derived Korean polishing only while active.
+- `coding` adds mode-scoped TDD-first execution, systematic debugging, simplicity/surgical-diff discipline, tight verification loops, and coding completion quality guardrails only while active.
 - The `source_registry` tool is the Pi-native LLM path for autonomous source tracking; use `watch` when a source is relevant but not safe or ready to adopt.
 - Commit and push autonomously after verification when the working tree contains intentional in-scope changes and a remote is configured; normal `git push` is routine source synchronization, not deployment.
 - Treat each plan/todo step as a bounded loop. Complete a step, verify fit, record `loop_transition`, then move on.

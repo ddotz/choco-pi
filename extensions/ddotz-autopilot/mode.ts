@@ -3,8 +3,8 @@ export type ExecutionIntensity = "micro" | "standard" | "deep";
 
 export const DEFAULT_WORK_MODE: WorkMode = "default";
 export const DEFAULT_EXECUTION_INTENSITY: ExecutionIntensity = "standard";
-export const IMPLEMENTED_WORK_MODES: WorkMode[] = ["default", "web-analysis", "adoption-analysis", "report"];
-export const PLANNED_WORK_MODES: Exclude<WorkMode, "default" | "web-analysis" | "adoption-analysis" | "report">[] = ["coding"];
+export const IMPLEMENTED_WORK_MODES: WorkMode[] = ["default", "web-analysis", "adoption-analysis", "report", "coding"];
+export const PLANNED_WORK_MODES: Exclude<WorkMode, "default" | "web-analysis" | "adoption-analysis" | "report" | "coding">[] = [];
 
 export interface RuntimeState {
   workMode: WorkMode;
@@ -57,7 +57,7 @@ export function createRuntimeState(
 export function describeWorkMode(mode: WorkMode): string {
   switch (mode) {
     case "coding":
-      return "Coding mode is planned, not active yet. Keep using default mode unless the user explicitly asks to implement/switch this mode.";
+      return "Coding mode is active. Apply only the coding mode-scoped overlay for TDD-first implementation, systematic debugging, surgical changes, tight verification, and coding completion quality guards; keep default mode behavior isolated.";
     case "report":
       return "Report mode is active. Apply only the report mode-scoped overlay for evidence-led report writing, source confidence gating, Kami-derived layout, and im-not-ai-derived Korean polishing; keep default mode behavior isolated.";
     case "web-analysis":

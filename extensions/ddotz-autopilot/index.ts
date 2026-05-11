@@ -50,6 +50,7 @@ import {
 } from "./source-registry";
 import { guardAdoptionAnalysisQualityMessage, type AdoptionAnalysisRepairState } from "./adoption-analysis-quality";
 import { classifyApprovalBoundaryToolCall, formatApprovalBoundaryBlock } from "./approval-boundary";
+import { guardCodingQualityMessage, type CodingRepairState } from "./coding-quality";
 import { registerRuntimeReload } from "./runtime-reload";
 import { resolveEffectiveWorkMode, sessionIdFromContext, sessionScopedKey } from "./session-scope";
 import { installStructuralGate } from "./structural-gate";
@@ -89,6 +90,7 @@ interface DdotzState {
 const STATE_VERSION = 3 as const;
 const WEB_REPAIR_PROMPT_MARKER = "내부 web-analysis 품질 보강이 필요합니다.";
 const ADOPTION_REPAIR_PROMPT_MARKER = "내부 adoption-analysis 품질 보강이 필요합니다.";
+const CODING_REPAIR_PROMPT_MARKER = "내부 coding 품질 보강이 필요합니다.";
 
 function repairStateFor<T extends { repairQueued: boolean }>(states: Map<string, T>, sessionId: string): T {
   const existing = states.get(sessionId);
@@ -496,6 +498,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   const dogfoodCases = createActiveDogfoodCaseState();
   const webRepairStates = new Map<string, WebResearchRepairState>();
   const adoptionRepairStates = new Map<string, AdoptionAnalysisRepairState>();
+  const codingRepairStates = new Map<string, CodingRepairState>();
 
   pi.on("tool_call", async (event, ctx) => {
     const decision = classifyApprovalBoundaryToolCall(event.toolName, event.input);
@@ -534,6 +537,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     const sessionId = sessionIdFromContext(ctx);
     webRepairStates.delete(sessionId);
     adoptionRepairStates.delete(sessionId);
+    codingRepairStates.delete(sessionId);
     if (ctx.hasUI) ctx.ui.setStatus("mode", undefined);
   });
 
@@ -544,6 +548,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     const prompt = event.prompt ?? "";
     if (!prompt.includes(WEB_REPAIR_PROMPT_MARKER)) repairStateFor(webRepairStates, sessionId).repairQueued = false;
     if (!prompt.includes(ADOPTION_REPAIR_PROMPT_MARKER)) repairStateFor(adoptionRepairStates, sessionId).repairQueued = false;
+    if (!prompt.includes(CODING_REPAIR_PROMPT_MARKER)) repairStateFor(codingRepairStates, sessionId).repairQueued = false;
     const suggestedWorkMode = inferPlannedWorkMode(prompt);
     const modeDecision = resolveEffectiveWorkMode({
       persistentMode: state.runtime.workMode,
@@ -613,6 +618,20 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
       );
     }
     if (webResult.message) return { message: webResult.message };
+
+    const codingResult = guardCodingQualityMessage(effectiveWorkMode, event.message, repairStateFor(codingRepairStates, sessionId));
+    if (codingResult.followUp) {
+      pi.sendMessage(
+        {
+          customType: "ddotz.coding_quality.repair",
+          content: codingResult.followUp,
+          display: false,
+          details: { repairQueued: true },
+        },
+        { deliverAs: "followUp", triggerTurn: true },
+      );
+    }
+    if (codingResult.message) return { message: codingResult.message };
 
     const adoptionResult = guardAdoptionAnalysisQualityMessage(effectiveWorkMode, event.message, repairStateFor(adoptionRepairStates, sessionId));
     if (adoptionResult.followUp) {

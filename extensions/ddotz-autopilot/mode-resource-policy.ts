@@ -83,6 +83,30 @@ const REPORT_POLICY: ModeResourcePolicy = {
   ],
 };
 
+const CODING_POLICY: ModeResourcePolicy = {
+  mode: "coding",
+  skills: ["test-driven-development", "systematic-debugging", "gstack"],
+  extensionGuidance: [
+    "Use coding mode guidance only while coding is active; do not leak its strict output contract into default mode.",
+    "Use gstack QA only when browser, UI, screenshot, or deployed-flow verification is relevant.",
+    "Use external workflow packages as ideas only unless source adoption is explicitly reviewed and tracked.",
+  ],
+  toolPriority: [
+    "assumptions and success criteria before editing",
+    "failing test before implementation for feature or bugfix work",
+    "root-cause evidence before fixes for unexpected behavior",
+    "targeted verification before full quality gate",
+    "commit hygiene before commit",
+  ],
+  processPriorities: [
+    "simplicity and surgical diffs before abstraction",
+    "TDD RED/GREEN evidence before completion claims",
+    "systematic debugging before implementation guesses",
+    "verification loop before final answer",
+    "mode isolation before shared coding helpers",
+  ],
+};
+
 function clonePolicy(policy: ModeResourcePolicy): ModeResourcePolicy {
   return {
     mode: policy.mode,
@@ -97,6 +121,7 @@ export function buildModeResourcePolicy(mode: WorkMode): ModeResourcePolicy {
   if (mode === "web-analysis") return clonePolicy(WEB_ANALYSIS_POLICY);
   if (mode === "adoption-analysis") return clonePolicy(ADOPTION_ANALYSIS_POLICY);
   if (mode === "report") return clonePolicy(REPORT_POLICY);
+  if (mode === "coding") return clonePolicy(CODING_POLICY);
   return { ...clonePolicy({ ...EMPTY_POLICY, mode }) };
 }
 

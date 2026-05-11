@@ -7,7 +7,7 @@ import {
 } from "../extensions/ddotz-autopilot/work-mode-registry";
 
 describe("work mode registry", () => {
-  it("starts with default, web-analysis, adoption-analysis, and report implemented while other built-in modes stay planned", () => {
+  it("starts with every built-in mode implemented", () => {
     const registry = createWorkModeRegistry();
     expect(registry.modes.find((mode) => mode.id === "default")?.status).toBe("implemented");
     expect(registry.modes.find((mode) => mode.id === "default")?.folder).toBe("modes/default");
@@ -17,7 +17,8 @@ describe("work mode registry", () => {
     expect(registry.modes.find((mode) => mode.id === "adoption-analysis")?.instructionFile).toBe("modes/adoption-analysis/MODE.md");
     expect(registry.modes.find((mode) => mode.id === "report")?.status).toBe("implemented");
     expect(registry.modes.find((mode) => mode.id === "report")?.instructionFile).toBe("modes/report/MODE.md");
-    expect(registry.modes.find((mode) => mode.id === "coding")?.status).toBe("planned");
+    expect(registry.modes.find((mode) => mode.id === "coding")?.status).toBe("implemented");
+    expect(registry.modes.find((mode) => mode.id === "coding")?.instructionFile).toBe("modes/coding/MODE.md");
   });
 
   it("allows adding custom planned modes", () => {
