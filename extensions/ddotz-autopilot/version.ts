@@ -1,1 +1,1 @@
-export const DDOTZ_PI_VERSION = "0.8.2" as const;
+export const DDOTZ_PI_VERSION = "0.9.0" as const;

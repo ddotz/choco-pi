@@ -50,12 +50,25 @@ import {
 } from "./source-registry";
 import { guardAdoptionAnalysisQualityMessage, type AdoptionAnalysisRepairState } from "./adoption-analysis-quality";
 import { classifyApprovalBoundaryToolCall, formatApprovalBoundaryBlock } from "./approval-boundary";
+import {
+  createAutoUpdateState,
+  ddotzPiPackageRoot,
+  formatAutoUpdateResult,
+  formatAutoUpdateStatus,
+  formatManualUpdateResult,
+  normalizeAutoUpdateState,
+  runDdotzPiUpdate,
+  shouldRunAutoUpdate,
+  summarizeAutoUpdateResult,
+  type AutoUpdateState,
+} from "./auto-update";
 import { guardCodingQualityMessage, type CodingRepairState } from "./coding-quality";
 import { runGuardPipeline } from "./guard-orchestrator";
 import { guardReportQualityMessage, type ReportRepairState } from "./report-quality";
 import { registerRuntimeReload } from "./runtime-reload";
 import { resolveEffectiveWorkMode, sessionIdFromContext, sessionScopedKey } from "./session-scope";
 import { installStructuralGate } from "./structural-gate";
+import { discoverSuperpowersSkillPath } from "./superpowers-dependency";
 import { DDOTZ_PI_VERSION } from "./version";
 import { verificationCommandFromInput } from "./verification-command";
 import { guardWebResearchQualityMessage, type WebResearchRepairState } from "./web-research-quality";
@@ -80,16 +93,17 @@ interface SessionRuntimeState {
 }
 
 interface DdotzState {
-  version: 3;
+  version: 4;
   runtime: RuntimeState;
   sessions: Record<string, SessionRuntimeState>;
   memories: StoredMemory[];
   ledgers: Record<string, ContextLedger>;
   sourceRegistry: SourceRegistry;
   workModeRegistry: WorkModeRegistry;
+  autoUpdate: AutoUpdateState;
 }
 
-const STATE_VERSION = 3 as const;
+const STATE_VERSION = 4 as const;
 const WEB_REPAIR_PROMPT_MARKER = "내부 web-analysis 품질 보강이 필요합니다.";
 const ADOPTION_REPAIR_PROMPT_MARKER = "내부 adoption-analysis 품질 보강이 필요합니다.";
 const CODING_REPAIR_PROMPT_MARKER = "내부 coding 품질 보강이 필요합니다.";
@@ -158,6 +172,7 @@ function emptyState(): DdotzState {
     ledgers: {},
     sourceRegistry: createSourceRegistry(),
     workModeRegistry: createWorkModeRegistry(),
+    autoUpdate: createAutoUpdateState(),
   };
 }
 
@@ -184,6 +199,7 @@ async function loadState(): Promise<DdotzState> {
       ledgers: parsed.ledgers && typeof parsed.ledgers === "object" ? parsed.ledgers : {},
       sourceRegistry: parsed.sourceRegistry?.sources ? parsed.sourceRegistry : createSourceRegistry(),
       workModeRegistry: ensureBuiltInModes(parsed.workModeRegistry),
+      autoUpdate: normalizeAutoUpdateState(parsed.autoUpdate),
     };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return emptyState();
@@ -504,6 +520,8 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   const codingRepairStates = new Map<string, CodingRepairState>();
   const reportRepairStates = new Map<string, ReportRepairState>();
 
+  pi.on("resources_discover", async (_event, ctx) => discoverSuperpowersSkillPath(pi, ctx));
+
   pi.on("tool_call", async (event, ctx) => {
     const decision = classifyApprovalBoundaryToolCall(event.toolName, event.input);
     if (decision) return { block: true, reason: formatApprovalBoundaryBlock(decision) };
@@ -517,7 +535,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     await updateLedgerForToolResult(ctx.cwd || process.cwd(), sessionIdFromContext(ctx), event.toolName, event.input, event.isError, event.content);
   });
 
-  pi.on("session_start", async (_event, ctx) => {
+  pi.on("session_start", async (event, ctx) => {
     await cleanupDogfoodCaseRetention(createDogfoodStore(dogfoodRootPath()));
     const state = await loadState();
     const sessionId = sessionIdFromContext(ctx);
@@ -527,6 +545,16 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     if (dueGithubSources.length > 0) {
       await checkSources(pi, state, dueGithubSources);
       await saveState(state);
+    }
+    if (ctx.hasUI && event.reason === "startup" && shouldRunAutoUpdate(state.autoUpdate)) {
+      const result = await runDdotzPiUpdate(pi, { trigger: "auto", packageRoot: ddotzPiPackageRoot() });
+      const checkedAt = nowIso();
+      state.autoUpdate.lastCheckedAt = checkedAt;
+      state.autoUpdate.lastResult = summarizeAutoUpdateResult(result, checkedAt);
+      await saveState(state);
+      const formatted = formatAutoUpdateResult(result);
+      if (formatted.message) ctx.ui.notify(formatted.message, formatted.level);
+      if (result.status === "updated") pi.sendUserMessage("/reload-runtime", { deliverAs: "followUp" });
     }
     if (!ctx.hasUI) return;
     const sessionRuntime = state.sessions[sessionId];
@@ -689,6 +717,52 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
       }
 
       ctx.ui.notify("Usage: /dogfood [status|weekly|report|queue|explain <id>] [YYYY-WW]", "error");
+    },
+  });
+
+  pi.registerCommand("update", {
+    description: "Update ddotz-pi to the latest upstream version and manage automatic updates",
+    handler: async (args: string, ctx: ExtensionCommandContext) => {
+      const state = await loadState();
+      const [command = "now", ...rest] = splitCommandArgs(args);
+
+      if (command === "status") {
+        ctx.ui.notify(formatAutoUpdateStatus(state.autoUpdate, DDOTZ_PI_VERSION), "info");
+        return;
+      }
+
+      if (command === "auto") {
+        const value = rest[0] ?? "status";
+        if (value === "on" || value === "off") {
+          state.autoUpdate.enabled = value === "on";
+          await saveState(state);
+          ctx.ui.notify(`auto-update: ${value}`, "info");
+          return;
+        }
+        if (value === "status") {
+          ctx.ui.notify(formatAutoUpdateStatus(state.autoUpdate, DDOTZ_PI_VERSION), "info");
+          return;
+        }
+        ctx.ui.notify("Usage: /update [now|status|auto on|auto off|auto status]", "error");
+        return;
+      }
+
+      if (command !== "now" && command !== "run") {
+        ctx.ui.notify("Usage: /update [now|status|auto on|auto off|auto status]", "error");
+        return;
+      }
+
+      const result = await runDdotzPiUpdate(pi, { trigger: "manual", packageRoot: ddotzPiPackageRoot() });
+      const checkedAt = nowIso();
+      state.autoUpdate.lastCheckedAt = checkedAt;
+      state.autoUpdate.lastResult = summarizeAutoUpdateResult(result, checkedAt);
+      await saveState(state);
+      const formatted = formatManualUpdateResult(result);
+      ctx.ui.notify(formatted.message, formatted.level);
+      if (result.status !== "updated") return;
+
+      await ctx.waitForIdle();
+      await ctx.reload();
     },
   });
 

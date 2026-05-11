@@ -6,7 +6,7 @@ Personal Pi package for a default-root all-purpose generalist workflow.
 
 ## Status
 
-- Current package version: `0.8.2`.
+- Current package version: `0.9.0`.
 - Implemented work modes: `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`.
 - Planned work modes: none.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
@@ -92,20 +92,22 @@ The core design is layered:
 ~/.pi/agent/ddotz-pi/state.json
 ```
 
-State schema version `2` stores:
+State schema version `4` stores:
 
 - `runtime`: active work mode and execution intensity.
 - `memories`: durable facts explicitly stored by `/memory`.
 - `ledgers`: cwd-keyed compact work ledgers.
 - `sourceRegistry`: tracked/adopted external sources and weekly check metadata.
 - `workModeRegistry`: built-in and custom work-mode metadata, including implemented/planned status.
+- `autoUpdate`: ddotz-pi self-update settings and last check result.
 
 The extension hooks into Pi lifecycle events:
 
 - `before_agent_start`: loads state, creates/updates the context ledger, infers work-mode hints, classifies execution intensity, and appends the ddotz default-root prompt.
 - `tool_call`: applies approval-boundary guards and records changed files for write/edit calls.
 - `tool_result`: records verification command results from bash output.
-- `session_start`: checks due tracked GitHub sources and sets the mode/intensity/version status indicator.
+- `session_start`: checks due tracked GitHub sources, runs scheduled ddotz-pi self-update checks, and sets the mode/intensity/version status indicator.
+- `resources_discover`: ensures the external `obra/superpowers` skill repository is available unchanged and contributes it as a skill path.
 - `session_shutdown`: removes the mode status indicator.
 
 It also registers user commands:
@@ -115,6 +117,7 @@ It also registers user commands:
 - `/source`: track, watch, adopt/reject, and check external sources.
 - `/memory`: list/save durable memory.
 - `/ledger`: show/reset the context ledger.
+- `/update`: update ddotz-pi from upstream and manage automatic self-updates.
 - `/reload-runtime`: reload extensions/skills/prompts/themes without starting a new session.
 
 ### 3. Hooks
@@ -130,7 +133,7 @@ It also registers user commands:
 | `session_start` | multiple extensions | Rehydrate state, install UI widgets/footer/editor components, clear current-session todos on `/new`, and update runtime status. |
 | `session_shutdown` | multiple extensions | Dispose UI/status/editor patches and clear per-session references. |
 | `agent_start` | `focus-rendering` | Keep Pi's built-in working indicator hidden while the focused tool view is active. |
-| `resources_discover` | Pi package loader | Pi discovers package skills/prompts/themes from `package.json`; runtime reload re-runs discovery. |
+| `resources_discover` | Pi package loader, `ddotz-autopilot` | Pi discovers package skills/prompts/themes from `package.json`; runtime reload re-runs discovery. `ddotz-autopilot` clones `https://github.com/obra/superpowers.git` unchanged when missing and adds it as a skill path. |
 
 Hook order matters mainly for UI and guard behavior: guards must run before tool execution, structural completion checks must run at assistant `message_end`, and UI components are reinstalled on each `session_start` because `/new`, `/resume`, `/fork`, and `/reload` replace extension runtime bindings.
 
@@ -358,23 +361,25 @@ Pi runtime
 ~/.pi/agent/ddotz-pi/state.json
 ```
 
-state schema version `2`는 다음을 저장합니다.
+state schema version `4`는 다음을 저장합니다.
 
 - `runtime`: 현재 work mode와 execution intensity.
 - `memories`: `/memory`로 명시 저장한 durable fact.
 - `ledgers`: cwd별 compact work ledger.
 - `sourceRegistry`: 추적/채택한 외부 source와 주간 체크 메타데이터.
 - `workModeRegistry`: built-in/custom work-mode 메타데이터와 implemented/planned 상태.
+- `autoUpdate`: ddotz-pi self-update 설정과 마지막 체크 결과.
 
 주요 Pi hook 연결은 다음과 같습니다.
 
 - `before_agent_start`: state를 읽고, context ledger를 생성/갱신하고, work-mode hint와 execution intensity를 계산한 뒤 default-root prompt를 추가합니다.
 - `tool_call`: approval-boundary guard를 적용하고 write/edit 경로를 ledger에 기록합니다.
 - `tool_result`: bash 검증 명령 결과를 ledger에 기록합니다.
-- `session_start`: due 상태인 GitHub source를 체크하고 mode/intensity/version status를 설정합니다.
+- `session_start`: due 상태인 GitHub source를 체크하고, 예약된 ddotz-pi self-update를 실행하고, mode/intensity/version status를 설정합니다.
+- `resources_discover`: 외부 `obra/superpowers` skill repository를 원본 그대로 보장하고 skill path로 제공합니다.
 - `session_shutdown`: status indicator를 제거합니다.
 
-등록 명령은 `/mode`, `/intensity`, `/source`, `/memory`, `/ledger`, `/reload-runtime`입니다.
+등록 명령은 `/mode`, `/intensity`, `/source`, `/memory`, `/ledger`, `/update`, `/reload-runtime`입니다.
 
 ### 3. Hook 구조
 
@@ -389,7 +394,7 @@ state schema version `2`는 다음을 저장합니다.
 | `session_start` | 여러 extension | state 복원, UI widget/footer/editor 설치, `/new` current-session todo clear, runtime status 갱신. |
 | `session_shutdown` | 여러 extension | UI/status/editor reference 정리. |
 | `agent_start` | `focus-rendering` | focused view 활성 시 Pi 기본 working indicator 숨김. |
-| `resources_discover` | Pi package loader | `package.json`의 skills/prompts/themes 재발견; runtime reload 때 다시 실행. |
+| `resources_discover` | Pi package loader, `ddotz-autopilot` | `package.json`의 skills/prompts/themes 재발견; runtime reload 때 다시 실행. `ddotz-autopilot`은 미설치 환경에서 `https://github.com/obra/superpowers.git`을 원본 그대로 clone하고 skill path를 추가합니다. |
 
 `/new`, `/resume`, `/fork`, `/reload`는 extension runtime binding을 바꾸므로 UI component는 `session_start`에서 다시 설치하고 `session_shutdown`에서 정리합니다.
 
@@ -579,6 +584,7 @@ pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test
 - `/btw`, `/btw:new`, `/btw:tangent`, `/btw:inject`, `/btw:summarize`, `/btw:clear`, `/btw:model`, `/btw:thinking` — run Korean-localized side conversations in a focused overlay without installing `npm:pi-btw` separately.
 - `/memory [list|save <text>]` — list/save durable memories.
 - `/ledger [reset]` — show/reset the compact workspace Context Ledger.
+- `/update [now|status|auto on|auto off|auto status]` — fast-forward ddotz-pi from its upstream branch, run dependency install/version sync when needed, reload the runtime after successful updates, and report automatic update state.
 - `/reload-runtime` — reload extensions, skills, prompts, and themes without starting a new session. The LLM-callable `reload_runtime` tool self-submits `/reload-runtime --continue` through tmux when direct tool reload is unavailable, waits for the command acknowledgement marker, then the reloaded extension sends `continue` from `session_start(reason: "reload")`.
 
 ## Mode folder structure
@@ -599,6 +605,7 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 
 - Ask only for hard approval boundaries: production deployment/package publishing, payment, secrets/accounts, large deletion, external private-data transfer, irreversible actions, work mode switching, or contradictory goals without safe defaults.
 - For new Pi feature/capability requests, check https://pi.dev/packages before building from scratch. If a high-similarity package exists, inspect source/license/security, fork or clone it as the baseline, and customize it to the user's final requirements.
+- Superpowers is treated as an external skill dependency: ddotz-pi clones `https://github.com/obra/superpowers.git` unchanged under `~/.pi/agent/ddotz-pi/deps/superpowers` when no usable install is present, then exposes that checkout via Pi skill discovery.
 - Mode isolation is mandatory for every work mode, including future planned and custom modes.
 - New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.
 - No mode may change default or any other mode as a side effect; shared changes belong in `modes/_base/MODE.md` only when they are mode-agnostic.
