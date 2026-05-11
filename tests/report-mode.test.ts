@@ -10,32 +10,44 @@ function promptFor(workMode: "default" | "report"): string {
   });
 }
 
+function expectContainsAll(text: string, fragments: readonly string[]): void {
+  for (const fragment of fragments) expect(text).toContain(fragment);
+}
+
+function expectContainsNone(text: string, fragments: readonly string[]): void {
+  for (const fragment of fragments) expect(text).not.toContain(fragment);
+}
+
 describe("report mode isolation", () => {
   it("does not leak report overlay into default mode", () => {
     const prompt = promptFor("default");
 
-    expect(prompt).not.toContain("### Report Mode");
-    expect(prompt).not.toContain("Report evidence ledger");
-    expect(prompt).not.toContain("Section-only pass");
-    expect(prompt).not.toContain("Formula-bound numbers");
-    expect(prompt).not.toContain("Kami-derived layout");
-    expect(prompt).not.toContain("im-not-ai-derived polishing");
+    expectContainsNone(prompt, [
+      "### Report Mode",
+      "Report evidence ledger",
+      "Section-only pass",
+      "Formula-bound numbers",
+      "Kami-derived layout",
+      "im-not-ai-derived polishing",
+    ]);
   });
 
   it("adds evidence, layout, polishing, and confidence guardrails only in report mode", () => {
     const prompt = promptFor("report");
 
-    expect(prompt).toContain("### Report Mode");
-    expect(prompt).toContain("Mode isolation: this section applies only while Work mode is report");
-    expect(prompt).toContain("Report evidence ledger");
-    expect(prompt).toContain("No unsupported assumptions or unchecked citations");
-    expect(prompt).toContain("double-check");
-    expect(prompt).toContain("triple-check");
-    expect(prompt).toContain("C-level");
-    expect(prompt).toContain("300 Korean characters");
-    expect(prompt).toContain("Kami-derived layout");
-    expect(prompt).toContain("im-not-ai-derived polishing");
-    expect(prompt).toContain("meaning-invariant");
+    expectContainsAll(prompt, [
+      "### Report Mode",
+      "Mode isolation: this section applies only while Work mode is report",
+      "Report evidence ledger",
+      "No unsupported assumptions or unchecked citations",
+      "double-check",
+      "triple-check",
+      "C-level",
+      "300 Korean characters",
+      "Kami-derived layout",
+      "im-not-ai-derived polishing",
+      "meaning-invariant",
+    ]);
   });
 
   it("returns mode-scoped resources for report without changing default policy", () => {
@@ -61,12 +73,14 @@ describe("report mode isolation", () => {
   it("requires section-only, cross-section, and whole-report passes with strict numeric consistency", () => {
     const prompt = promptFor("report");
 
-    expect(prompt).toContain("Section-only pass");
-    expect(prompt).toContain("Cross-section pass");
-    expect(prompt).toContain("Whole-report pass");
-    expect(prompt).toContain("partition the report into parts and sections before drafting");
-    expect(prompt).toContain("review and improve each section in isolation before checking other sections");
-    expect(prompt).toContain("cross-check consistency, logical structure, sentence flow, and numeric consistency across sections");
-    expect(prompt).toContain("Formula-bound numbers must be calculated from the stated formula, not estimated");
+    expectContainsAll(prompt, [
+      "Section-only pass",
+      "Cross-section pass",
+      "Whole-report pass",
+      "partition the report into parts and sections before drafting",
+      "review and improve each section in isolation before checking other sections",
+      "cross-check consistency, logical structure, sentence flow, and numeric consistency across sections",
+      "Formula-bound numbers must be calculated from the stated formula, not estimated",
+    ]);
   });
 });
