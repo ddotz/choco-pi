@@ -1,5 +1,6 @@
 import { StringEnum } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -13,6 +14,10 @@ import {
   type VerificationStatus,
   summarizeLedger,
 } from "./context-ledger";
+import { createActiveDogfoodCaseState, finishDogfoodCase, recordDogfoodToolCall, recordDogfoodToolResult, startDogfoodCase } from "./dogfood-collector";
+import { isoWeekId } from "./dogfood-privacy";
+import { createDogfoodStore, listDogfoodCases, readDogfoodQueue, readDogfoodWeeklyReport, writeDogfoodWeeklyReport } from "./dogfood-store";
+import { buildDogfoodWeeklyReport, formatDogfoodWeeklyReport } from "./dogfood-weekly";
 import { createStoredMemory, classifyMemoryCandidate, type StoredMemory } from "./memory";
 import {
   createRuntimeState,
@@ -77,6 +82,26 @@ function agentDir(): string {
 
 function statePath(): string {
   return join(agentDir(), "ddotz-pi", "state.json");
+}
+
+function dogfoodRootPath(): string {
+  return join(agentDir(), "ddotz-pi", "dogfood");
+}
+
+function dogfoodSaltPath(): string {
+  return join(dogfoodRootPath(), "salt");
+}
+
+async function dogfoodSalt(): Promise<string> {
+  try {
+    return (await readFile(dogfoodSaltPath(), "utf8")).trim();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    const salt = randomUUID();
+    await mkdir(dogfoodRootPath(), { recursive: true });
+    await writeFile(dogfoodSaltPath(), `${salt}\n`, "utf8");
+    return salt;
+  }
 }
 
 function modeFilePath(folder: string): string {
@@ -442,15 +467,18 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   installStructuralGate(pi);
   registerRuntimeReload(pi);
   registerSourceRegistryTool(pi);
+  const dogfoodCases = createActiveDogfoodCaseState();
 
   pi.on("tool_call", async (event, ctx) => {
     const decision = classifyApprovalBoundaryToolCall(event.toolName, event.input);
     if (decision) return { block: true, reason: formatApprovalBoundaryBlock(decision) };
+    recordDogfoodToolCall(dogfoodCases, event.toolName);
     await updateLedgerForToolCall(ctx.cwd || process.cwd(), event.toolName, event.input);
     return undefined;
   });
 
   pi.on("tool_result", async (event, ctx) => {
+    recordDogfoodToolResult(dogfoodCases, event);
     await updateLedgerForToolResult(ctx.cwd || process.cwd(), event.toolName, event.input, event.isError, event.content);
   });
 
@@ -491,6 +519,14 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     const due = summarizeDueSources(state.sourceRegistry);
     const dueSourceSummary = [changed, due].filter((line) => !line.startsWith("No ")).join("\n\n");
 
+    await startDogfoodCase(dogfoodCases, createDogfoodStore(dogfoodRootPath()), {
+      prompt: event.prompt ?? "",
+      cwd,
+      salt: await dogfoodSalt(),
+      workMode,
+      executionIntensity,
+    });
+
     return {
       systemPrompt: `${event.systemPrompt}\n\n${buildAutopilotSystemPrompt({
         workMode,
@@ -505,6 +541,9 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
 
   pi.on("message_end", async (event) => {
     if (event.message.role !== "assistant") return undefined;
+    if (event.message.stopReason !== "toolUse" && event.message.stopReason !== "error" && event.message.stopReason !== "aborted") {
+      await finishDogfoodCase(dogfoodCases, createDogfoodStore(dogfoodRootPath()));
+    }
     const state = await loadState();
     const webResult = guardWebResearchQualityMessage(state.runtime.workMode, event.message);
     if (webResult.followUp) {
@@ -533,6 +572,52 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
       );
     }
     return adoptionResult.message ? { message: adoptionResult.message } : undefined;
+  });
+
+  pi.registerCommand("dogfood", {
+    description: "Show cross-project dogfooding quality status and weekly reports",
+    handler: async (args: string, ctx: ExtensionCommandContext) => {
+      const store = createDogfoodStore(dogfoodRootPath());
+      const [command = "status", ...rest] = args.trim().split(/\s+/).filter(Boolean);
+      const week = rest[0] && /^\d{4}-W\d{2}$/.test(rest[0]) ? rest[0] : isoWeekId(new Date());
+
+      if (command === "status") {
+        const cases = await listDogfoodCases(store, week);
+        const latest = await readDogfoodWeeklyReport(store, week);
+        ctx.ui.notify(`dogfood status ${week}: ${cases.length}/25 cases, latest report: ${latest ? "yes" : "no"}`, "info");
+        return;
+      }
+
+      if (command === "weekly") {
+        const cases = await listDogfoodCases(store, week);
+        const report = buildDogfoodWeeklyReport(week, cases);
+        await writeDogfoodWeeklyReport(store, report);
+        ctx.ui.notify(formatDogfoodWeeklyReport(report), "info");
+        return;
+      }
+
+      if (command === "report") {
+        const report = await readDogfoodWeeklyReport(store, week);
+        ctx.ui.notify(report ? formatDogfoodWeeklyReport(report) : `No dogfood weekly report for ${week}. Run /dogfood weekly ${week}.`, "info");
+        return;
+      }
+
+      if (command === "queue") {
+        const queue = await readDogfoodQueue(store);
+        ctx.ui.notify(`review queue: ${queue.length}`, "info");
+        return;
+      }
+
+      if (command === "explain") {
+        const [id] = rest;
+        const cases = await listDogfoodCases(store);
+        const found = cases.find((item) => item.id === id);
+        ctx.ui.notify(found ? `${found.id}: ${found.outcome} (${found.outcomeConfidence}) — ${found.ruleReasons.join(", ")}` : `No dogfood case found for id: ${id ?? ""}`, "info");
+        return;
+      }
+
+      ctx.ui.notify("Usage: /dogfood [status|weekly|report|queue|explain <id>] [YYYY-WW]", "error");
+    },
   });
 
   pi.registerCommand("mode", {
