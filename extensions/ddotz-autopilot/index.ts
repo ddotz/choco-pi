@@ -50,6 +50,7 @@ import {
 import { guardAdoptionAnalysisQualityMessage } from "./adoption-analysis-quality";
 import { classifyApprovalBoundaryToolCall, formatApprovalBoundaryBlock } from "./approval-boundary";
 import { registerRuntimeReload } from "./runtime-reload";
+import { resolveEffectiveWorkMode, sessionIdFromContext, sessionScopedKey } from "./session-scope";
 import { installStructuralGate } from "./structural-gate";
 import { DDOTZ_PI_VERSION } from "./version";
 import { verificationCommandFromInput } from "./verification-command";
@@ -66,16 +67,25 @@ import {
   type WorkModeRegistry,
 } from "./work-mode-registry";
 
+interface SessionRuntimeState {
+  effectiveWorkMode: WorkMode;
+  suggestedWorkMode?: WorkMode;
+  automaticMode: boolean;
+  executionIntensity: ExecutionIntensity;
+  updatedAt: string;
+}
+
 interface DdotzState {
-  version: 2;
+  version: 3;
   runtime: RuntimeState;
+  sessions: Record<string, SessionRuntimeState>;
   memories: StoredMemory[];
   ledgers: Record<string, ContextLedger>;
   sourceRegistry: SourceRegistry;
   workModeRegistry: WorkModeRegistry;
 }
 
-const STATE_VERSION = 2 as const;
+const STATE_VERSION = 3 as const;
 
 function agentDir(): string {
   return process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent");
@@ -127,6 +137,7 @@ function emptyState(): DdotzState {
   return {
     version: STATE_VERSION,
     runtime: createRuntimeState(DEFAULT_WORK_MODE, DEFAULT_EXECUTION_INTENSITY),
+    sessions: {},
     memories: [],
     ledgers: {},
     sourceRegistry: createSourceRegistry(),
@@ -141,8 +152,8 @@ function migrateLegacyMode(parsed: { mode?: { mode?: string }; runtime?: Runtime
   return createRuntimeState("default", "standard");
 }
 
-function ledgerKey(cwd: string): string {
-  return Buffer.from(cwd || process.cwd()).toString("base64url");
+function ledgerKey(cwd: string, sessionId: string): string {
+  return sessionScopedKey(cwd || process.cwd(), sessionId);
 }
 
 async function loadState(): Promise<DdotzState> {
@@ -152,6 +163,7 @@ async function loadState(): Promise<DdotzState> {
     return {
       version: STATE_VERSION,
       runtime: migrateLegacyMode(parsed),
+      sessions: parsed.sessions && typeof parsed.sessions === "object" ? parsed.sessions : {},
       memories: Array.isArray(parsed.memories) ? parsed.memories : [],
       ledgers: parsed.ledgers && typeof parsed.ledgers === "object" ? parsed.ledgers : {},
       sourceRegistry: parsed.sourceRegistry?.sources ? parsed.sourceRegistry : createSourceRegistry(),
@@ -169,14 +181,18 @@ async function saveState(state: DdotzState): Promise<void> {
   await writeFile(path, `${JSON.stringify(state, null, 2)}\n`, "utf8");
 }
 
-function getLedger(state: DdotzState, cwd: string, prompt?: string): ContextLedger {
-  const key = ledgerKey(cwd);
+function getLedger(state: DdotzState, cwd: string, sessionId: string, prompt?: string): ContextLedger {
+  const key = ledgerKey(cwd, sessionId);
   const existing = state.ledgers[key];
   if (existing) return existing;
   const objective = prompt?.trim() ? prompt.trim().slice(0, 240) : `Autonomous work in ${cwd}`;
   const created = createEmptyLedger(objective);
   state.ledgers[key] = created;
   return created;
+}
+
+function nowIso(): string {
+  return new Date().toISOString();
 }
 
 function formatMemories(memories: StoredMemory[]): string {
@@ -431,25 +447,32 @@ function textContentPreview(content: unknown): string | undefined {
   return text.split("\n").find((line) => line.trim())?.trim().slice(0, 160);
 }
 
-async function updateLedgerForToolCall(cwd: string, toolName: string, input: unknown): Promise<void> {
+async function updateLedgerForToolCall(cwd: string, sessionId: string, toolName: string, input: unknown): Promise<void> {
   if (toolName !== "write" && toolName !== "edit") return;
   const path = toolInputPath(input);
   if (!path) return;
   const state = await loadState();
-  const key = ledgerKey(cwd);
-  const ledger = getLedger(state, cwd);
+  const key = ledgerKey(cwd, sessionId);
+  const ledger = getLedger(state, cwd, sessionId);
   state.ledgers[key] = recordChangedFile(ledger, path);
   await saveState(state);
 }
 
-async function updateLedgerForToolResult(cwd: string, toolName: string, input: unknown, isError: boolean | undefined, content: unknown): Promise<void> {
+async function updateLedgerForToolResult(
+  cwd: string,
+  sessionId: string,
+  toolName: string,
+  input: unknown,
+  isError: boolean | undefined,
+  content: unknown,
+): Promise<void> {
   if (toolName !== "bash") return;
   const command = verificationCommandFromInput(input);
   if (!command) return;
   const status: VerificationStatus = isError ? "failed" : "passed";
   const state = await loadState();
-  const key = ledgerKey(cwd);
-  const ledger = getLedger(state, cwd);
+  const key = ledgerKey(cwd, sessionId);
+  const ledger = getLedger(state, cwd, sessionId);
   state.ledgers[key] = recordVerification(ledger, command, status, textContentPreview(content));
   await saveState(state);
 }
@@ -464,18 +487,19 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     const decision = classifyApprovalBoundaryToolCall(event.toolName, event.input);
     if (decision) return { block: true, reason: formatApprovalBoundaryBlock(decision) };
     recordDogfoodToolCall(dogfoodCases, event.toolName);
-    await updateLedgerForToolCall(ctx.cwd || process.cwd(), event.toolName, event.input);
+    await updateLedgerForToolCall(ctx.cwd || process.cwd(), sessionIdFromContext(ctx), event.toolName, event.input);
     return undefined;
   });
 
   pi.on("tool_result", async (event, ctx) => {
     recordDogfoodToolResult(dogfoodCases, event);
-    await updateLedgerForToolResult(ctx.cwd || process.cwd(), event.toolName, event.input, event.isError, event.content);
+    await updateLedgerForToolResult(ctx.cwd || process.cwd(), sessionIdFromContext(ctx), event.toolName, event.input, event.isError, event.content);
   });
 
   pi.on("session_start", async (_event, ctx) => {
     await cleanupDogfoodCaseRetention(createDogfoodStore(dogfoodRootPath()));
     const state = await loadState();
+    const sessionId = sessionIdFromContext(ctx);
     const dueGithubSources = sourcesDueForWeeklyCheck(state.sourceRegistry)
       .filter((source) => source.kind === "github")
       .slice(0, 5);
@@ -484,9 +508,11 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
       await saveState(state);
     }
     if (!ctx.hasUI) return;
+    const sessionRuntime = state.sessions[sessionId];
+    const effective = sessionRuntime?.effectiveWorkMode ?? state.runtime.workMode;
     ctx.ui.setStatus(
       "mode",
-      ctx.ui.theme.fg("accent", `mode:${state.runtime.workMode}/${state.runtime.executionIntensity}@${DDOTZ_PI_VERSION}`),
+      ctx.ui.theme.fg("accent", `mode:${state.runtime.workMode}->${effective}/${state.runtime.executionIntensity}@${DDOTZ_PI_VERSION}`),
     );
   });
 
@@ -497,15 +523,28 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   pi.on("before_agent_start", async (event, ctx) => {
     const state = await loadState();
     const cwd = ctx.cwd || process.cwd();
-    const ledger = getLedger(state, cwd, event.prompt);
-    await saveState(state);
-
-    const workMode = state.runtime.workMode;
+    const sessionId = sessionIdFromContext(ctx);
     const suggestedWorkMode = inferPlannedWorkMode(event.prompt ?? "");
+    const modeDecision = resolveEffectiveWorkMode({
+      persistentMode: state.runtime.workMode,
+      suggestedMode: suggestedWorkMode,
+    });
+    const workMode = state.runtime.workMode;
+    const effectiveWorkMode = modeDecision.effectiveMode;
     const executionIntensity = maxIntensity(
       state.runtime.executionIntensity,
       classifyExecutionIntensity(event.prompt ?? ""),
     );
+    state.sessions[sessionId] = {
+      effectiveWorkMode,
+      suggestedWorkMode,
+      automaticMode: modeDecision.automatic,
+      executionIntensity,
+      updatedAt: nowIso(),
+    };
+    const ledger = getLedger(state, cwd, sessionId, event.prompt);
+    await saveState(state);
+
     const ledgerSummary = summarizeLedger(ledger, { maxItemsPerSection: 4 });
     const changed = summarizeChangedSources(state.sourceRegistry);
     const due = summarizeDueSources(state.sourceRegistry);
@@ -515,13 +554,14 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
       prompt: event.prompt ?? "",
       cwd,
       salt: await dogfoodSalt(),
-      workMode,
+      workMode: effectiveWorkMode,
       executionIntensity,
     });
 
     return {
       systemPrompt: `${event.systemPrompt}\n\n${buildAutopilotSystemPrompt({
         workMode,
+        effectiveWorkMode,
         executionIntensity,
         cwd,
         ledgerSummary,
@@ -531,13 +571,15 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     };
   });
 
-  pi.on("message_end", async (event) => {
+  pi.on("message_end", async (event, ctx) => {
     if (event.message.role !== "assistant") return undefined;
     if (event.message.stopReason !== "toolUse" && event.message.stopReason !== "error" && event.message.stopReason !== "aborted") {
       await finishDogfoodCase(dogfoodCases, createDogfoodStore(dogfoodRootPath()));
     }
     const state = await loadState();
-    const webResult = guardWebResearchQualityMessage(state.runtime.workMode, event.message);
+    const sessionRuntime = state.sessions[sessionIdFromContext(ctx)];
+    const effectiveWorkMode = sessionRuntime?.effectiveWorkMode ?? state.runtime.workMode;
+    const webResult = guardWebResearchQualityMessage(effectiveWorkMode, event.message);
     if (webResult.followUp) {
       pi.sendMessage(
         {
@@ -551,7 +593,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     }
     if (webResult.message) return { message: webResult.message };
 
-    const adoptionResult = guardAdoptionAnalysisQualityMessage(state.runtime.workMode, event.message);
+    const adoptionResult = guardAdoptionAnalysisQualityMessage(effectiveWorkMode, event.message);
     if (adoptionResult.followUp) {
       pi.sendMessage(
         {
@@ -831,16 +873,17 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     handler: async (args: string, ctx: ExtensionCommandContext) => {
       const state = await loadState();
       const cwd = ctx.cwd || process.cwd();
-      const key = ledgerKey(cwd);
+      const sessionId = sessionIdFromContext(ctx);
+      const key = ledgerKey(cwd, sessionId);
 
       if (args.trim() === "reset") {
         delete state.ledgers[key];
         await saveState(state);
-        ctx.ui.notify("Reset Context Ledger for this workspace.", "info");
+        ctx.ui.notify("Reset Context Ledger for this session/workspace.", "info");
         return;
       }
 
-      const ledger = getLedger(state, cwd);
+      const ledger = getLedger(state, cwd, sessionId);
       await saveState(state);
       ctx.ui.notify(summarizeLedger(ledger, { maxItemsPerSection: 8 }), "info");
     },

@@ -25,6 +25,7 @@ import {
   type RunStateTransition,
 } from "./core.ts";
 import { CODEX_FAST_MODE_EVENT, parseFastModeState } from "../codex-fast-mode/core.ts";
+import { normalizeSessionId } from "../session-identity.ts";
 
 const CODEX_RATE_LIMIT_TTL_MS = 5 * 60 * 1000;
 const CODEX_RATE_LIMIT_TIMEOUT_MS = 8000;
@@ -293,8 +294,8 @@ function readClaudeRateLimits(): RateLimitSnapshot | undefined {
   return undefined;
 }
 
-function readTodoLabel(cwd: string): { label: string; error?: string } {
-  const todoPath = join(cwd, ".pi", "todos.json");
+function readTodoLabel(cwd: string, sessionId: string): { label: string; error?: string } {
+  const todoPath = join(cwd, ".pi", "sessions", normalizeSessionId(sessionId), "todos.json");
   try {
     if (!existsSync(todoPath)) return { label: "0/0" };
     const summary = summarizeTodosJson(readFileSync(todoPath, "utf8"));
@@ -407,7 +408,7 @@ function collectFooterData(
   const model = ctx.model as MinimalModel | undefined;
   const providerKind = detectProviderKind(model);
   const cwd = ctx.sessionManager.getCwd() || ctx.cwd;
-  const todo = readTodoLabel(cwd);
+  const todo = readTodoLabel(cwd, ctx.sessionManager.getSessionId());
   const sessionStats = collectSessionStats(ctx);
   const context = contextStats(ctx);
 

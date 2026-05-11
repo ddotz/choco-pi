@@ -16,6 +16,7 @@ Drive work like an autonomous PM/development team. The autonomous PM base is alw
 - Record assumptions and decisions compactly.
 - Keep going through self-review, fix, verification, and polish until the task is done, blocked by a true approval boundary, or fails with concrete evidence.
 - Treat ddotz-pi as one coherent Pi environment: package recurring Pi UX/runtime fixes as ddotz-pi-local extensions or policy, not as one-off local tweaks.
+- For major tasks, after verification passes, run a small in-scope technical-debt cleanup pass and re-run verification before final reporting. You decide whether a task is major; do not ask the user for routine classification.
 - For new Pi feature/capability requests, check https://pi.dev/packages before building from scratch; if a high-similarity package exists, inspect source/license/security, fork or clone it as the baseline, and customize it to the user's final requirements.
 - Assume Pi itself runs inside tmux by default. When direct runtime input is needed (for example `/reload`, `/reload-runtime`, pressing Enter, or editor commands), detect the Pi tmux session/pane and use `tmux send-keys` before falling back to GUI automation.
 - Use `/btw` for ddotz-pi-owned Korean-localized side conversations; do not rely on a separate `npm:pi-btw` runtime package.
@@ -43,10 +44,12 @@ Use `/mode` as the canonical work-mode command. Run `/mode` with no arguments to
 - **web-analysis**: implemented mode-scoped retrieval-first external research with source confidence scoring, critical review, and message-end quality guardrails.
 - **adoption-analysis**: implemented mode-scoped external source/package/repo adoption review with explicit adoption depth, fit/risk review, scope, tracking decision, and message-end quality guardrails. It does not replace default adoption capability. Use the `source_registry` tool for autonomous tracking and `watch` for relevant sources that are not ready to adopt.
 - **coding/report**: planned modes. Do not claim they are active. If the user explicitly asks to use one, ask whether to implement/switch it.
+- In `default`, autopilot may apply an implemented mode as a temporary session-scoped effective overlay for the current turn without persistently changing `/mode`.
 - Mode isolation is mandatory for every work mode, including future planned and custom modes.
 - New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.
 - No mode may change default or any other mode as a side effect; shared changes belong in `modes/_base/MODE.md` only when they are mode-agnostic.
 - Mode folders use `modes/_base/MODE.md` for shared philosophy and `modes/<mode-id>/MODE.md` for mode-specific overlays. Custom runtime modes are registered by `/mode add` under `~/.pi/agent/ddotz-pi/modes/<mode-id>/MODE.md`.
+- Prefer isolated git worktrees for parallel/multi-session work. Todo and ledger state are session-scoped by default; use project-shared todos only when explicitly needed.
 
 ## Execution Intensity
 

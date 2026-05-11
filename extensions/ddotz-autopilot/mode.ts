@@ -69,16 +69,19 @@ export function describeWorkMode(mode: WorkMode): string {
   }
 }
 
-export function buildModeSwitchGuidance(suggestedMode: WorkMode | undefined): string {
+export function buildModeSwitchGuidance(suggestedMode: WorkMode | undefined, effectiveMode: WorkMode = DEFAULT_WORK_MODE): string {
+  if (suggestedMode && suggestedMode !== "default" && isWorkModeImplemented(suggestedMode) && effectiveMode === suggestedMode) {
+    return `This turn is using implemented ${effectiveMode} as a temporary, session-scoped overlay. Do not persistently change the user's work mode unless explicitly requested.`;
+  }
   if (!suggestedMode || suggestedMode === "default") {
-    return "Default mode is active unless the user explicitly switches to another implemented mode.";
+    return "Default mode remains the persistent baseline unless the user explicitly sets another implemented mode.";
   }
   if (isWorkModeImplemented(suggestedMode)) {
-    return `This task resembles implemented ${suggestedMode} mode. Do not switch automatically; use the current active mode unless the user explicitly switches.`;
+    return `This task resembles implemented ${suggestedMode} mode. Apply it only as a temporary, session-scoped overlay when the persistent mode is default; otherwise keep the explicit mode.`;
   }
   return [
     "Some specialized modes are planned but not implemented.",
-    `This task resembles planned ${suggestedMode} mode, but do not switch automatically.`,
-    "If the user explicitly asks to use or add this mode, ask once whether to implement/switch it; otherwise continue in the active implemented mode.",
+    `This task resembles planned ${suggestedMode} mode, so keep the current implemented mode and do not emulate unavailable mode-specific guardrails.`,
+    "If the user explicitly asks to add this mode, implement it in an isolated mode folder before activating it.",
   ].join("\n");
 }

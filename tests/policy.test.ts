@@ -49,10 +49,19 @@ describe("ddotz autonomous PM policy", () => {
   it("injects a non-negotiable structural gate that preserves autonomous PM discipline under long context", () => {
     const prompt = buildAutopilotSystemPrompt({
       workMode: "default",
+      effectiveWorkMode: "web-analysis",
       executionIntensity: "standard",
       cwd: "/repo",
     });
 
+    expect(prompt).toContain("Persistent work mode: default");
+    expect(prompt).toContain("Effective work mode for this turn: web-analysis");
+    expect(prompt).toContain("temporary, session-scoped overlay");
+    expect(prompt).not.toContain("Do not switch automatically");
+    expect(prompt).toContain("Technical debt cleanup");
+    expect(prompt).toContain("After verification passes on a major task");
+    expect(prompt).toContain("re-run verification after cleanup");
+    expect(prompt).toContain("Do not turn cleanup into new features");
     expect(prompt).toContain("Structural execution gate");
     expect(prompt).toContain("non-negotiable");
     expect(prompt).toContain("must not be skipped or softened when context is long");

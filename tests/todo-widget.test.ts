@@ -48,10 +48,11 @@ async function emit(handlers: Map<string, EventHandler[]>, eventName: string, ev
   for (const handler of handlers.get(eventName) ?? []) await handler(event, ctx);
 }
 
-function ctx(cwd: string): Record<string, unknown> {
+function ctx(cwd: string, sessionId = "session-default"): Record<string, unknown> {
   return {
     cwd,
     hasUI: false,
+    sessionManager: { getSessionId: () => sessionId },
     ui: {
       setWidget: vi.fn(),
       notify: vi.fn(),
@@ -62,8 +63,8 @@ function ctx(cwd: string): Record<string, unknown> {
   };
 }
 
-async function runTodo(tool: RegisteredTool, cwd: string, params: Record<string, unknown>): Promise<unknown> {
-  return tool.execute("todo-call", params, undefined, vi.fn(), ctx(cwd));
+async function runTodo(tool: RegisteredTool, cwd: string, params: Record<string, unknown>, sessionId = "session-default"): Promise<unknown> {
+  return tool.execute("todo-call", params, undefined, vi.fn(), ctx(cwd, sessionId));
 }
 
 describe("todo widget persistence", () => {
@@ -78,7 +79,10 @@ describe("todo widget persistence", () => {
       runTodo(tool, cwd, { action: "add", text: "third" }),
     ]);
 
-    const state = JSON.parse(await readFile(join(cwd, ".pi", "todos.json"), "utf8")) as { nextId: number; todos: Array<{ id: number; text: string }> };
+    const state = JSON.parse(await readFile(join(cwd, ".pi", "sessions", "session-default", "todos.json"), "utf8")) as {
+      nextId: number;
+      todos: Array<{ id: number; text: string }>;
+    };
     expect(state.nextId).toBe(4);
     expect(state.todos.map((todo) => [todo.id, todo.text])).toEqual([
       [1, "first"],
@@ -87,24 +91,49 @@ describe("todo widget persistence", () => {
     ]);
   });
 
-  it("clears persisted todos when a new session starts", async () => {
+  it("keeps default todo lists isolated per Pi session in the same cwd", async () => {
     const cwd = await makeTempCwd();
-    const todoPath = join(cwd, ".pi", "todos.json");
-    await mkdir(join(cwd, ".pi"), { recursive: true });
-    await writeFile(
-      todoPath,
-      `${JSON.stringify({
-        version: 1,
-        nextId: 2,
-        todos: [{ id: 1, text: "stale", status: "done", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" }],
-      })}\n`,
-      "utf8",
-    );
+    const { tool } = setupTodoWidget();
+
+    await runTodo(tool, cwd, { action: "add", text: "alpha" }, "session-a");
+    await runTodo(tool, cwd, { action: "add", text: "beta" }, "session-b");
+
+    const sessionA = JSON.parse(await readFile(join(cwd, ".pi", "sessions", "session-a", "todos.json"), "utf8")) as { todos: Array<{ text: string }> };
+    const sessionB = JSON.parse(await readFile(join(cwd, ".pi", "sessions", "session-b", "todos.json"), "utf8")) as { todos: Array<{ text: string }> };
+    expect(sessionA.todos.map((todo) => todo.text)).toEqual(["alpha"]);
+    expect(sessionB.todos.map((todo) => todo.text)).toEqual(["beta"]);
+  });
+
+  it("keeps an explicit project todo scope for deliberate shared lists", async () => {
+    const cwd = await makeTempCwd();
+    const { tool } = setupTodoWidget();
+
+    await runTodo(tool, cwd, { action: "add", text: "shared", scope: "project" }, "session-a");
+
+    const project = JSON.parse(await readFile(join(cwd, ".pi", "todos.json"), "utf8")) as { todos: Array<{ text: string }> };
+    expect(project.todos.map((todo) => todo.text)).toEqual(["shared"]);
+  });
+
+  it("clears only the current session todos when a new session starts", async () => {
+    const cwd = await makeTempCwd();
+    const currentPath = join(cwd, ".pi", "sessions", "session-a", "todos.json");
+    const otherPath = join(cwd, ".pi", "sessions", "session-b", "todos.json");
+    const staleState = {
+      version: 1,
+      nextId: 2,
+      todos: [{ id: 1, text: "stale", status: "done", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" }],
+    };
+    await mkdir(join(cwd, ".pi", "sessions", "session-a"), { recursive: true });
+    await mkdir(join(cwd, ".pi", "sessions", "session-b"), { recursive: true });
+    await writeFile(currentPath, `${JSON.stringify(staleState)}\n`, "utf8");
+    await writeFile(otherPath, `${JSON.stringify(staleState)}\n`, "utf8");
 
     const { handlers } = setupTodoWidget();
-    await emit(handlers, "session_start", { reason: "new" }, ctx(cwd));
+    await emit(handlers, "session_start", { reason: "new" }, ctx(cwd, "session-a"));
 
-    const state = JSON.parse(await readFile(todoPath, "utf8")) as { nextId: number; todos: unknown[] };
-    expect(state).toMatchObject({ nextId: 1, todos: [] });
+    const current = JSON.parse(await readFile(currentPath, "utf8")) as { nextId: number; todos: unknown[] };
+    const other = JSON.parse(await readFile(otherPath, "utf8")) as { nextId: number; todos: unknown[] };
+    expect(current).toMatchObject({ nextId: 1, todos: [] });
+    expect(other.todos).toHaveLength(1);
   });
 });

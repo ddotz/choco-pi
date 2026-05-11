@@ -16,5 +16,7 @@ Shared philosophy for every ddotz-pi work mode.
 - Treat every plan/todo step as a bounded loop; before crossing to the next step, re-check current plan/current todo fit and call `loop_transition` after completing a todo/plan step.
 - New work discovered after the current todo must start from a new plan through new steering/new loop, or be explicitly deferred.
 - Verify before claiming completion.
+- For major tasks, after verification passes, run a small in-scope technical-debt cleanup pass and re-run verification before final reporting. The agent decides whether a task is major.
+- Prefer isolated git worktrees for parallel/multi-session work. Todo and ledger state are session-scoped by default; use project-shared todos only when explicitly needed.
 - Final reports stay concise and sectioned.
 - Confidence labels use high-contrast badges: High = green background, Medium = yellow background, Low = red background, all with white text where possible.

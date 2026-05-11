@@ -65,7 +65,7 @@ Pi runtime
   ├─ package.json pi.extensions[]
   │   ├─ ddotz-autopilot        # PM loop, guards, state, commands, reload tool
   │   ├─ input-newline          # routes extension text prompts through multiline editor
-  │   ├─ todo-widget            # persistent project todo tool/widget
+  │   ├─ todo-widget            # session-scoped todo tool/widget
   │   ├─ ddotz-footer           # custom two-line footer
   │   ├─ fff-search             # FFF-backed find/grep and @mention search
   │   ├─ pi-lsp-client          # LSP diagnostics/navigation integration
@@ -80,7 +80,7 @@ The core design is layered:
 
 1. **Policy layer**: builds the autonomous PM system prompt and runtime constraints.
 2. **Guard layer**: blocks or repairs unsafe/incomplete execution.
-3. **State layer**: persists mode, intensity, memory, ledgers, source tracking, and custom mode registry.
+3. **State layer**: persists mode, intensity, session effective-mode overlays, memory, session-scoped ledgers, source tracking, and custom mode registry.
 4. **UI layer**: footer, todo widget, focus view, raw paste, BTW side conversations, and search/editor affordances.
 5. **Verification layer**: tests and quality gates enforce behavior before commits.
 
@@ -127,7 +127,7 @@ It also registers user commands:
 | `tool_call` | `ddotz-autopilot` | Guard dangerous tool calls before execution; record edit/write paths for the ledger. |
 | `tool_result` | `ddotz-autopilot` | Capture verification commands and pass/fail evidence into the ledger. |
 | `message_end` | `structural-gate` | Fail closed if a non-trivial turn tries to finish without passing the structural gate. |
-| `session_start` | multiple extensions | Rehydrate state, install UI widgets/footer/editor components, clear todos on `/new`, and update runtime status. |
+| `session_start` | multiple extensions | Rehydrate state, install UI widgets/footer/editor components, clear current-session todos on `/new`, and update runtime status. |
 | `session_shutdown` | multiple extensions | Dispose UI/status/editor patches and clear per-session references. |
 | `agent_start` | `focus-rendering` | Keep Pi's built-in working indicator hidden while the focused tool view is active. |
 | `resources_discover` | Pi package loader | Pi discovers package skills/prompts/themes from `package.json`; runtime reload re-runs discovery. |
@@ -224,7 +224,13 @@ Auto-improvement requires at least 25 eligible weekly cases and at least 3 repea
 
 ### 8. Todo subsystem
 
-`extensions/todo-widget.ts` registers the `todo` tool and `/todos` UI. Todos are project-local:
+`extensions/todo-widget.ts` registers the `todo` tool and `/todos` UI. Todos are session-local by default so multiple Pi sessions in the same cwd do not overwrite each other:
+
+```text
+<cwd>/.pi/sessions/<sessionId>/todos.json
+```
+
+Deliberate shared todos remain available with `scope: "project"`:
 
 ```text
 <cwd>/.pi/todos.json
@@ -237,7 +243,7 @@ Persistence rules:
 - writes use atomic temp-file rename,
 - temp file names include `randomUUID()` to avoid same-tick collisions,
 - path-level async locks serialize concurrent tool calls and prevent lost updates,
-- `session_start(reason: "new")` clears persisted todos so `/new` starts clean.
+- `session_start(reason: "new")` clears only the current session todos so `/new` starts clean without touching sibling sessions.
 
 The tool renderer is intentionally empty so tool calls stay visually quiet while the widget reflects todo state.
 
@@ -256,7 +262,7 @@ Data sources:
 - branch from Pi footer data, then `git -C <cwd>`, then the ddotz-pi repo fallback,
 - version from `package.json`,
 - mode from `~/.pi/agent/ddotz-pi/state.json`,
-- todo summary from `<cwd>/.pi/todos.json`,
+- todo summary from `<cwd>/.pi/sessions/<sessionId>/todos.json`,
 - run state from agent/tool lifecycle hooks,
 - Codex rate limits from `codex app-server --listen stdio://`,
 - Claude usage from existing Claude cache files when the active provider is Anthropic.
@@ -323,7 +329,7 @@ Pi runtime
   ├─ package.json pi.extensions[]
   │   ├─ ddotz-autopilot        # PM 루프, guard, 상태, 명령, reload tool
   │   ├─ input-newline          # extension text prompt를 multiline editor로 라우팅
-  │   ├─ todo-widget            # 프로젝트 todo tool/widget
+  │   ├─ todo-widget            # 세션 격리 todo tool/widget
   │   ├─ ddotz-footer           # 2줄 footer
   │   ├─ fff-search             # FFF 기반 find/grep 및 @mention 검색
   │   ├─ pi-lsp-client          # LSP diagnostics/navigation
@@ -338,7 +344,7 @@ Pi runtime
 
 1. **Policy layer**: autonomous PM system prompt와 런타임 제약을 생성합니다.
 2. **Guard layer**: 위험하거나 불완전한 실행을 차단하거나 복구합니다.
-3. **State layer**: mode, intensity, memory, ledger, source tracking, custom mode registry를 저장합니다.
+3. **State layer**: mode, intensity, session effective-mode overlay, memory, session-scoped ledger, source tracking, custom mode registry를 저장합니다.
 4. **UI layer**: footer, todo widget, focus view, raw paste, BTW side conversation, search/editor 편의 기능을 제공합니다.
 5. **Verification layer**: 테스트와 품질 게이트로 커밋 전 동작을 검증합니다.
 
@@ -378,7 +384,7 @@ state schema version `2`는 다음을 저장합니다.
 | `tool_call` | `ddotz-autopilot` | tool 실행 전 위험 호출 차단, edit/write 경로 ledger 기록. |
 | `tool_result` | `ddotz-autopilot` | 검증 명령과 pass/fail evidence를 ledger에 기록. |
 | `message_end` | `structural-gate` | non-trivial turn이 structural gate 없이 끝나면 fail-closed 처리. |
-| `session_start` | 여러 extension | state 복원, UI widget/footer/editor 설치, `/new` todo clear, runtime status 갱신. |
+| `session_start` | 여러 extension | state 복원, UI widget/footer/editor 설치, `/new` current-session todo clear, runtime status 갱신. |
 | `session_shutdown` | 여러 extension | UI/status/editor reference 정리. |
 | `agent_start` | `focus-rendering` | focused view 활성 시 Pi 기본 working indicator 숨김. |
 | `resources_discover` | Pi package loader | `package.json`의 skills/prompts/themes 재발견; runtime reload 때 다시 실행. |
@@ -466,7 +472,13 @@ Source registry는 실제로 채택했거나 사용자가 명시적으로 추적
 
 ### 8. Todo subsystem
 
-`extensions/todo-widget.ts`는 `todo` tool과 `/todos` UI를 등록합니다. todo 파일은 프로젝트별로 저장됩니다.
+`extensions/todo-widget.ts`는 `todo` tool과 `/todos` UI를 등록합니다. todo 파일은 기본적으로 Pi 세션별로 저장되어 같은 cwd의 멀티세션이 서로 덮어쓰지 않습니다.
+
+```text
+<cwd>/.pi/sessions/<sessionId>/todos.json
+```
+
+명시적으로 공유가 필요하면 `scope: "project"`로 프로젝트 공용 todo를 사용합니다.
 
 ```text
 <cwd>/.pi/todos.json
@@ -479,7 +491,7 @@ Source registry는 실제로 채택했거나 사용자가 명시적으로 추적
 - atomic temp-file rename,
 - 같은 tick 충돌 방지를 위한 `randomUUID()` temp filename,
 - 동시 tool call의 lost update 방지를 위한 path-level async lock,
-- `/new`에서 깨끗하게 시작하도록 `session_start(reason: "new")` 때 persisted todo clear.
+- `/new`에서 깨끗하게 시작하도록 `session_start(reason: "new")` 때 current-session todo만 clear.
 
 렌더러는 비워 두어 tool call block은 조용히 숨기고 widget만 갱신합니다.
 
@@ -498,7 +510,7 @@ Source registry는 실제로 채택했거나 사용자가 명시적으로 추적
 - Pi footer branch data → `git -C <cwd>` → ddotz-pi repo branch fallback,
 - `package.json` version,
 - `~/.pi/agent/ddotz-pi/state.json` mode,
-- `<cwd>/.pi/todos.json` todo summary,
+- `<cwd>/.pi/sessions/<sessionId>/todos.json` todo summary,
 - agent/tool lifecycle hook 기반 run state,
 - `codex app-server --listen stdio://` 기반 Codex rate limit,
 - Anthropic provider일 때 Claude cache 기반 usage.
@@ -586,6 +598,8 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 - Mode isolation is mandatory for every work mode, including future planned and custom modes.
 - New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.
 - No mode may change default or any other mode as a side effect; shared changes belong in `modes/_base/MODE.md` only when they are mode-agnostic.
+- In `default`, autopilot may apply an implemented mode as a temporary session-scoped effective overlay for the current turn without persistently changing `/mode`.
+- Prefer isolated git worktrees for parallel/multi-session work. Todo and ledger state are session-scoped by default; use project-shared todos only when explicitly needed.
 - `web-analysis` retrieval/review policy and message-end quality guardrail are active only while that mode is active.
 - `adoption-analysis` does not replace default adoption capability; it adds mode-scoped decision, adoption-depth, fit/risk, scope, tracking, and confidence quality guardrails only while active.
 - The `source_registry` tool is the Pi-native LLM path for autonomous source tracking; use `watch` when a source is relevant but not safe or ready to adopt.
@@ -593,6 +607,7 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 - Treat each plan/todo step as a bounded loop. Complete a step, verify fit, record `loop_transition`, then move on.
 - If new work appears after the current todo, start a new loop or defer it explicitly. Do not silently append scope.
 - Run the structural gate before final completion on non-trivial work.
+- For major tasks, after verification passes, run a small in-scope technical-debt cleanup pass and re-run verification before final reporting; the agent decides the major-task threshold.
 - Medium confidence is not a completion state; reinforce verification to `High` or report a concrete blocker.
 
 ## Language, UI, and reporting
@@ -601,7 +616,7 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 - Use respectful Korean (존댓말) with concise `합니다/습니다` or natural `해요` style; do not use 반말.
 - Do not use praise or validation openers such as `좋은 질문이에요`, `맞습니다`, or `완전히 맞습니다`.
 - Do not end replies with suggestion-led opt-in phrasing such as `원하면 ~해드릴게요`.
-- Todo tool calls render silently while the todo widget updates.
+- Todo tool calls render silently while the session-scoped todo widget updates.
 - Read previews stay header-only while collapsed and expand on demand.
 - Footer shows `⎇ <branch> v<version>`, and line 2 starts with the current mode and ends with Codex-style run state (`Ready`, `Starting`, `Thinking`, `Working`) after the todo count.
 - Footer usage values (`5h`, `wk`, `ctx`) highlight only numeric values in cyan.

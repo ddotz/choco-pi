@@ -1,5 +1,6 @@
 import { StringEnum } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
+import { sessionIdFromContext, normalizeSessionId } from "./session-identity";
 import { randomUUID } from "node:crypto";
 import { Container, matchesKey, truncateToWidth } from "@mariozechner/pi-tui";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
@@ -8,6 +9,7 @@ import { Type } from "typebox";
 
 type TodoStatus = "pending" | "in_progress" | "done" | "blocked";
 type TodoAction = "list" | "add" | "set_status" | "update" | "remove" | "clear";
+type TodoScope = "session" | "project";
 
 interface TodoItem {
   id: number;
@@ -27,10 +29,13 @@ interface TodoDetails {
   action: TodoAction;
   state: TodoState;
   path: string;
+  scope: TodoScope;
+  sessionId: string;
   error?: string;
 }
 
 const TODO_STATUSES: TodoStatus[] = ["pending", "in_progress", "done", "blocked"];
+const TODO_SCOPES: TodoScope[] = ["session", "project"];
 const EMPTY_STATE: TodoState = { version: 1, nextId: 1, todos: [] };
 const stateLocks = new Map<string, Promise<void>>();
 
@@ -39,6 +44,7 @@ const TodoParams = Type.Object({
   id: Type.Optional(Type.Number({ description: "Todo id for set_status, update, and remove" })),
   text: Type.Optional(Type.String({ description: "Todo text for add and update" })),
   status: Type.Optional(StringEnum(["pending", "in_progress", "done", "blocked"] as const)),
+  scope: Type.Optional(StringEnum(["session", "project"] as const, { description: "Todo scope; session is isolated per Pi session, project is shared per cwd" })),
 });
 
 function cloneState(state: TodoState): TodoState {
@@ -67,8 +73,9 @@ async function withStateLock<T>(path: string, operation: () => Promise<T>): Prom
   }
 }
 
-function getTodoPath(cwd: string): string {
-  return join(cwd, ".pi", "todos.json");
+function getTodoPath(cwd: string, sessionId: string | undefined = undefined, scope: TodoScope = "session"): string {
+  if (scope === "project") return join(cwd, ".pi", "todos.json");
+  return join(cwd, ".pi", "sessions", normalizeSessionId(sessionId), "todos.json");
 }
 
 function nowIso(): string {
@@ -102,8 +109,8 @@ function assertTodoState(value: unknown): TodoState {
   return { version: 1, nextId: Number(raw.nextId), todos };
 }
 
-async function loadState(cwd: string): Promise<TodoState> {
-  const path = getTodoPath(cwd);
+async function loadState(cwd: string, sessionId: string | undefined = undefined, scope: TodoScope = "session"): Promise<TodoState> {
+  const path = getTodoPath(cwd, sessionId, scope);
   try {
     const content = await readFile(path, "utf8");
     return assertTodoState(JSON.parse(content));
@@ -114,8 +121,8 @@ async function loadState(cwd: string): Promise<TodoState> {
   }
 }
 
-async function saveState(cwd: string, state: TodoState): Promise<void> {
-  const path = getTodoPath(cwd);
+async function saveState(cwd: string, sessionId: string, scope: TodoScope, state: TodoState): Promise<void> {
+  const path = getTodoPath(cwd, sessionId, scope);
   await mkdir(dirname(path), { recursive: true });
   const tmpPath = `${path}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`;
   await writeFile(tmpPath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
@@ -303,14 +310,18 @@ export default function todoWidgetExtension(pi: ExtensionAPI) {
   let state: TodoState = cloneState(EMPTY_STATE);
   let lastError: string | undefined;
   const activeContexts = new Set<ExtensionContext>();
+  const viewStates = new Map<string, { state: TodoState; lastError?: string }>();
 
-  const refreshState = async (ctx: ExtensionContext): Promise<void> => {
+  const viewKey = (ctx: ExtensionContext, scope: TodoScope = "session"): string => getTodoPath(ctx.cwd, sessionIdFromContext(ctx), scope);
+
+  const refreshState = async (ctx: ExtensionContext, scope: TodoScope = "session"): Promise<void> => {
     try {
-      state = await loadState(ctx.cwd);
+      state = await loadState(ctx.cwd, sessionIdFromContext(ctx), scope);
       lastError = undefined;
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
     }
+    viewStates.set(viewKey(ctx, scope), { state: cloneState(state), lastError });
   };
 
   const renderWidget = (ctx: ExtensionContext): void => {
@@ -320,7 +331,8 @@ export default function todoWidgetExtension(pi: ExtensionAPI) {
       (_tui, theme) => {
         return {
           render(width: number): string[] {
-            return renderTodoWidgetLines(state, theme, lastError).map((line) => truncateToWidth(line, width));
+            const view = viewStates.get(viewKey(ctx)) ?? { state, lastError };
+            return renderTodoWidgetLines(view.state, theme, view.lastError).map((line) => truncateToWidth(line, width));
           },
           invalidate() {},
         };
@@ -333,10 +345,11 @@ export default function todoWidgetExtension(pi: ExtensionAPI) {
     for (const ctx of activeContexts) renderWidget(ctx);
   };
 
-  const persist = async (ctx: ExtensionContext, next: TodoState): Promise<void> => {
-    await saveState(ctx.cwd, next);
+  const persist = async (ctx: ExtensionContext, next: TodoState, scope: TodoScope = "session"): Promise<void> => {
+    await saveState(ctx.cwd, sessionIdFromContext(ctx), scope, next);
     state = next;
     lastError = undefined;
+    viewStates.set(viewKey(ctx, scope), { state: cloneState(next) });
     refreshAllWidgets();
   };
 
@@ -355,87 +368,97 @@ export default function todoWidgetExtension(pi: ExtensionAPI) {
     return status;
   };
 
-  const withLoadedState = async <T>(ctx: ExtensionContext, operation: () => Promise<T>): Promise<T> => {
-    return withStateLock(getTodoPath(ctx.cwd), async () => {
-      await refreshState(ctx);
+  const requireScope = (scope: TodoScope | undefined): TodoScope => {
+    if (!scope) return "session";
+    if (!TODO_SCOPES.includes(scope)) throw new Error("Todo scope must be session or project");
+    return scope;
+  };
+
+  const withLoadedState = async <T>(ctx: ExtensionContext, scope: TodoScope, operation: () => Promise<T>): Promise<T> => {
+    return withStateLock(getTodoPath(ctx.cwd, sessionIdFromContext(ctx), scope), async () => {
+      await refreshState(ctx, scope);
       if (lastError) throw new Error(lastError);
       return operation();
     });
   };
 
-  const toolDetails = (action: TodoAction, ctx: ExtensionContext, snapshot: TodoState = state): TodoDetails => ({
+  const toolDetails = (action: TodoAction, ctx: ExtensionContext, scope: TodoScope, snapshot: TodoState = state): TodoDetails => ({
     action,
     state: cloneState(snapshot),
-    path: getTodoPath(ctx.cwd),
+    path: getTodoPath(ctx.cwd, sessionIdFromContext(ctx), scope),
+    scope,
+    sessionId: sessionIdFromContext(ctx),
   });
 
   pi.registerTool({
     name: "todo",
     label: "Todo",
-    description: "Manage the project todo list stored at <cwd>/.pi/todos.json",
-    promptSnippet: "Manage the project todo list: list, add, set_status, update, remove, or clear items.",
+    description: "Manage the session todo list stored at <cwd>/.pi/sessions/<sessionId>/todos.json by default, or the project-shared list with scope=project.",
+    promptSnippet: "Manage the todo list: list, add, set_status, update, remove, or clear items. Default scope is session-isolated; use scope=project only for deliberate shared todos.",
     promptGuidelines: [
       "Use todo for problem-solving task lists when the user asks for planning, execution tracking, or completion review.",
       "Use todo set_status to keep items current as work progresses.",
+      "Default todo scope is the current Pi session; use project scope only when shared todos are explicitly needed.",
     ],
     parameters: TodoParams,
     renderShell: "self",
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const scope = requireScope(params.scope as TodoScope | undefined);
       switch (params.action) {
         case "list": {
-          const snapshot = await withLoadedState(ctx, async () => cloneState(state));
+          const snapshot = await withLoadedState(ctx, scope, async () => cloneState(state));
           const lines = snapshot.todos.length
             ? snapshot.todos.map((todo) => `${statusIcon(todo.status)} #${todo.id} ${todo.text} [${todo.status}]`)
             : ["No todos"];
-          return { content: [{ type: "text", text: lines.join("\n") }], details: toolDetails("list", ctx, snapshot) };
+          return { content: [{ type: "text", text: lines.join("\n") }], details: toolDetails("list", ctx, scope, snapshot) };
         }
         case "add": {
           const text = requireText(params.text);
-          const { added, next } = await withLoadedState(ctx, async () => {
+          const { added, next } = await withLoadedState(ctx, scope, async () => {
             const next = addTodo(state, text);
-            await persist(ctx, next);
+            await persist(ctx, next, scope);
             return { added: next.todos[next.todos.length - 1]!, next };
           });
-          return { content: [{ type: "text", text: `Added #${added.id}: ${added.text}` }], details: toolDetails("add", ctx, next) };
+          return { content: [{ type: "text", text: `Added #${added.id}: ${added.text}` }], details: toolDetails("add", ctx, scope, next) };
         }
         case "set_status": {
           const id = requireId(params.id);
           const status = requireStatus(params.status as TodoStatus | undefined);
-          const next = await withLoadedState(ctx, async () => {
+          const next = await withLoadedState(ctx, scope, async () => {
             const next = setTodoStatus(state, id, status);
-            await persist(ctx, next);
+            await persist(ctx, next, scope);
             return next;
           });
-          return { content: [{ type: "text", text: `Set #${id} to ${status}` }], details: toolDetails("set_status", ctx, next) };
+          return { content: [{ type: "text", text: `Set #${id} to ${status}` }], details: toolDetails("set_status", ctx, scope, next) };
         }
         case "update": {
           const id = requireId(params.id);
           const text = requireText(params.text);
-          const next = await withLoadedState(ctx, async () => {
+          const next = await withLoadedState(ctx, scope, async () => {
             const next = updateTodoText(state, id, text);
-            await persist(ctx, next);
+            await persist(ctx, next, scope);
             return next;
           });
-          return { content: [{ type: "text", text: `Updated #${id}` }], details: toolDetails("update", ctx, next) };
+          return { content: [{ type: "text", text: `Updated #${id}` }], details: toolDetails("update", ctx, scope, next) };
         }
         case "remove": {
           const id = requireId(params.id);
-          const next = await withLoadedState(ctx, async () => {
+          const next = await withLoadedState(ctx, scope, async () => {
             const next = removeTodo(state, id);
-            await persist(ctx, next);
+            await persist(ctx, next, scope);
             return next;
           });
-          return { content: [{ type: "text", text: `Removed #${id}` }], details: toolDetails("remove", ctx, next) };
+          return { content: [{ type: "text", text: `Removed #${id}` }], details: toolDetails("remove", ctx, scope, next) };
         }
         case "clear": {
-          const { count, next } = await withLoadedState(ctx, async () => {
+          const { count, next } = await withLoadedState(ctx, scope, async () => {
             const count = state.todos.length;
             const next = clearTodos();
-            await persist(ctx, next);
+            await persist(ctx, next, scope);
             return { count, next };
           });
-          return { content: [{ type: "text", text: `Cleared ${count} todos` }], details: toolDetails("clear", ctx, next) };
+          return { content: [{ type: "text", text: `Cleared ${count} todos` }], details: toolDetails("clear", ctx, scope, next) };
         }
       }
     },
@@ -450,9 +473,10 @@ export default function todoWidgetExtension(pi: ExtensionAPI) {
   });
 
   pi.registerCommand("todos", {
-    description: "Open the project todo list",
+    description: "Open the current session todo list",
     handler: async (_args: string, ctx: ExtensionCommandContext) => {
-      await refreshState(ctx);
+      const scope: TodoScope = "session";
+      await refreshState(ctx, scope);
       renderWidget(ctx);
 
       if (lastError) {
@@ -473,42 +497,42 @@ export default function todoWidgetExtension(pi: ExtensionAPI) {
         try {
           if (!action || action.type === "close") return;
           if (action.type === "toggle") {
-            await withLoadedState(ctx, async () => {
+            await withLoadedState(ctx, scope, async () => {
               const next = setTodoStatus(state, action.id, cycleStatus(findTodo(state, action.id).status));
-              await persist(ctx, next);
+              await persist(ctx, next, scope);
               return next;
             });
           } else if (action.type === "add") {
             const text = await ctx.ui.input("Add todo", "Describe the task");
             if (text) {
-              await withLoadedState(ctx, async () => {
+              await withLoadedState(ctx, scope, async () => {
                 const next = addTodo(state, text);
-                await persist(ctx, next);
+                await persist(ctx, next, scope);
                 return next;
               });
             }
           } else if (action.type === "edit") {
-            const todo = await withLoadedState(ctx, async () => ({ ...findTodo(state, action.id) }));
+            const todo = await withLoadedState(ctx, scope, async () => ({ ...findTodo(state, action.id) }));
             const text = await ctx.ui.input("Edit todo", todo.text);
             if (text) {
-              await withLoadedState(ctx, async () => {
+              await withLoadedState(ctx, scope, async () => {
                 const next = updateTodoText(state, action.id, text);
-                await persist(ctx, next);
+                await persist(ctx, next, scope);
                 return next;
               });
             }
           } else if (action.type === "delete") {
-            await withLoadedState(ctx, async () => {
+            await withLoadedState(ctx, scope, async () => {
               const next = removeTodo(state, action.id);
-              await persist(ctx, next);
+              await persist(ctx, next, scope);
               return next;
             });
           } else if (action.type === "clear") {
-            const confirmed = await ctx.ui.confirm("Clear todos", "Delete all project todos?");
+            const confirmed = await ctx.ui.confirm("Clear todos", "Delete all session todos?");
             if (confirmed) {
-              await withLoadedState(ctx, async () => {
+              await withLoadedState(ctx, scope, async () => {
                 const next = clearTodos();
-                await persist(ctx, next);
+                await persist(ctx, next, scope);
                 return next;
               });
             }
@@ -524,20 +548,22 @@ export default function todoWidgetExtension(pi: ExtensionAPI) {
     activeContexts.add(ctx);
     if (event.reason === "new") {
       try {
-        await withStateLock(getTodoPath(ctx.cwd), async () => {
-          await persist(ctx, clearTodos());
+        await withStateLock(getTodoPath(ctx.cwd, sessionIdFromContext(ctx), "session"), async () => {
+          await persist(ctx, clearTodos(), "session");
         });
       } catch (error) {
         lastError = error instanceof Error ? error.message : String(error);
+        viewStates.set(viewKey(ctx), { state: cloneState(state), lastError });
       }
     } else {
-      await refreshState(ctx);
+      await refreshState(ctx, "session");
     }
     renderWidget(ctx);
   });
 
   pi.on("session_shutdown", async (_event, ctx) => {
     activeContexts.delete(ctx);
+    viewStates.delete(viewKey(ctx));
     if (ctx.hasUI) ctx.ui.setWidget("todo-widget", undefined);
   });
 

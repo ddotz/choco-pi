@@ -3,7 +3,9 @@ import { buildCommitHygieneGuidance } from "./commit-hygiene";
 import { buildCompletionBoundaryGuidance } from "./completion-boundary";
 import { buildModeSwitchGuidance, describeWorkMode, type ExecutionIntensity, type WorkMode } from "./mode";
 import { buildResponseStyleGuidance } from "./response-style";
+import { buildTechnicalDebtCleanupGuidance } from "./technical-debt";
 import { buildWebAnalysisModeGuidance } from "./web-analysis-policy";
+import { buildWorktreeGuidance } from "./worktree-planner";
 
 export const AUTONOMOUS_PM_BASE = true as const;
 
@@ -27,6 +29,7 @@ export interface ApprovalDecision {
 
 export interface AutopilotPromptOptions {
   workMode: WorkMode;
+  effectiveWorkMode?: WorkMode;
   executionIntensity: ExecutionIntensity;
   cwd: string;
   ledgerSummary?: string;
@@ -124,19 +127,26 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
   const sourceSummary = options.dueSourceSummary?.trim()
     ? `\n\n## External Source Tracking\n${options.dueSourceSummary.trim()}\n${adoptionPolicy}`
     : `\n\n## External Source Tracking\nDo not track links for simple analysis. Track only sources explicitly adopted into ddotz-pi, or sources the user explicitly asks to track. For adopted sources, check weekly for updates, decide whether to adopt, partially adopt, or reject the change, and proceed autonomously when it fits ddotz-pi.\n${adoptionPolicy}`;
-  const modeOverlay = buildModeOverlayGuidance(options.workMode);
+  const effectiveWorkMode = options.effectiveWorkMode ?? options.workMode;
+  const modeOverlay = buildModeOverlayGuidance(effectiveWorkMode);
+  const effectiveModeNote = effectiveWorkMode === options.workMode
+    ? "Effective mode matches the persistent mode for this turn."
+    : "Effective mode is a temporary, session-scoped overlay for this turn; do not persist it unless explicitly requested.";
 
   return [
     "## ddotz-pi autonomous PM/development-team base",
     "",
     "Base philosophy: complete autonomous PM execution is always on.",
-    `Work mode: ${options.workMode}`,
+    `Persistent work mode: ${options.workMode}`,
+    `Effective work mode for this turn: ${effectiveWorkMode}`,
+    `Work mode: ${effectiveWorkMode}`,
+    effectiveModeNote,
     `Execution intensity: ${options.executionIntensity}`,
     `Working directory: ${options.cwd}`,
     "",
     "### Work mode directive",
-    describeWorkMode(options.workMode),
-    buildModeSwitchGuidance(options.suggestedWorkMode),
+    describeWorkMode(effectiveWorkMode),
+    buildModeSwitchGuidance(options.suggestedWorkMode, effectiveWorkMode),
     ...(modeOverlay ? ["", modeOverlay] : []),
     "",
     "### Operating priority",
@@ -157,6 +167,10 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     buildModeIsolationGuidance(),
     "",
     buildNewFeaturePackageReuseGuidance(),
+    "",
+    buildWorktreeGuidance(),
+    "",
+    buildTechnicalDebtCleanupGuidance(),
     "",
     "### Structural execution gate",
     "This gate is non-negotiable and must not be skipped or softened when context is long.",

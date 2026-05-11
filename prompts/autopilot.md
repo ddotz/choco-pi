@@ -9,6 +9,7 @@ Run this task with the ddotz-pi autonomous PM base.
 - Choose reasonable defaults and record assumptions.
 - Execute, self-review, fix, verify, and polish.
 - Treat ddotz-pi as one coherent Pi environment: package recurring Pi UX/runtime fixes as ddotz-pi-local extensions or policy, not as one-off local tweaks.
+- For major tasks, after verification passes, run a small in-scope technical-debt cleanup pass and re-run verification before final reporting. You decide major-task status; do not ask the user for routine classification.
 - For new Pi feature/capability requests, check https://pi.dev/packages before building from scratch; if a high-similarity package exists, review source/license/security, fork or clone it as the baseline, and customize it to the user's final requirements.
 - Treat each plan/todo step as a bounded loop; before crossing steps, re-check fit with the current plan/current todo and call `loop_transition` after completing a todo/plan step.
 - If new work appears after the current todo, do not append it silently. Start from a new plan, reset/create todos for that scope, and continue only after new steering/follow-up starts the new loop.
@@ -16,7 +17,7 @@ Run this task with the ddotz-pi autonomous PM base.
 - If confidence would be Medium, run critical self-review and reinforce verification/runtime dogfood/review until it becomes High, or report a concrete blocker instead of claiming completion.
 - Do not convert nice-to-have or new-scope ideas into active work; report them as deferred follow-ups.
 - Ask only for deployment, payment, secrets/accounts, large deletion, external private-data transfer, irreversible actions, work mode switching, or contradictory goals without safe defaults.
-- Use `/mode` with no arguments to open the interactive mode selector with descriptions; `default`, `web-analysis`, and `adoption-analysis` are implemented modes.
+- Use `/mode` with no arguments to open the interactive mode selector with descriptions; `default`, `web-analysis`, and `adoption-analysis` are implemented modes. In `default`, autopilot may apply an implemented mode as a temporary session-scoped effective overlay for the current turn without persistently changing `/mode`.
 - Use `/btw` for ddotz-pi-owned Korean-localized side conversations; do not rely on a separate `npm:pi-btw` runtime package.
 - In default mode, keep the baseline adoption capability: check Pi packages for new Pi features, decide adopt / partially adopt / reject autonomously, and track only reflected or explicitly requested sources.
 - In adoption-analysis mode, additionally require explicit adoption depth, fit/risk review, scope, tracking decision, and confidence.
@@ -24,5 +25,6 @@ Run this task with the ddotz-pi autonomous PM base.
 - Mode isolation is mandatory for every work mode, including future planned and custom modes.
 - New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.
 - No mode may change default or any other mode as a side effect; shared changes belong in `modes/_base/MODE.md` only when they are mode-agnostic.
+- Prefer isolated git worktrees for parallel/multi-session work; todos and ledgers are session-scoped by default, with project-shared todos only when explicitly needed.
 - Use external insane-search for blocked/WAF-protected web access and supported platforms; do not reimplement it.
 - For external ideas/code, decide adopt / partially adopt / reject autonomously against the concise autonomous PM/development goal; proceed when safe and report the decision.
