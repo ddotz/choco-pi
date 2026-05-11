@@ -127,6 +127,10 @@ export function formatAutoUpdateStatus(state: AutoUpdateState, version: string):
   return [`ddotz-pi ${version}`, `auto-update: ${enabled} every ${intervalHours}h`, `last check: ${last}`].join("\n");
 }
 
+function isLocalChangesSkip(result: DdotzUpdateResult): boolean {
+  return result.status === "skipped" && result.reason === "local changes are present";
+}
+
 export function formatManualUpdateResult(result: DdotzUpdateResult): { message: string; level: "info" | "warning" | "error" } {
   if (result.status === "updated") {
     return {
@@ -135,6 +139,7 @@ export function formatManualUpdateResult(result: DdotzUpdateResult): { message: 
     };
   }
   if (result.status === "current") return { message: `ddotz-pi is already up to date${result.upstream ? ` with ${result.upstream}` : ""}.`, level: "info" };
+  if (isLocalChangesSkip(result)) return { message: "ddotz-pi update skipped: local changes are present; leaving checkout unchanged.", level: "info" };
   if (result.status === "skipped") return { message: `Skipped ddotz-pi update: ${result.reason ?? "not safe to update"}.`, level: "warning" };
   return { message: `Failed ddotz-pi update: ${result.reason ?? "unknown error"}.`, level: "error" };
 }
@@ -146,6 +151,7 @@ export function formatAutoUpdateResult(result: DdotzUpdateResult): { message?: s
       level: "info",
     };
   }
+  if (isLocalChangesSkip(result)) return { message: "ddotz-pi auto-update skipped: local changes are present; leaving checkout unchanged.", level: "info" };
   if (result.status === "skipped" && result.reason) return { message: `Skipped ddotz-pi auto-update: ${result.reason}.`, level: "warning" };
   if (result.status === "failed") return { message: `Failed ddotz-pi auto-update: ${result.reason ?? "unknown error"}.`, level: "error" };
   return { level: "info" };

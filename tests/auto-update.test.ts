@@ -66,6 +66,14 @@ async function emitAll(handlers: Map<string, EventHandler[]>, eventName: string,
   for (const handler of handlers.get(eventName) ?? []) await handler(event, ctx);
 }
 
+function dirtyCheckoutExec(): ExecMock {
+  return vi.fn(async (command: string, args: string[]): Promise<ExecResult> => {
+    const key = `${command} ${args.join(" ")}`;
+    if (key === "git status --porcelain") return { code: 0, stdout: " M extensions/ddotz-autopilot/index.ts\n" };
+    throw new Error(`Unexpected exec: ${key}`);
+  });
+}
+
 function successfulUpdateExec(changedFiles = "extensions/ddotz-autopilot/index.ts\n"): ExecMock {
   let shortHeadCalls = 0;
   return vi.fn(async (command: string, args: string[]): Promise<ExecResult> => {
@@ -105,13 +113,9 @@ describe("ddotz-pi auto update", () => {
     expect(notify).toHaveBeenCalledWith(expect.stringContaining("ddotz-pi updated: abc1234 -> def5678"), "info");
   });
 
-  it("skips update safely when the ddotz-pi checkout has local changes", async () => {
+  it("reports local-change update skips as neutral info, not warnings", async () => {
     await useTempAgentDir();
-    const exec = vi.fn(async (command: string, args: string[]): Promise<ExecResult> => {
-      const key = `${command} ${args.join(" ")}`;
-      if (key === "git status --porcelain") return { code: 0, stdout: " M extensions/ddotz-autopilot/index.ts\n" };
-      throw new Error(`Unexpected exec: ${key}`);
-    });
+    const exec = dirtyCheckoutExec();
     const { commands } = setupAutopilot(exec);
     const reload = vi.fn().mockResolvedValue(undefined);
     const notify = vi.fn();
@@ -119,7 +123,28 @@ describe("ddotz-pi auto update", () => {
     await commands.get("update")!.handler("", { cwd: "/repo", waitForIdle: vi.fn(), reload, ui: { notify } });
 
     expect(reload).not.toHaveBeenCalled();
-    expect(notify).toHaveBeenCalledWith(expect.stringContaining("Skipped ddotz-pi update: local changes are present"), "warning");
+    expect(notify).toHaveBeenCalledWith("ddotz-pi update skipped: local changes are present; leaving checkout unchanged.", "info");
+  });
+
+  it("does not warn when auto-update skips because local changes are present", async () => {
+    await useTempAgentDir();
+    const exec = dirtyCheckoutExec();
+    const { handlers, sendUserMessage } = setupAutopilot(exec);
+    const notify = vi.fn();
+
+    await emitAll(handlers, "session_start", { reason: "startup" }, {
+      cwd: "/repo",
+      hasUI: true,
+      ui: {
+        notify,
+        setStatus: vi.fn(),
+        theme: { fg: (_name: string, text: string) => text },
+      },
+    });
+
+    expect(sendUserMessage).not.toHaveBeenCalled();
+    expect(notify).not.toHaveBeenCalledWith(expect.any(String), "warning");
+    expect(notify).toHaveBeenCalledWith("ddotz-pi auto-update skipped: local changes are present; leaving checkout unchanged.", "info");
   });
 
   it("auto-updates on interactive startup when enabled and queues a runtime reload", async () => {
