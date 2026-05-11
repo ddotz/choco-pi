@@ -57,6 +57,11 @@ function hasConfidence(text: string): boolean {
   return /\b(High|Medium|Low)\b/.test(sectionContent(text, "Confidence"));
 }
 
+function appearsToBeAdoptionAnalysisAnswer(text: string): boolean {
+  return ["Decision", "Adoption depth", "Fit review", "Risk review", "Scope", "Tracking decision"]
+    .some((label) => sectionContent(text, label).length > 0);
+}
+
 export function evaluateAdoptionAnalysisQuality(mode: WorkMode, answer: string): AdoptionAnalysisQualityResult {
   if (mode !== "adoption-analysis") return { required: false, passed: true, issues: [] };
 
@@ -105,7 +110,10 @@ export function guardAdoptionAnalysisQualityMessage(
   if (message.stopReason === "toolUse" || message.stopReason === "error" || message.stopReason === "aborted") return {};
   if (hasToolCall(message)) return {};
 
-  const quality = evaluateAdoptionAnalysisQuality(mode, assistantText(message));
+  const text = assistantText(message);
+  if (!appearsToBeAdoptionAnalysisAnswer(text)) return {};
+
+  const quality = evaluateAdoptionAnalysisQuality(mode, text);
   if (quality.passed) {
     if (repairState) repairState.repairQueued = false;
     return {};

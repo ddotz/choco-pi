@@ -40,6 +40,11 @@ function evidenceCount(text: string): number {
   return Math.max(countUniqueUrls(text), countEvidenceLines(text));
 }
 
+function appearsToBeWebResearchAnswer(text: string): boolean {
+  return ["Conclusion", "Evidence", "Critical review"]
+    .some((label) => sectionContent(text, label).length > 0);
+}
+
 export function evaluateWebResearchQuality(mode: WorkMode, answer: string): WebResearchQualityResult {
   if (mode !== "web-analysis") return { required: false, passed: true, issues: [], evidenceCount: 0 };
 
@@ -91,7 +96,10 @@ export function guardWebResearchQualityMessage(
   if (message.stopReason === "toolUse" || message.stopReason === "error" || message.stopReason === "aborted") return {};
   if (hasToolCall(message)) return {};
 
-  const quality = evaluateWebResearchQuality(mode, assistantText(message));
+  const text = assistantText(message);
+  if (!appearsToBeWebResearchAnswer(text)) return {};
+
+  const quality = evaluateWebResearchQuality(mode, text);
   if (quality.passed) {
     if (repairState) repairState.repairQueued = false;
     return {};

@@ -115,6 +115,16 @@ describe("web research quality guardrails", () => {
     expect(result.followUp).toContain("원래 사용자 요청 언어와 출력 형식을 유지");
   });
 
+  it("does not block plain status answers while web-analysis mode is active", () => {
+    const result = guardWebResearchQualityMessage("web-analysis", {
+      role: "assistant",
+      content: [{ type: "text", text: "아닙니다. report 모드는 아직 planned 상태입니다. 작업트리는 clean입니다. Confidence: High" }],
+      stopReason: "stop",
+    } as never);
+
+    expect(result).toEqual({});
+  });
+
   it("does not block default assistant messages", () => {
     const result = guardWebResearchQualityMessage("default", {
       role: "assistant",
