@@ -253,21 +253,14 @@ function repairPromptText(reason: string, originalText: string): string {
     .join("\n\n");
 }
 
-function continuationPromptText(reason: string, originalText: string): string {
+function continuationPromptText(reason: string): string {
   return [
-    "내부 final-message continuation guard가 재개를 요구합니다.",
-    "이 내부 gate 메시지를 사용자에게 보여주거나 요약하지 마세요.",
-    "최종 assistant 메시지가 완료/Ready처럼 끝났지만 active/current todo 또는 남은 in-scope 작업을 직접 언급했습니다.",
-    "아직 완료를 주장하지 마세요.",
-    "최종 사용자 답변은 반드시 한국어 존댓말로 작성하세요. 사용자가 다른 언어를 명시한 경우에만 그 언어를 따르세요.",
-    "원래 사용자 요청 언어와 출력 형식을 유지하고, 이전 차단/보강 과정을 언급하지 마세요.",
-    `Reason: ${reason}`,
-    "todo 상태를 다시 확인하고 현재 active todo를 계속 진행하세요. 승인 경계, 명시적 보류, 새 범위가 맞는 경우에만 loop_transition과 structural_gate로 근거를 남기고 블록/보류로 보고하세요.",
-    "실제로 완료된 경우에만 structural_gate를 다시 호출해 readyToComplete=true를 사용하세요.",
-    originalText ? `차단된 원래 초안:\n${originalText}` : undefined,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+    "자동 재개 필요: 최종 답변에 현재 진행 중인 todo 또는 남은 인스코프 작업 표현이 감지됐습니다.",
+    `감지 근거: ${reason}`,
+    "todo 상태를 다시 확인하고 실제 active todo가 있으면 이어서 진행하세요.",
+    "명시적 보류, 승인 경계, 새 범위라면 loop_transition과 structural_gate로 근거를 기록하고 보류/차단으로 보고하세요.",
+    "다시 완료를 보고하기 전 structural_gate를 호출하세요.",
+  ].join("\n");
 }
 
 function isDeferredOrBlockedLine(line: string): boolean {
@@ -275,7 +268,11 @@ function isDeferredOrBlockedLine(line: string): boolean {
 }
 
 function isCompletedOrEmptyActiveLine(line: string): boolean {
-  return /\b(done|complete[sd]?|closed|resolved|none|no\s+active|no\s+current)\b|완료|끝났|해결|없(?:습니다|음|다)?/i.test(line);
+  return /\b(done|complete[sd]?|closed|resolved|none|no\s+active|no\s+current)\b|완료|끝났|해결|없(?:었|습니다|음|다)?/i.test(line);
+}
+
+function isStatusAssertionLine(line: string): boolean {
+  return /^(현재|진행\s*중|active|current|in[-_ ]?progress|pending|remaining|still|todo|todos?|할\s*일|남은\s*작업|아직|미완료|#\d)/i.test(line);
 }
 
 export function detectRequiredContinuationFromFinalText(text: string): string | undefined {
@@ -285,7 +282,7 @@ export function detectRequiredContinuationFromFinalText(text: string): string | 
     .filter(Boolean);
 
   for (const line of lines) {
-    if (isDeferredOrBlockedLine(line) || isCompletedOrEmptyActiveLine(line)) continue;
+    if (!isStatusAssertionLine(line) || isDeferredOrBlockedLine(line) || isCompletedOrEmptyActiveLine(line)) continue;
 
     const mentionsTodo = /\btodos?\b|할\s*일/i.test(line);
     const activeTodo = mentionsTodo && (/\b(active|current|in[-_ ]?progress)\b|현재|진행\s*중/i.test(line));
@@ -322,7 +319,7 @@ export function guardAssistantMessage(state: StructuralGateState, message: Assis
   };
 
   const key = repairAttemptKey(message, text, [reason]);
-  const followUp = queueRepairForAttempt(turn, key, turn.passed ? continuationPromptText(reason, text) : repairPromptText(reason, text));
+  const followUp = queueRepairForAttempt(turn, key, turn.passed ? continuationPromptText(reason) : repairPromptText(reason, text));
 
   return { message: replacement, followUp };
 }

@@ -197,6 +197,45 @@ describe("structural gate guard", () => {
       }),
       { deliverAs: "followUp", triggerTurn: true },
     );
+    const repairMessage = sendMessage.mock.calls[0][0];
+    expect(repairMessage.content).not.toContain("내부 final-message continuation guard");
+    expect(repairMessage.content).not.toContain("차단된 원래 초안");
+  });
+
+  it("does not reopen the loop when the final answer only describes the previous active-todo guard bug", async () => {
+    const { handlers, tools, sendMessage } = setupAutopilot();
+    await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "자동 재개 안 된 원인을 설명해", systemPrompt: "base", systemPromptOptions: {} });
+
+    await tools.get("structural_gate")!.execute(
+      "gate-1",
+      {
+        acceptanceFit: "The previous guard behavior was explained.",
+        runtimeFit: "No runtime change was needed for this explanatory answer.",
+        failureModes: "Explanatory mentions of active todo should not be treated as current work.",
+        verificationEvidence: "The final answer describes historical behavior only.",
+        loopGovernance: "No active todo transition is being claimed in the final answer.",
+        completionBoundary: "Safe to stop after explaining the root cause.",
+        confidence: "High",
+        readyToComplete: true,
+      },
+      undefined,
+      undefined,
+      { cwd: "/repo" },
+    );
+
+    const result = await emitFirst(handlers, "message_end", {
+      type: "message_end",
+      message: assistantMessage([
+        "## Result",
+        "- 아닙니다. 기존에는 최종 결과 메시지 자체를 다시 읽고 active todo가 남았는지 판단하는 가드가 없었습니다.",
+        "- 그래서 structural_gate가 High/readyToComplete=true로 통과하면, 메시지에 '현재 active todo는 그대로...'가 있어도 Ready로 멈췄습니다.",
+        "- message_end 경로에 final-message continuation guard를 추가했습니다.",
+        "Confidence: High",
+      ].join("\n")),
+    });
+
+    expect(result).toBeUndefined();
+    expect(sendMessage).not.toHaveBeenCalled();
   });
 
   it("does not reopen the loop for explicitly deferred pending todos after the gate passes", async () => {
