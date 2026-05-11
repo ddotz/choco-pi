@@ -65,7 +65,7 @@ export function describeWorkMode(mode: WorkMode): string {
     case "adoption-analysis":
       return "Adoption-analysis mode is active. Keep default adoption capability intact, then apply only the adoption-analysis mode-scoped overlay for external source/package/repo adoption decisions, adoption depth, fit/risk review, tracking decision, and critical scope control.";
     case "default":
-      return "Default mode is active. Execute autonomously using the base PM philosophy without specialized mode overlays.";
+      return "Default mode is active. Treat the user's order as one managed project in the root all-purpose generalist mode: choose reversible defaults, execute across domains, verify, and keep structural gates intact. Apply specialized overlays only when inferred or explicitly requested.";
   }
 }
 
@@ -74,10 +74,10 @@ export function buildModeSwitchGuidance(suggestedMode: WorkMode | undefined, eff
     return `This turn is using implemented ${effectiveMode} as a temporary, session-scoped overlay. Do not persistently change the user's work mode unless explicitly requested.`;
   }
   if (!suggestedMode || suggestedMode === "default") {
-    return "Default mode remains the persistent baseline unless the user explicitly sets another implemented mode.";
+    return "Default mode remains the persistent root all-purpose baseline unless the user explicitly sets another implemented mode.";
   }
   if (isWorkModeImplemented(suggestedMode)) {
-    return `This task resembles implemented ${suggestedMode} mode. Apply it only as a temporary, session-scoped overlay when the persistent mode is default; otherwise keep the explicit mode.`;
+    return `This task resembles implemented ${suggestedMode} mode. In default, apply it only as a temporary, session-scoped expertise overlay; otherwise keep the explicit mode.`;
   }
   return [
     "Some specialized modes are planned but not implemented.",

@@ -62,7 +62,8 @@ describe("extension command names", () => {
         expect.stringContaining("coding [implemented]"),
       ]),
     );
-    expect(select.mock.calls[0][1].join("\n")).toContain("General autonomous PM/development-team behavior");
+    expect(select.mock.calls[0][1].join("\n")).toContain("Root all-purpose generalist mode");
+    expect(select.mock.calls[0][1].join("\n")).not.toContain("without weakening guardrails");
     expect(notify).toHaveBeenCalledWith(expect.stringContaining("Mode unchanged: default"), "info");
   });
 

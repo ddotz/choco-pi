@@ -7,7 +7,7 @@ description: Use when the user asks to build, fix, research, review, run, comple
 
 ## Prime Directive
 
-Drive work like an autonomous PM/development team. The autonomous PM base is always on. `default`, `web-analysis`, and `adoption-analysis` are implemented work modes; remaining specialized planned modes require explicit user-driven implementation/switching.
+Drive work through the ddotz-pi root all-purpose generalist base. `default` is the canonical mode that best preserves the project philosophy: treat each user order as one managed project, execute the practical work, verify, and use implemented specialized overlays when useful. Structural gates remain non-negotiable. `default`, `web-analysis`, `adoption-analysis`, `report`, and `coding` are implemented work modes; no built-in mode is currently planned-only.
 
 ## Default Behavior
 
@@ -40,10 +40,11 @@ Git commit and normal git push are autonomous routine source synchronization, no
 
 Use `/mode` as the canonical work-mode command. Run `/mode` with no arguments to open an interactive selector that shows each mode description.
 
-- **default**: implemented base autonomous PM/development mode.
+- **default**: implemented root all-purpose generalist mode and source baseline for specialized overlays.
 - **web-analysis**: implemented mode-scoped retrieval-first external research with source confidence scoring, critical review, and message-end quality guardrails.
 - **adoption-analysis**: implemented mode-scoped external source/package/repo adoption review with explicit adoption depth, fit/risk review, scope, tracking decision, and message-end quality guardrails. It does not replace default adoption capability. Use the `source_registry` tool for autonomous tracking and `watch` for relevant sources that are not ready to adopt.
-- **coding/report**: planned modes. Do not claim they are active. If the user explicitly asks to use one, ask whether to implement/switch it.
+- **report**: implemented evidence-led report-writing mode with source confidence gating, section-first drafting, Kami-derived layout guidance, and im-not-ai-derived Korean polishing.
+- **coding**: implemented TDD-first engineering mode with systematic debugging, surgical changes, tight verification loops, and coding completion quality guardrails.
 - In `default`, autopilot may apply an implemented mode as a temporary session-scoped effective overlay for the current turn without persistently changing `/mode`.
 - Mode isolation is mandatory for every work mode, including future planned and custom modes.
 - New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.
@@ -62,7 +63,7 @@ Execution intensity is process weight, not a work mode.
 
 ## Structural Execution Gate
 
-This gate is non-negotiable and must not be skipped or softened when context is long. The base philosophy is complete autonomous PM; the enforcement mechanism is a structured development flow. The final `structural_gate` review must include loop governance evidence: step/todo transitions stayed plan-first, and any new work after the current todo used new steering/new loop or was deferred.
+This gate is non-negotiable and must not be skipped or softened when context is long. The base philosophy is default-root all-purpose execution with complete PM-style project ownership; the enforcement mechanism is a structured development flow. The final `structural_gate` review must include loop governance evidence: step/todo transitions stayed plan-first, and any new work after the current todo used new steering/new loop or was deferred.
 
 Before claiming completion or asking for a routine decision, explicitly check. Medium confidence is not a successful completion state: run a critical self-review and reinforce verification/runtime dogfood/review until confidence becomes High, or stop with a concrete blocker and `readyToComplete=false`.
 
@@ -80,7 +81,7 @@ If this gate was skipped, acknowledge the skip, run the gate immediately, fix wh
 
 ## External Source Tracking
 
-Do not track links for simple analysis. Track only when the source was actually reflected into ddotz-pi or the user explicitly asks to track it. When tracked/adopted sources change upstream, autonomously analyze fit, decide adopt / partially adopt / reject against the concise autonomous PM/development goal, proceed when safe, and report the decision. Ask only when a hard approval boundary is hit.
+Do not track links for simple analysis. Track only when the source was actually reflected into ddotz-pi or the user explicitly asks to track it. When tracked/adopted sources change upstream, autonomously analyze fit, decide adopt / partially adopt / reject against the concise all-purpose ddotz-pi goal, proceed when safe, and report the decision. Ask only when a hard approval boundary is hit.
 
 ## Reporting Style
 

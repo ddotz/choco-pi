@@ -1,8 +1,8 @@
 # ddotz-pi
 
-Personal Pi package for an autonomous PM/development-team workflow.
+Personal Pi package for a default-root all-purpose generalist workflow.
 
-`ddotz-pi` makes Pi act by default: plan briefly, execute, self-review, fix, verify, and report evidence. It keeps Claude/Codex state isolated, uses Pi-native extensions/skills/prompts, and avoids exposing upstream package names in runtime settings.
+`ddotz-pi` makes Pi treat each user order as one managed project by default: choose reversible defaults, execute across domains, self-review, fix, verify, and report evidence. It keeps Claude/Codex state isolated, uses Pi-native extensions/skills/prompts, and avoids exposing upstream package names in runtime settings.
 
 ## Status
 
@@ -78,7 +78,7 @@ Pi runtime
 
 The core design is layered:
 
-1. **Policy layer**: builds the autonomous PM system prompt, runtime reality-correction rules, and runtime constraints.
+1. **Policy layer**: builds the default-root all-purpose system prompt, runtime reality-correction rules, and runtime constraints.
 2. **Guard layer**: blocks or repairs unsafe/incomplete execution.
 3. **State layer**: persists mode, intensity, session effective-mode overlays, memory, session-scoped ledgers, source tracking, and custom mode registry.
 4. **UI layer**: footer, todo widget, focus view, raw paste, BTW side conversations, and search/editor affordances.
@@ -102,7 +102,7 @@ State schema version `2` stores:
 
 The extension hooks into Pi lifecycle events:
 
-- `before_agent_start`: loads state, creates/updates the context ledger, infers work-mode hints, classifies execution intensity, and appends the ddotz autonomous PM prompt.
+- `before_agent_start`: loads state, creates/updates the context ledger, infers work-mode hints, classifies execution intensity, and appends the ddotz default-root prompt.
 - `tool_call`: applies approval-boundary guards and records changed files for write/edit calls.
 - `tool_result`: records verification command results from bash output.
 - `session_start`: checks due tracked GitHub sources and sets the mode/intensity/version status indicator.
@@ -123,7 +123,7 @@ It also registers user commands:
 
 | Hook | Owner | Purpose |
 | --- | --- | --- |
-| `before_agent_start` | `ddotz-autopilot` | Inject autonomous PM policy, current mode/intensity, ledger summary, and source-tracking context. |
+| `before_agent_start` | `ddotz-autopilot` | Inject default-root all-purpose policy, current mode/intensity, ledger summary, and source-tracking context. |
 | `tool_call` | `ddotz-autopilot` | Guard dangerous tool calls before execution; record edit/write paths for the ledger. |
 | `tool_result` | `ddotz-autopilot` | Capture verification commands and pass/fail evidence into the ledger. |
 | `message_end` | `structural-gate` | Fail closed if a non-trivial turn tries to finish without passing the structural gate. |
@@ -342,7 +342,7 @@ Pi runtime
 
 계층 구조는 다음과 같습니다.
 
-1. **Policy layer**: autonomous PM system prompt와 런타임 제약을 생성합니다.
+1. **Policy layer**: default-root all-purpose system prompt와 런타임 제약을 생성합니다.
 2. **Guard layer**: 위험하거나 불완전한 실행을 차단하거나 복구합니다.
 3. **State layer**: mode, intensity, session effective-mode overlay, memory, session-scoped ledger, source tracking, custom mode registry를 저장합니다.
 4. **UI layer**: footer, todo widget, focus view, raw paste, BTW side conversation, search/editor 편의 기능을 제공합니다.
@@ -366,7 +366,7 @@ state schema version `2`는 다음을 저장합니다.
 
 주요 Pi hook 연결은 다음과 같습니다.
 
-- `before_agent_start`: state를 읽고, context ledger를 생성/갱신하고, work-mode hint와 execution intensity를 계산한 뒤 autonomous PM prompt를 추가합니다.
+- `before_agent_start`: state를 읽고, context ledger를 생성/갱신하고, work-mode hint와 execution intensity를 계산한 뒤 default-root prompt를 추가합니다.
 - `tool_call`: approval-boundary guard를 적용하고 write/edit 경로를 ledger에 기록합니다.
 - `tool_result`: bash 검증 명령 결과를 ledger에 기록합니다.
 - `session_start`: due 상태인 GitHub source를 체크하고 mode/intensity/version status를 설정합니다.
@@ -380,7 +380,7 @@ state schema version `2`는 다음을 저장합니다.
 
 | Hook | 담당 | 역할 |
 | --- | --- | --- |
-| `before_agent_start` | `ddotz-autopilot` | autonomous PM policy, 현재 mode/intensity, ledger summary, source-tracking context 주입. |
+| `before_agent_start` | `ddotz-autopilot` | default-root all-purpose policy, 현재 mode/intensity, ledger summary, source-tracking context 주입. |
 | `tool_call` | `ddotz-autopilot` | tool 실행 전 위험 호출 차단, edit/write 경로 ledger 기록. |
 | `tool_result` | `ddotz-autopilot` | 검증 명령과 pass/fail evidence를 ledger에 기록. |
 | `message_end` | `structural-gate` | non-trivial turn이 structural gate 없이 끝나면 fail-closed 처리. |
@@ -581,8 +581,8 @@ pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test
 
 ```text
 modes/
-  _base/MODE.md                # shared autonomous PM philosophy
-  default/MODE.md              # base implemented mode
+  _base/MODE.md                # shared default-root invariants and structural gates
+  default/MODE.md              # root all-purpose generalist mode
   coding/MODE.md               # implemented TDD-first coding overlay
   report/MODE.md               # implemented evidence-led report overlay
   web-analysis/MODE.md         # implemented web research overlay
@@ -598,7 +598,7 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 - Mode isolation is mandatory for every work mode, including future planned and custom modes.
 - New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.
 - No mode may change default or any other mode as a side effect; shared changes belong in `modes/_base/MODE.md` only when they are mode-agnostic.
-- In `default`, autopilot may apply an implemented mode as a temporary session-scoped effective overlay for the current turn without persistently changing `/mode`.
+- In `default`, autopilot treats the user order as one managed project and may apply an implemented specialized mode as a temporary session-scoped effective overlay for the current turn without persistently changing `/mode`.
 - Prefer isolated git worktrees for parallel/multi-session work. Todo and ledger state are session-scoped by default; use project-shared todos only when explicitly needed.
 - `web-analysis` retrieval/review policy and message-end quality guardrail are active only while that mode is active.
 - `adoption-analysis` does not replace default adoption capability; it adds mode-scoped decision, adoption-depth, fit/risk, scope, tracking, and confidence quality guardrails only while active.
@@ -632,7 +632,7 @@ Do not track links for simple analysis. Track only when:
 - the source was actually reflected into `ddotz-pi`, or
 - the user explicitly asks to track it.
 
-Tracked/adopted sources are checked weekly. If upstream changed, the agent analyzes fit, decides adopt / partially adopt / reject against the autonomous PM/development goal, proceeds when safe, and reports the decision.
+Tracked/adopted sources are checked weekly. If upstream changed, the agent analyzes fit, decides adopt / partially adopt / reject against the all-purpose ddotz-pi goal, proceeds when safe, and reports the decision.
 
 `insane-search` remains an external skill dependency for blocked/WAF-protected access and supported platforms. `ddotz-pi` references it by policy instead of reimplementing it.
 

@@ -14,7 +14,7 @@ export function buildAdoptionAnalysisModeGuidance(): string {
     "",
     "#### Adoption decision pipeline",
     "1. Identify the candidate source, package, repo, link, or upstream change and its concrete claims or code ideas.",
-    "2. Compare it against ddotz-pi's autonomous PM/development philosophy, Pi-native runtime model, mode isolation invariant, and current source registry behavior.",
+    "2. Compare it against ddotz-pi's default-root all-purpose philosophy, Pi-native runtime model, mode isolation invariant, and current source registry behavior.",
     "3. Decide both whether to adopt and how much to adopt before implementation. Prefer the smallest sufficient adoption depth.",
     "4. Ask only at hard approval boundaries: package publishing, payment, secrets/accounts, private-data transfer, destructive actions, or license/legal ambiguity that cannot be safely resolved.",
     "5. Track sources only when their code/design is actually reflected into ddotz-pi or the user explicitly asks to track them.",

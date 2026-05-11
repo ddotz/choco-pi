@@ -109,7 +109,11 @@ describe("ddotz autonomous PM policy", () => {
       dueSourceSummary: "- can1357/oh-my-pi changed since last check",
     });
 
-    expect(prompt).toContain("ddotz-pi autonomous PM/development-team base");
+    expect(prompt).toContain("ddotz-pi default-root all-purpose generalist base");
+    expect(prompt).toContain("root all-purpose generalist mode");
+    expect(prompt).toContain("one managed project");
+    expect(prompt).toContain("structural gates intact");
+    expect(prompt).toContain("Default mode remains the persistent root all-purpose baseline");
     expect(prompt).toContain("Work mode: default");
     expect(prompt).toContain("Default mode is active");
     expect(prompt).not.toContain("Only default work mode is currently implemented");

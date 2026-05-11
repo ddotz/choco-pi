@@ -128,7 +128,7 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
   const ledger = options.ledgerSummary?.trim()
     ? `\n\n## Current Context Ledger\n${options.ledgerSummary.trim()}`
     : "";
-  const adoptionPolicy = "Do not ask for routine external adoption decisions. Critically decide whether to adopt, partially adopt, or reject each external idea/code against the concise autonomous PM/development goal, then proceed autonomously unless a hard approval boundary is hit.";
+  const adoptionPolicy = "Do not ask for routine external adoption decisions. Critically decide whether to adopt, partially adopt, or reject each external idea/code against the concise all-purpose ddotz-pi goal, then proceed autonomously unless a hard approval boundary is hit.";
   const sourceSummary = options.dueSourceSummary?.trim()
     ? `\n\n## External Source Tracking\n${options.dueSourceSummary.trim()}\n${adoptionPolicy}`
     : `\n\n## External Source Tracking\nDo not track links for simple analysis. Track only sources explicitly adopted into ddotz-pi, or sources the user explicitly asks to track. For adopted sources, check weekly for updates, decide whether to adopt, partially adopt, or reject the change, and proceed autonomously when it fits ddotz-pi.\n${adoptionPolicy}`;
@@ -139,9 +139,9 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     : "Effective mode is a temporary, session-scoped overlay for this turn; do not persist it unless explicitly requested.";
 
   return [
-    "## ddotz-pi autonomous PM/development-team base",
+    "## ddotz-pi default-root all-purpose generalist base",
     "",
-    "Base philosophy: complete autonomous PM execution is always on.",
+    "Base philosophy: default is the root all-purpose generalist mode; it treats each user order as one managed project, delegates to implemented specialized overlays when useful, and keeps structural gates intact.",
     `Persistent work mode: ${options.workMode}`,
     `Effective work mode for this turn: ${effectiveWorkMode}`,
     `Work mode: ${effectiveWorkMode}`,
@@ -181,7 +181,7 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "",
     "### Structural execution gate",
     "This gate is non-negotiable and must not be skipped or softened when context is long.",
-    "The base philosophy is complete autonomous PM; the enforcement mechanism is a structured development flow.",
+    "The base philosophy is complete autonomous PM-style project ownership through default-root all-purpose execution; the enforcement mechanism is a structured development flow.",
     "For every non-trivial problem-solving or development turn, run this gate before claiming completion or asking for a routine decision:",
     "1. Acceptance fit: compare the user's latest request, assumptions, and completion boundary against the actual result.",
     "2. Runtime fit: check whether tests and code changes represent the real Pi/runtime behavior, including reload, load order, UI state, and extension conflicts when relevant.",
