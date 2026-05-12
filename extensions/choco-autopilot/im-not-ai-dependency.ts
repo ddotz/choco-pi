@@ -23,17 +23,17 @@ function agentDir(): string {
 }
 
 export function managedImNotAiInstallPath(): string {
-  return process.env.DDOTZ_PI_IM_NOT_AI_INSTALL_PATH || join(agentDir(), "ddotz-pi", "deps", "im-not-ai");
+  return process.env.CHOCO_PI_IM_NOT_AI_INSTALL_PATH || join(agentDir(), "choco-pi", "deps", "im-not-ai");
 }
 
 function envCandidatePaths(): ExternalSkillCandidatePath[] | undefined {
-  const raw = process.env.DDOTZ_PI_IM_NOT_AI_CANDIDATE_PATHS;
+  const raw = process.env.CHOCO_PI_IM_NOT_AI_CANDIDATE_PATHS;
   if (!raw?.trim()) return undefined;
   return raw.split(delimiter).filter(Boolean).map((path) => ({ path, autoDiscovered: false }));
 }
 
 function defaultCandidatePaths(): ExternalSkillCandidatePath[] {
-  if (process.env.DDOTZ_PI_IM_NOT_AI_DISABLE_GLOBAL === "1") return [];
+  if (process.env.CHOCO_PI_IM_NOT_AI_DISABLE_GLOBAL === "1") return [];
   const fromEnv = envCandidatePaths();
   if (fromEnv) return fromEnv;
   return [

@@ -2,8 +2,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import ddotzAutopilot from "../extensions/ddotz-autopilot/index";
-import { SUPERPOWERS_REPO_URL, ensureSuperpowersDependency } from "../extensions/ddotz-autopilot/superpowers-dependency";
+import chocoAutopilot from "../extensions/choco-autopilot/index";
+import { SUPERPOWERS_REPO_URL, ensureSuperpowersDependency } from "../extensions/choco-autopilot/superpowers-dependency";
 
 interface ExecResult {
   code: number;
@@ -19,21 +19,21 @@ let tempAgentDir: string | undefined;
 
 afterEach(async () => {
   delete process.env.PI_CODING_AGENT_DIR;
-  delete process.env.DDOTZ_PI_SUPERPOWERS_INSTALL_PATH;
-  delete process.env.DDOTZ_PI_SUPERPOWERS_DISABLE_GLOBAL;
+  delete process.env.CHOCO_PI_SUPERPOWERS_INSTALL_PATH;
+  delete process.env.CHOCO_PI_SUPERPOWERS_DISABLE_GLOBAL;
   if (tempAgentDir) await rm(tempAgentDir, { recursive: true, force: true });
   tempAgentDir = undefined;
 });
 
 async function useTempAgentDir(): Promise<string> {
-  tempAgentDir = await mkdtemp(join(tmpdir(), "ddotz-pi-superpowers-test-"));
+  tempAgentDir = await mkdtemp(join(tmpdir(), "choco-pi-superpowers-test-"));
   process.env.PI_CODING_AGENT_DIR = tempAgentDir;
   return tempAgentDir;
 }
 
 function setupAutopilot(exec: ExecMock): { handlers: Map<string, EventHandler[]> } {
   const handlers = new Map<string, EventHandler[]>();
-  ddotzAutopilot({
+  chocoAutopilot({
     on: (event: string, handler: EventHandler) => {
       handlers.set(event, [...(handlers.get(event) ?? []), handler]);
     },
@@ -56,7 +56,7 @@ async function emitCollect(handlers: Map<string, EventHandler[]>, eventName: str
 describe("superpowers dependency", () => {
   it("clones the upstream superpowers repo unchanged when no install exists", async () => {
     const agentDir = await useTempAgentDir();
-    const installPath = join(agentDir, "ddotz-pi", "deps", "superpowers");
+    const installPath = join(agentDir, "choco-pi", "deps", "superpowers");
     const skillPath = join(installPath, "skills");
     const exec = vi.fn(async (command: string, args: string[]): Promise<ExecResult> => {
       if (command === "git" && args[0] === "clone") {
@@ -107,10 +107,10 @@ describe("superpowers dependency", () => {
 
   it("contributes the installed superpowers skill path during Pi resource discovery", async () => {
     const agentDir = await useTempAgentDir();
-    const installPath = join(agentDir, "ddotz-pi", "deps", "superpowers");
+    const installPath = join(agentDir, "choco-pi", "deps", "superpowers");
     const skillPath = join(installPath, "skills");
-    process.env.DDOTZ_PI_SUPERPOWERS_INSTALL_PATH = installPath;
-    process.env.DDOTZ_PI_SUPERPOWERS_DISABLE_GLOBAL = "1";
+    process.env.CHOCO_PI_SUPERPOWERS_INSTALL_PATH = installPath;
+    process.env.CHOCO_PI_SUPERPOWERS_DISABLE_GLOBAL = "1";
     const exec = vi.fn(async (command: string, args: string[]): Promise<ExecResult> => {
       if (command === "git" && args[0] === "clone") {
         await mkdir(join(skillPath, "using-superpowers"), { recursive: true });
@@ -133,9 +133,9 @@ describe("superpowers dependency", () => {
 
   it("does not contribute an invalid managed superpowers checkout root as a skill path", async () => {
     const agentDir = await useTempAgentDir();
-    const installPath = join(agentDir, "ddotz-pi", "deps", "superpowers");
-    process.env.DDOTZ_PI_SUPERPOWERS_INSTALL_PATH = installPath;
-    process.env.DDOTZ_PI_SUPERPOWERS_DISABLE_GLOBAL = "1";
+    const installPath = join(agentDir, "choco-pi", "deps", "superpowers");
+    process.env.CHOCO_PI_SUPERPOWERS_INSTALL_PATH = installPath;
+    process.env.CHOCO_PI_SUPERPOWERS_DISABLE_GLOBAL = "1";
     await mkdir(installPath, { recursive: true });
     await writeFile(join(installPath, "README.md"), "# not a skill\n", "utf8");
     const exec = vi.fn(async (): Promise<ExecResult> => ({ code: 0, stdout: "", stderr: "", killed: false }));

@@ -3,7 +3,7 @@ import {
   buildResponseStyleGuidance,
   formatConfidenceLabel,
   shouldFoldOperationDetails,
-} from "../extensions/ddotz-autopilot/response-style";
+} from "../extensions/choco-autopilot/response-style";
 
 describe("response style", () => {
   it("keeps reports sectioned but concise", () => {

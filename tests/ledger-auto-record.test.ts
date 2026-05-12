@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import ddotzAutopilot from "../extensions/ddotz-autopilot/index";
+import chocoAutopilot from "../extensions/choco-autopilot/index";
 
 type EventHandler = (event: Record<string, unknown>, ctx: Record<string, unknown>) => unknown | Promise<unknown>;
 
@@ -19,7 +19,7 @@ afterEach(async () => {
 });
 
 async function useTempAgentDir(): Promise<void> {
-  tempAgentDir = await mkdtemp(join(tmpdir(), "ddotz-pi-ledger-test-"));
+  tempAgentDir = await mkdtemp(join(tmpdir(), "choco-pi-ledger-test-"));
   process.env.PI_CODING_AGENT_DIR = tempAgentDir;
 }
 
@@ -29,7 +29,7 @@ function setupAutopilot(): {
 } {
   const handlers = new Map<string, EventHandler[]>();
   const commands = new Map<string, RegisteredCommand>();
-  ddotzAutopilot({
+  chocoAutopilot({
     on: (event: string, handler: EventHandler) => {
       const existing = handlers.get(event) ?? [];
       existing.push(handler);

@@ -2,9 +2,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import ddotzAutopilot from "../extensions/ddotz-autopilot/index";
-import { createDogfoodStore, listDogfoodCases, writeDogfoodCase } from "../extensions/ddotz-autopilot/dogfood-store";
-import type { DogfoodCase } from "../extensions/ddotz-autopilot/dogfood-types";
+import chocoAutopilot from "../extensions/choco-autopilot/index";
+import { createDogfoodStore, listDogfoodCases, writeDogfoodCase } from "../extensions/choco-autopilot/dogfood-store";
+import type { DogfoodCase } from "../extensions/choco-autopilot/dogfood-types";
 
 type EventHandler = (event: Record<string, unknown>, ctx: Record<string, unknown>) => unknown | Promise<unknown>;
 
@@ -17,14 +17,14 @@ afterEach(async () => {
 });
 
 async function useTempAgentDir(): Promise<string> {
-  tempAgentDir = await mkdtemp(join(tmpdir(), "ddotz-pi-dogfood-retention-"));
+  tempAgentDir = await mkdtemp(join(tmpdir(), "choco-pi-dogfood-retention-"));
   process.env.PI_CODING_AGENT_DIR = tempAgentDir;
   return tempAgentDir;
 }
 
 function setupHandlers(): Map<string, EventHandler[]> {
   const handlers = new Map<string, EventHandler[]>();
-  ddotzAutopilot({
+  chocoAutopilot({
     on: (event: string, handler: EventHandler) => {
       handlers.set(event, [...(handlers.get(event) ?? []), handler]);
     },
@@ -67,7 +67,7 @@ function dogCase(id: string, startedAt: string): DogfoodCase {
 describe("dogfood retention hook", () => {
   it("cleans old detailed dogfood cases on session start", async () => {
     const agentDir = await useTempAgentDir();
-    const store = createDogfoodStore(join(agentDir, "ddotz-pi", "dogfood"));
+    const store = createDogfoodStore(join(agentDir, "choco-pi", "dogfood"));
     await writeDogfoodCase(store, dogCase("old", "2000-01-01T00:00:00.000Z"));
     await writeDogfoodCase(store, dogCase("fresh", "2999-01-01T00:00:00.000Z"));
 

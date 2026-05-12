@@ -6,16 +6,16 @@ const packageJson = JSON.parse(readFileSync(join(process.cwd(), "package.json"),
   pi: { extensions: string[]; skills: string[]; prompts: string[] };
   dependencies?: Record<string, string>;
 };
-const absorbedUtilityAlias = ["ddotz", "pi", "utilities"].join("-");
+const absorbedUtilityAlias = ["choco", "pi", "utilities"].join("-");
 
 describe("package configuration", () => {
-  it("absorbs selected utility extensions as local ddotz-pi runtime entries", () => {
+  it("absorbs selected utility extensions as local choco-pi runtime entries", () => {
     expect(packageJson.dependencies ?? {}).not.toHaveProperty(absorbedUtilityAlias);
     expect(packageJson.pi.extensions).toContain("extensions/fff-search/index.ts");
     expect(packageJson.pi.extensions).toContain("node_modules/pi-lsp-client/src/index.ts");
     expect(packageJson.pi.extensions).toContain("extensions/input-newline/index.ts");
     expect(packageJson.pi.extensions).toContain("extensions/todo-widget.ts");
-    expect(packageJson.pi.extensions).toContain("extensions/ddotz-footer/index.ts");
+    expect(packageJson.pi.extensions).toContain("extensions/choco-footer/index.ts");
     expect(packageJson.pi.extensions).toContain("extensions/focus-rendering/index.ts");
     expect(packageJson.pi.extensions).toContain("extensions/raw-paste/index.ts");
     expect(packageJson.pi.extensions).toContain("extensions/btw.ts");
@@ -26,7 +26,7 @@ describe("package configuration", () => {
   });
 
   it("does not statically expose bundled kami when users already have a kami skill installed", () => {
-    expect(packageJson.pi.skills).toContain("skills/ddotz-autopilot");
+    expect(packageJson.pi.skills).toContain("skills/choco-autopilot");
     expect(packageJson.pi.skills).not.toContain("skills");
     expect(packageJson.pi.skills).not.toContain("skills/kami");
   });

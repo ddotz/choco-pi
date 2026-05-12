@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const docs = [
   "README.md",
-  "skills/ddotz-autopilot/SKILL.md",
+  "skills/choco-autopilot/SKILL.md",
   "prompts/autopilot.md",
   "modes/_base/MODE.md",
 ];

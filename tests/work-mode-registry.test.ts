@@ -4,7 +4,7 @@ import {
   createWorkModeRegistry,
   listWorkModes,
   removeCustomWorkMode,
-} from "../extensions/ddotz-autopilot/work-mode-registry";
+} from "../extensions/choco-autopilot/work-mode-registry";
 
 describe("work mode registry", () => {
   it("starts with every built-in mode implemented", () => {
@@ -13,7 +13,7 @@ describe("work mode registry", () => {
     expect(defaultMode?.status).toBe("implemented");
     expect(defaultMode?.folder).toBe("modes/default");
     expect(defaultMode?.description).toContain("Root all-purpose generalist mode");
-    expect(defaultMode?.description).toContain("best preserves ddotz-pi philosophy");
+    expect(defaultMode?.description).toContain("best preserves choco-pi philosophy");
     expect(defaultMode?.description).not.toContain("without weakening guardrails");
     expect(registry.modes.find((mode) => mode.id === "web-analysis")?.status).toBe("implemented");
     expect(registry.modes.find((mode) => mode.id === "web-analysis")?.instructionFile).toBe("modes/web-analysis/MODE.md");

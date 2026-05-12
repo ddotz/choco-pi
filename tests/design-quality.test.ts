@@ -2,8 +2,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import ddotzAutopilot from "../extensions/ddotz-autopilot/index";
-import { evaluateDesignQuality, guardDesignQualityMessage } from "../extensions/ddotz-autopilot/design-quality";
+import chocoAutopilot from "../extensions/choco-autopilot/index";
+import { evaluateDesignQuality, guardDesignQualityMessage } from "../extensions/choco-autopilot/design-quality";
 
 let tempAgentDir: string | undefined;
 
@@ -14,7 +14,7 @@ afterEach(async () => {
 });
 
 async function useTempAgentDir(): Promise<void> {
-  tempAgentDir = await mkdtemp(join(tmpdir(), "ddotz-pi-design-quality-test-"));
+  tempAgentDir = await mkdtemp(join(tmpdir(), "choco-pi-design-quality-test-"));
   process.env.PI_CODING_AGENT_DIR = tempAgentDir;
 }
 
@@ -94,7 +94,7 @@ describe("design quality guardrails", () => {
     const commands = new Map<string, RegisteredCommand>();
     const sendMessage = vi.fn();
 
-    ddotzAutopilot({
+    chocoAutopilot({
       on: (name: string, handler: (event: never, ctx: never) => unknown) => {
         handlers[name] = [...(handlers[name] ?? []), handler];
       },
@@ -123,7 +123,7 @@ describe("design quality guardrails", () => {
 
     expect(results).toContainEqual({ message: expect.objectContaining({ content: [{ type: "text", text: expect.stringContaining("답변 검증 가드가 보강을 진행 중입니다") }] }) });
     expect(sendMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ customType: "ddotz.design_quality.repair" }),
+      expect.objectContaining({ customType: "choco.design_quality.repair" }),
       { deliverAs: "followUp", triggerTurn: true },
     );
   });

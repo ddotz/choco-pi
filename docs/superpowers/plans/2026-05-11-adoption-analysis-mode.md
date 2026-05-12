@@ -12,17 +12,17 @@
 
 ## File Structure
 
-- Modify: `extensions/ddotz-autopilot/mode.ts` — mark `adoption-analysis` implemented and describe its active mode behavior.
-- Modify: `extensions/ddotz-autopilot/work-mode-registry.ts` — show `adoption-analysis` as implemented in `/mode` selector/list.
-- Create: `extensions/ddotz-autopilot/adoption-depth.ts` — shared adoption-depth enum and formatter.
-- Modify: `extensions/ddotz-autopilot/source-registry.ts` — add optional structured adoption depth/review fields while preserving old `markSourceAdopted(..., adoptedItems[])` calls.
-- Create: `extensions/ddotz-autopilot/adoption-analysis-policy.ts` — mode-scoped prompt overlay with decision + depth contract.
-- Modify: `extensions/ddotz-autopilot/mode-resource-policy.ts` — add adoption-analysis resource/process priorities without affecting default.
-- Create: `extensions/ddotz-autopilot/adoption-analysis-quality.ts` — message-end quality evaluator/repair prompt for adoption-analysis only.
-- Modify: `extensions/ddotz-autopilot/policy.ts` — include adoption-analysis overlay only for that mode.
-- Modify: `extensions/ddotz-autopilot/index.ts` — run adoption-analysis quality guard in `message_end` only when active.
-- Modify: `modes/adoption-analysis/MODE.md`, `README.md`, `prompts/autopilot.md`, `skills/ddotz-autopilot/SKILL.md` — document implemented mode and adoption-depth contract.
-- Modify: `package.json`, `extensions/ddotz-autopilot/version.ts`, `README.md` — bump to `0.3.0` because this is a meaningful new mode capability.
+- Modify: `extensions/choco-autopilot/mode.ts` — mark `adoption-analysis` implemented and describe its active mode behavior.
+- Modify: `extensions/choco-autopilot/work-mode-registry.ts` — show `adoption-analysis` as implemented in `/mode` selector/list.
+- Create: `extensions/choco-autopilot/adoption-depth.ts` — shared adoption-depth enum and formatter.
+- Modify: `extensions/choco-autopilot/source-registry.ts` — add optional structured adoption depth/review fields while preserving old `markSourceAdopted(..., adoptedItems[])` calls.
+- Create: `extensions/choco-autopilot/adoption-analysis-policy.ts` — mode-scoped prompt overlay with decision + depth contract.
+- Modify: `extensions/choco-autopilot/mode-resource-policy.ts` — add adoption-analysis resource/process priorities without affecting default.
+- Create: `extensions/choco-autopilot/adoption-analysis-quality.ts` — message-end quality evaluator/repair prompt for adoption-analysis only.
+- Modify: `extensions/choco-autopilot/policy.ts` — include adoption-analysis overlay only for that mode.
+- Modify: `extensions/choco-autopilot/index.ts` — run adoption-analysis quality guard in `message_end` only when active.
+- Modify: `modes/adoption-analysis/MODE.md`, `README.md`, `prompts/autopilot.md`, `skills/choco-autopilot/SKILL.md` — document implemented mode and adoption-depth contract.
+- Modify: `package.json`, `extensions/choco-autopilot/version.ts`, `README.md` — bump to `0.3.0` because this is a meaningful new mode capability.
 - Tests:
   - Create: `tests/adoption-analysis-mode.test.ts`
   - Create: `tests/adoption-analysis-quality.test.ts`
@@ -63,7 +63,7 @@ export const ADOPTION_DEPTHS = [
 - [ ] Create `adoption-analysis-policy.ts` that states `adoption-analysis` is only an overlay on top of default adoption capability and must include:
   - Decision: adopt / partially adopt / reject / watch
   - Adoption depth from the ladder
-  - Fit review: ddotz-pi philosophy, mode isolation, duplication, Pi-native fit
+  - Fit review: choco-pi philosophy, mode isolation, duplication, Pi-native fit
   - Risk review: license, security, privacy, maintenance, reversibility
   - Scope: what to adopt and what not to adopt
   - Tracking decision
@@ -109,14 +109,14 @@ markSourceAdopted(registry, id, review, {
   - answer missing tracking decision fails
   - answer missing Confidence fails
   - structured answer with decision/depth/fit/risk/scope/tracking/confidence passes
-- [ ] Add message_end hook test that active adoption-analysis queues `ddotz.adoption_analysis_quality.repair` for low-quality final answers.
+- [ ] Add message_end hook test that active adoption-analysis queues `choco.adoption_analysis_quality.repair` for low-quality final answers.
 - [ ] Implement `adoption-analysis-quality.ts` and wire it in `index.ts`.
 - [ ] Run focused tests until green.
 
 ## Task 5: Docs, version, full verification, runtime reload, merge
 
 - [ ] Update docs and mode file to mark adoption-analysis implemented and explain it does not replace default adoption capability.
-- [ ] Bump version to `0.3.0` in `package.json`, `extensions/ddotz-autopilot/version.ts`, and README status.
+- [ ] Bump version to `0.3.0` in `package.json`, `extensions/choco-autopilot/version.ts`, and README status.
 - [ ] Run:
 
 ```bash

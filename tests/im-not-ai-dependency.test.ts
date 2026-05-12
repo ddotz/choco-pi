@@ -2,8 +2,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import ddotzAutopilot from "../extensions/ddotz-autopilot/index";
-import { IM_NOT_AI_REPO_URL, ensureImNotAiDependency } from "../extensions/ddotz-autopilot/im-not-ai-dependency";
+import chocoAutopilot from "../extensions/choco-autopilot/index";
+import { IM_NOT_AI_REPO_URL, ensureImNotAiDependency } from "../extensions/choco-autopilot/im-not-ai-dependency";
 
 interface ExecResult {
   code: number;
@@ -19,14 +19,14 @@ let tempAgentDir: string | undefined;
 
 afterEach(async () => {
   delete process.env.PI_CODING_AGENT_DIR;
-  delete process.env.DDOTZ_PI_IM_NOT_AI_INSTALL_PATH;
-  delete process.env.DDOTZ_PI_IM_NOT_AI_DISABLE_GLOBAL;
+  delete process.env.CHOCO_PI_IM_NOT_AI_INSTALL_PATH;
+  delete process.env.CHOCO_PI_IM_NOT_AI_DISABLE_GLOBAL;
   if (tempAgentDir) await rm(tempAgentDir, { recursive: true, force: true });
   tempAgentDir = undefined;
 });
 
 async function useTempAgentDir(): Promise<string> {
-  tempAgentDir = await mkdtemp(join(tmpdir(), "ddotz-pi-im-not-ai-"));
+  tempAgentDir = await mkdtemp(join(tmpdir(), "choco-pi-im-not-ai-"));
   process.env.PI_CODING_AGENT_DIR = tempAgentDir;
   return tempAgentDir;
 }
@@ -38,7 +38,7 @@ async function writeHumanizeSkill(skillRoot: string): Promise<void> {
 
 function setupAutopilot(exec: ExecMock): { handlers: Map<string, EventHandler[]> } {
   const handlers = new Map<string, EventHandler[]>();
-  ddotzAutopilot({
+  chocoAutopilot({
     on: (event: string, handler: EventHandler) => {
       handlers.set(event, [...(handlers.get(event) ?? []), handler]);
     },
@@ -96,7 +96,7 @@ describe("im-not-ai dependency", () => {
 
   it("clones the upstream im-not-ai repo unchanged when no install exists", async () => {
     const agentDir = await useTempAgentDir();
-    const installPath = join(agentDir, "ddotz-pi", "deps", "im-not-ai");
+    const installPath = join(agentDir, "choco-pi", "deps", "im-not-ai");
     const skillRoot = join(installPath, ".claude", "skills");
     const exec = vi.fn(async (command: string, args: string[]): Promise<ExecResult> => {
       if (command === "git" && args[0] === "clone") {
@@ -117,10 +117,10 @@ describe("im-not-ai dependency", () => {
 
   it("contributes an existing im-not-ai skill path during Pi resource discovery", async () => {
     const agentDir = await useTempAgentDir();
-    const installPath = join(agentDir, "ddotz-pi", "deps", "im-not-ai");
+    const installPath = join(agentDir, "choco-pi", "deps", "im-not-ai");
     const skillRoot = join(installPath, ".claude", "skills");
-    process.env.DDOTZ_PI_IM_NOT_AI_INSTALL_PATH = installPath;
-    process.env.DDOTZ_PI_IM_NOT_AI_DISABLE_GLOBAL = "1";
+    process.env.CHOCO_PI_IM_NOT_AI_INSTALL_PATH = installPath;
+    process.env.CHOCO_PI_IM_NOT_AI_DISABLE_GLOBAL = "1";
     const exec = vi.fn(async (command: string, args: string[]): Promise<ExecResult> => {
       if (command === "git" && args[0] === "clone") {
         await writeHumanizeSkill(skillRoot);

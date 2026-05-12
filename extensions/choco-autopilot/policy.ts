@@ -104,7 +104,7 @@ function buildNewFeaturePackageReuseGuidance(): string {
     "- If a high-similarity Pi package exists, prefer using it as the baseline: inspect source, license, and security first, then fork or clone it and customize it to the user's final requirements.",
     "- If no suitable package exists, or the closest package is unsafe, incompatible, unlicensed for reuse, or lower-fit than a local implementation, build locally and record that decision.",
     "- Treat routine public-package adoption/forking as an autonomous implementation choice, but stop at hard approval boundaries such as package publishing, payment, secrets/accounts, private-data transfer, or irreversible actions.",
-    "- Track adopted package sources only when their code or design is actually reflected into ddotz-pi or the user explicitly asks to track them.",
+    "- Track adopted package sources only when their code or design is actually reflected into choco-pi or the user explicitly asks to track them.",
   ].join("\n");
 }
 
@@ -123,7 +123,7 @@ function buildModeIsolationGuidance(): string {
     "- Mode isolation is mandatory for every work mode, including all future planned or custom modes.",
     "- New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.",
     "- No mode may change default or any other mode as a side effect; shared changes must live in the base mode policy and be justified as mode-agnostic.",
-    "- Future mode folder structure stays isolated: shared rules in modes/_base/MODE.md, mode overlays in modes/<mode-id>/MODE.md, and runtime-created custom modes under ~/.pi/agent/ddotz-pi/modes/<mode-id>/MODE.md.",
+    "- Future mode folder structure stays isolated: shared rules in modes/_base/MODE.md, mode overlays in modes/<mode-id>/MODE.md, and runtime-created custom modes under ~/.pi/agent/choco-pi/modes/<mode-id>/MODE.md.",
   ].join("\n");
 }
 
@@ -131,10 +131,10 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
   const ledger = options.ledgerSummary?.trim()
     ? `\n\n## Current Context Ledger\n${options.ledgerSummary.trim()}`
     : "";
-  const adoptionPolicy = "Do not ask for routine external adoption decisions. Critically decide whether to adopt, partially adopt, or reject each external idea/code against the concise all-purpose ddotz-pi goal, then proceed autonomously unless a hard approval boundary is hit.";
+  const adoptionPolicy = "Do not ask for routine external adoption decisions. Critically decide whether to adopt, partially adopt, or reject each external idea/code against the concise all-purpose choco-pi goal, then proceed autonomously unless a hard approval boundary is hit.";
   const sourceSummary = options.dueSourceSummary?.trim()
     ? `\n\n## External Source Tracking\n${options.dueSourceSummary.trim()}\n${adoptionPolicy}`
-    : `\n\n## External Source Tracking\nDo not track links for simple analysis. Track only sources explicitly adopted into ddotz-pi, or sources the user explicitly asks to track. For adopted sources, check weekly for updates, decide whether to adopt, partially adopt, or reject the change, and proceed autonomously when it fits ddotz-pi.\n${adoptionPolicy}`;
+    : `\n\n## External Source Tracking\nDo not track links for simple analysis. Track only sources explicitly adopted into choco-pi, or sources the user explicitly asks to track. For adopted sources, check weekly for updates, decide whether to adopt, partially adopt, or reject the change, and proceed autonomously when it fits choco-pi.\n${adoptionPolicy}`;
   const effectiveWorkMode = options.effectiveWorkMode ?? options.workMode;
   const modeOverlay = buildModeOverlayGuidance(effectiveWorkMode);
   const effectiveModeNote = effectiveWorkMode === options.workMode
@@ -142,7 +142,7 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     : "Effective mode is a temporary, session-scoped overlay for this turn; do not persist it unless explicitly requested.";
 
   return [
-    "## ddotz-pi default-root all-purpose generalist base",
+    "## choco-pi default-root all-purpose generalist base",
     "",
     "Base philosophy: default is the root all-purpose generalist mode; it treats each user order as one managed project, delegates to implemented specialized overlays when useful, and keeps structural gates intact.",
     `Persistent work mode: ${options.workMode}`,
@@ -166,7 +166,7 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     buildEpistemicIntegrityGuidance(),
     "",
     "### Autonomous execution loop",
-    "- Treat ddotz-pi as one coherent Pi environment: package recurring Pi UX/runtime fixes as ddotz-pi-local extensions or policy, not as one-off local tweaks.",
+    "- Treat choco-pi as one coherent Pi environment: package recurring Pi UX/runtime fixes as choco-pi-local extensions or policy, not as one-off local tweaks.",
     "- Treat execution intensity as process weight, not as a user-facing work mode.",
     "- Micro: do the smallest useful action without ceremony.",
     "- Standard: plan briefly, execute incrementally, self-review, fix, and verify with observable evidence.",
@@ -213,7 +213,7 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "",
     "### External search policy",
     "Use the external insane-search skill for blocked web access, WAF-protected sites, Korean platforms, X/Twitter, Reddit, YouTube, GitHub, Naver, Coupang, LinkedIn, Medium, Substack, Stack Overflow, and similar sources.",
-    "Do not reimplement insane-search and do not vendor it into ddotz-pi; keep it as an external dependency so upstream patches are followed.",
+    "Do not reimplement insane-search and do not vendor it into choco-pi; keep it as an external dependency so upstream patches are followed.",
     "",
     buildCommitHygieneGuidance(),
     sourceSummary,

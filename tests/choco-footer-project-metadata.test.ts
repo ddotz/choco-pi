@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { readFooterProjectMetadata } from "../extensions/ddotz-footer/index";
+import { readFooterProjectMetadata } from "../extensions/choco-footer/index";
 
 let tempDirs: string[] = [];
 
@@ -18,9 +18,9 @@ async function tempDir(prefix: string): Promise<string> {
   return dir;
 }
 
-describe("ddotz footer project metadata", () => {
-  it("reads the nearest project package version from cwd instead of ddotz-pi", async () => {
-    const project = await tempDir("ddotz-footer-project-version-");
+describe("choco footer project metadata", () => {
+  it("reads the nearest project package version from cwd instead of choco-pi", async () => {
+    const project = await tempDir("choco-footer-project-version-");
     const nested = join(project, "packages", "app", "src");
     await mkdir(nested, { recursive: true });
     await writeFile(join(project, "package.json"), JSON.stringify({ name: "actual-project", version: "2.3.4" }), "utf8");
@@ -30,11 +30,11 @@ describe("ddotz footer project metadata", () => {
     expect(metadata).toEqual({ branch: null, version: "2.3.4" });
   });
 
-  it("uses the cwd git branch and does not fall back to the ddotz-pi package branch outside a git repo", async () => {
-    const project = await tempDir("ddotz-footer-project-branch-");
+  it("uses the cwd git branch and does not fall back to the choco-pi package branch outside a git repo", async () => {
+    const project = await tempDir("choco-footer-project-branch-");
     execFileSync("git", ["init", "-b", "feature-statusline"], { cwd: project, stdio: "ignore" });
 
-    const nonGit = await tempDir("ddotz-footer-non-git-");
+    const nonGit = await tempDir("choco-footer-non-git-");
 
     expect(readFooterProjectMetadata(project).branch).toBe("feature-statusline");
     expect(readFooterProjectMetadata(nonGit).branch).toBeNull();

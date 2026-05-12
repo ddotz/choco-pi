@@ -66,7 +66,7 @@ Purpose:
 
 ## Verification rule
 
-- Default project gate for Node/ddotz-pi work: `pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test`.
+- Default project gate for Node/choco-pi work: `pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test`.
 - Run targeted tests first, then full gate for non-trivial changes.
 - UI or browser-impacting changes require gstack QA evidence or a concrete blocker; without that, do not claim `Confidence: High` for UI behavior.
 - If verification cannot run, report the blocker and lower confidence.
@@ -83,4 +83,4 @@ Purpose:
 - OMC/OMO/Claude Code-style lifecycle ideas may inform hooks and role discipline, but Claude-only runtime state, commands, or hooks must not be copied into Pi.
 - bkit-style PDCA/context-engineering ideas may inform planning language, but wholesale workflow vendoring is not required.
 - gstack is an optional QA adapter for browser/UI flows, not the coding-mode core.
-- Prefer ddotz-pi local guardrails and Pi-native tools before adopting external dependencies.
+- Prefer choco-pi local guardrails and Pi-native tools before adopting external dependencies.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyMemoryCandidate, shouldStoreMemory } from "../extensions/ddotz-autopilot/memory";
+import { classifyMemoryCandidate, shouldStoreMemory } from "../extensions/choco-autopilot/memory";
 
 describe("memory policy", () => {
   it("stores durable preferences, project rules, repeated mistakes, verification commands, and decisions", () => {

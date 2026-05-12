@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import ddotzAutopilot from "../extensions/ddotz-autopilot/index";
+import chocoAutopilot from "../extensions/choco-autopilot/index";
 
 interface RegisteredCommand {
   handler: (args: string, ctx: { ui: { notify: ReturnType<typeof vi.fn>; select?: ReturnType<typeof vi.fn> } }) => Promise<void>;
@@ -17,13 +17,13 @@ afterEach(async () => {
 });
 
 async function useTempAgentDir(): Promise<void> {
-  tempAgentDir = await mkdtemp(join(tmpdir(), "ddotz-pi-test-"));
+  tempAgentDir = await mkdtemp(join(tmpdir(), "choco-pi-test-"));
   process.env.PI_CODING_AGENT_DIR = tempAgentDir;
 }
 
 function registeredCommands(): Map<string, RegisteredCommand> {
   const commands = new Map<string, RegisteredCommand>();
-  ddotzAutopilot({
+  chocoAutopilot({
     on: vi.fn(),
     registerCommand: (name: string, definition: RegisteredCommand) => {
       commands.set(name, definition);
@@ -37,11 +37,11 @@ function registeredCommands(): Map<string, RegisteredCommand> {
 }
 
 describe("extension command names", () => {
-  it("registers personal commands without the ddotz prefix", () => {
+  it("registers personal commands without the choco prefix", () => {
     const commands = registeredCommands();
 
     expect([...commands.keys()]).toEqual(expect.arrayContaining(["mode", "intensity", "source", "memory", "ledger"]));
-    expect([...commands.keys()].filter((name) => name.startsWith("ddotz-"))).toEqual([]);
+    expect([...commands.keys()].filter((name) => name.startsWith("choco-"))).toEqual([]);
   });
 
   it("opens interactive mode selector when /mode is invoked without argument text", async () => {
@@ -90,7 +90,7 @@ describe("extension command names", () => {
     await commands.get("mode")!.handler("status", { ui: { notify } });
 
     expect(notify).toHaveBeenCalledWith(expect.stringContaining("mode: web-analysis"), "info");
-    expect([...commands.keys()].filter((name) => name.startsWith("ddotz-"))).toEqual([]);
+    expect([...commands.keys()].filter((name) => name.startsWith("choco-"))).toEqual([]);
   });
 
   it("switches from web-analysis back to default without planned-mode warnings", async () => {

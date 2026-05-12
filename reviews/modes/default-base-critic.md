@@ -1,7 +1,7 @@
 # Default/Base Mode Critic
 
 Date: 2026-05-11
-Scope: `modes/_base/MODE.md`, `modes/default/MODE.md`, `extensions/ddotz-autopilot/mode.ts`, `extensions/ddotz-autopilot/session-scope.ts`, `extensions/ddotz-autopilot/policy.ts`, `extensions/ddotz-autopilot/index.ts`, `tests/auto-mode-overlay.test.ts`, `tests/work-mode-registry.test.ts`.
+Scope: `modes/_base/MODE.md`, `modes/default/MODE.md`, `extensions/choco-autopilot/mode.ts`, `extensions/choco-autopilot/session-scope.ts`, `extensions/choco-autopilot/policy.ts`, `extensions/choco-autopilot/index.ts`, `tests/auto-mode-overlay.test.ts`, `tests/work-mode-registry.test.ts`.
 
 ## Implementation snapshot
 
@@ -59,7 +59,7 @@ Recommended minimal fix: do not add broad enforcement. Add only high-signal test
 
 Severity: Medium
 
-`README.md`, `skills/ddotz-autopilot/SKILL.md`, `prompts/autopilot.md`, mode files, and runtime policy all encode similar concepts. Recent commits added README version sync and todo preservation, but drift risk remains because mode semantics are duplicated in several places.
+`README.md`, `skills/choco-autopilot/SKILL.md`, `prompts/autopilot.md`, mode files, and runtime policy all encode similar concepts. Recent commits added README version sync and todo preservation, but drift risk remains because mode semantics are duplicated in several places.
 
 Recommended minimal fix: keep source of truth in TypeScript policy modules and mode files; add narrow tests for README status/version only, not full doc mirroring. Do not introduce a doc generation pipeline unless drift becomes frequent.
 

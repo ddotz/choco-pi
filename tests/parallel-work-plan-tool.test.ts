@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import ddotzAutopilot from "../extensions/ddotz-autopilot/index";
+import chocoAutopilot from "../extensions/choco-autopilot/index";
 
 interface RegisteredTool {
   name: string;
@@ -14,7 +14,7 @@ interface RegisteredTool {
 
 function registeredTools(): Map<string, RegisteredTool> {
   const tools = new Map<string, RegisteredTool>();
-  ddotzAutopilot({
+  chocoAutopilot({
     on: vi.fn(),
     registerCommand: vi.fn(),
     registerTool: (definition: RegisteredTool) => tools.set(definition.name, definition),

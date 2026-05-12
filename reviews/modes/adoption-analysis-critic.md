@@ -1,7 +1,7 @@
 # Adoption Analysis Mode Critic
 
 Date: 2026-05-11
-Scope: `modes/adoption-analysis/MODE.md`, `extensions/ddotz-autopilot/adoption-analysis-policy.ts`, `extensions/ddotz-autopilot/adoption-analysis-quality.ts`, `extensions/ddotz-autopilot/adoption-depth.ts`, `extensions/ddotz-autopilot/source-registry.ts`, `tests/adoption-analysis-mode.test.ts`, `tests/adoption-analysis-quality.test.ts`, `tests/source-registry*.test.ts`.
+Scope: `modes/adoption-analysis/MODE.md`, `extensions/choco-autopilot/adoption-analysis-policy.ts`, `extensions/choco-autopilot/adoption-analysis-quality.ts`, `extensions/choco-autopilot/adoption-depth.ts`, `extensions/choco-autopilot/source-registry.ts`, `tests/adoption-analysis-mode.test.ts`, `tests/adoption-analysis-quality.test.ts`, `tests/source-registry*.test.ts`.
 
 ## Implementation snapshot
 

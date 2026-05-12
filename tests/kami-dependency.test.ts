@@ -2,18 +2,18 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveKamiSkillContribution } from "../extensions/ddotz-autopilot/kami-dependency";
+import { resolveKamiSkillContribution } from "../extensions/choco-autopilot/kami-dependency";
 
 let tempDir: string | undefined;
 
 afterEach(async () => {
-  delete process.env.DDOTZ_PI_KAMI_DISABLE_GLOBAL;
+  delete process.env.CHOCO_PI_KAMI_DISABLE_GLOBAL;
   if (tempDir) await rm(tempDir, { recursive: true, force: true });
   tempDir = undefined;
 });
 
 async function makeTempDir(): Promise<string> {
-  tempDir = await mkdtemp(join(tmpdir(), "ddotz-pi-kami-"));
+  tempDir = await mkdtemp(join(tmpdir(), "choco-pi-kami-"));
   return tempDir;
 }
 

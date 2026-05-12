@@ -30,11 +30,11 @@ function agentDir(): string {
 }
 
 export function managedSuperpowersInstallPath(): string {
-  return process.env.DDOTZ_PI_SUPERPOWERS_INSTALL_PATH || join(agentDir(), "ddotz-pi", "deps", "superpowers");
+  return process.env.CHOCO_PI_SUPERPOWERS_INSTALL_PATH || join(agentDir(), "choco-pi", "deps", "superpowers");
 }
 
 function defaultCandidatePaths(installPath: string): string[] {
-  if (process.env.DDOTZ_PI_SUPERPOWERS_DISABLE_GLOBAL === "1") return [installPath];
+  if (process.env.CHOCO_PI_SUPERPOWERS_DISABLE_GLOBAL === "1") return [installPath];
   return [
     installPath,
     join(agentDir(), "skills", "superpowers"),

@@ -32,13 +32,13 @@ export function bundledKamiSkillPath(): string {
 }
 
 function envCandidatePaths(): KamiCandidatePath[] | undefined {
-  const raw = process.env.DDOTZ_PI_KAMI_CANDIDATE_PATHS;
+  const raw = process.env.CHOCO_PI_KAMI_CANDIDATE_PATHS;
   if (!raw?.trim()) return undefined;
   return raw.split(delimiter).filter(Boolean).map((path) => ({ path, autoDiscovered: false }));
 }
 
 function defaultCandidatePaths(): KamiCandidatePath[] {
-  if (process.env.DDOTZ_PI_KAMI_DISABLE_GLOBAL === "1") return [];
+  if (process.env.CHOCO_PI_KAMI_DISABLE_GLOBAL === "1") return [];
   const fromEnv = envCandidatePaths();
   if (fromEnv) return fromEnv;
   return [

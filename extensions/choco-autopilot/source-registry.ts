@@ -46,7 +46,7 @@ export interface SourceCheckResult {
 }
 
 export interface SourceAnalysisTrackingDecision {
-  appliedToDdotzPi: boolean;
+  appliedToChocoPi: boolean;
   explicitTrackRequest: boolean;
 }
 
@@ -67,7 +67,7 @@ export function createSourceRegistry(): SourceRegistry {
 }
 
 export function shouldTrackSourceFromAnalysis(decision: SourceAnalysisTrackingDecision): boolean {
-  return decision.appliedToDdotzPi || decision.explicitTrackRequest;
+  return decision.appliedToChocoPi || decision.explicitTrackRequest;
 }
 
 function addWeek(date: Date): string {

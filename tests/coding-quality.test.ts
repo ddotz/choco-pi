@@ -2,8 +2,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import ddotzAutopilot from "../extensions/ddotz-autopilot/index";
-import { evaluateCodingQuality, guardCodingQualityMessage } from "../extensions/ddotz-autopilot/coding-quality";
+import chocoAutopilot from "../extensions/choco-autopilot/index";
+import { evaluateCodingQuality, guardCodingQualityMessage } from "../extensions/choco-autopilot/coding-quality";
 
 let tempAgentDir: string | undefined;
 
@@ -14,7 +14,7 @@ afterEach(async () => {
 });
 
 async function useTempAgentDir(): Promise<void> {
-  tempAgentDir = await mkdtemp(join(tmpdir(), "ddotz-pi-coding-quality-test-"));
+  tempAgentDir = await mkdtemp(join(tmpdir(), "choco-pi-coding-quality-test-"));
   process.env.PI_CODING_AGENT_DIR = tempAgentDir;
 }
 
@@ -175,7 +175,7 @@ describe("coding quality guardrails", () => {
     const commands = new Map<string, RegisteredCommand>();
     const sendMessage = vi.fn();
 
-    ddotzAutopilot({
+    chocoAutopilot({
       on: (name: string, handler: (event: never, ctx: never) => unknown) => {
         handlers[name] = [...(handlers[name] ?? []), handler];
       },
@@ -201,7 +201,7 @@ describe("coding quality guardrails", () => {
     for (const handler of handlers.message_end ?? []) await handler(badEvent, { cwd: "/repo" } as never);
     for (const handler of handlers.message_end ?? []) await handler(badEvent, { cwd: "/repo" } as never);
 
-    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "ddotz.coding_quality.repair");
+    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "choco.coding_quality.repair");
     expect(repairCalls).toHaveLength(1);
   });
 
@@ -212,7 +212,7 @@ describe("coding quality guardrails", () => {
     const commands = new Map<string, RegisteredCommand>();
     const sendMessage = vi.fn();
 
-    ddotzAutopilot({
+    chocoAutopilot({
       on: (name: string, handler: (event: never, ctx: never) => unknown) => {
         handlers[name] = [...(handlers[name] ?? []), handler];
       },
@@ -248,7 +248,7 @@ describe("coding quality guardrails", () => {
     for (const handler of handlers.message_end ?? []) await handler(firstFailure, { cwd: "/repo" } as never);
     for (const handler of handlers.message_end ?? []) await handler(laterFailedRepair, { cwd: "/repo" } as never);
 
-    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "ddotz.coding_quality.repair");
+    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "choco.coding_quality.repair");
     expect(repairCalls).toHaveLength(1);
     expect(repairCalls[0][0].content).toContain("missing-confidence");
   });

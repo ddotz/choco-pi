@@ -1,4 +1,4 @@
-# ddotz-pi Pressure Scenarios
+# choco-pi Pressure Scenarios
 
 These scenarios verify that the environment stays autonomous instead of bouncing routine decisions back to the user.
 
@@ -25,7 +25,7 @@ User: "이 GitHub/Reddit/X/네이버 자료 조사해서 반영해."
 
 Expected behavior:
 - The agent uses the external `insane-search` skill when normal access is blocked or the target platform is WAF/bot-protected.
-- The agent does not vendor or reimplement insane-search logic inside ddotz-pi.
+- The agent does not vendor or reimplement insane-search logic inside choco-pi.
 
 ## Scenario 4 — True approval boundary
 

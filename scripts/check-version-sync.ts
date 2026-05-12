@@ -1,8 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { DDOTZ_PI_VERSION } from "../extensions/ddotz-autopilot/version.ts";
-import { analyzeVersionSync } from "../extensions/ddotz-autopilot/version-sync.ts";
+import { CHOCO_PI_VERSION } from "../extensions/choco-autopilot/version.ts";
+import { analyzeVersionSync } from "../extensions/choco-autopilot/version-sync.ts";
 
 function read(path: string): string | undefined {
   if (!existsSync(path)) return undefined;
@@ -35,7 +35,7 @@ const result = analyzeVersionSync({
   headPackageJson: gitShow("package.json"),
   currentLockfile: read(join(cwd, "pnpm-lock.yaml")),
   headLockfile: gitShow("pnpm-lock.yaml"),
-  currentPluginVersion: DDOTZ_PI_VERSION,
+  currentPluginVersion: CHOCO_PI_VERSION,
   currentReadme,
 });
 
@@ -45,4 +45,4 @@ if (!result.ok) {
   process.exit(1);
 }
 
-console.log(`Version sync OK: ${DDOTZ_PI_VERSION}`);
+console.log(`Version sync OK: ${CHOCO_PI_VERSION}`);

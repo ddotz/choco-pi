@@ -1,5 +1,5 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: ddotz-pi local patch <local@ddotz-pi>
+From: choco-pi local patch <local@choco-pi>
 Date: Mon, 11 May 2026 00:00:00 +0900
 Subject: [PATCH] Truncate over-wide TUI lines instead of crashing
 

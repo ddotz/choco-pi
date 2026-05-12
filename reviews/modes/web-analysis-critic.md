@@ -1,7 +1,7 @@
 # Web Analysis Mode Critic
 
 Date: 2026-05-11
-Scope: `modes/web-analysis/MODE.md`, `extensions/ddotz-autopilot/web-analysis-policy.ts`, `extensions/ddotz-autopilot/web-research-quality.ts`, `extensions/ddotz-autopilot/mode-resource-policy.ts`, `tests/web-analysis-mode.test.ts`, `tests/web-research-quality.test.ts`.
+Scope: `modes/web-analysis/MODE.md`, `extensions/choco-autopilot/web-analysis-policy.ts`, `extensions/choco-autopilot/web-research-quality.ts`, `extensions/choco-autopilot/mode-resource-policy.ts`, `tests/web-analysis-mode.test.ts`, `tests/web-research-quality.test.ts`.
 
 ## Implementation snapshot
 

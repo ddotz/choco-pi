@@ -2,7 +2,7 @@
 
 Date: 2026-05-11
 Status: design approved for autonomous implementation planning
-Owner: ddotz-pi
+Owner: choco-pi
 
 ## Objective
 
@@ -28,7 +28,7 @@ No external package is adopted as code. The following sources shape the design p
 - LangSmith evaluation: combine offline curated dataset evals with online live-traffic evaluation.
 - Langfuse evaluation: use scores attached to traces/sessions and feed live edge cases back into datasets.
 - Microsoft LLM evaluation metrics: automatic evaluation should be complemented by human review because LLM judges can be biased.
-- IBM hit rate metric: a ratio metric can track whether at least one relevant target was hit, but ddotz-pi needs its own domain-specific `clean hit` definition.
+- IBM hit rate metric: a ratio metric can track whether at least one relevant target was hit, but choco-pi needs its own domain-specific `clean hit` definition.
 - PromptLayer analytics: prompt usage, latency, cost, request volume, and model distribution are useful supporting metrics.
 - LearningLoop dogfooding: structured internal use, lightweight feedback channels, and time-to-fix/internal bug metrics improve product quality.
 - pi.dev package scan: no high-similarity package exists for cross-project prompt quality dogfooding; implement locally.
@@ -68,10 +68,10 @@ If the threshold is not met, the system still writes a weekly observation report
 
 ## Data model
 
-Store dogfooding data under the global ddotz-pi state directory:
+Store dogfooding data under the global choco-pi state directory:
 
 ```text
-~/.pi/agent/ddotz-pi/dogfood/
+~/.pi/agent/choco-pi/dogfood/
   events.jsonl              # append-only recent signal stream
   cases/<case-id>.json      # detailed case metadata, retained for 12 weeks
   weekly/YYYY-WW.json       # aggregate reports and improvement decisions
@@ -120,7 +120,7 @@ Raw prompt text, raw assistant output, raw tool output, secrets, and full filesy
 
 ### 1. Signal collector
 
-Extend `ddotz-autopilot` hooks to emit quality events:
+Extend `choco-autopilot` hooks to emit quality events:
 
 - `before_agent_start`: create a case, hash prompt, classify rough task type, record active mode/intensity/cwd slice.
 - `tool_call` and `tool_result`: record tool counts, failures, verification command outcomes, and risky patterns without storing full output.
@@ -130,14 +130,14 @@ Extend `ddotz-autopilot` hooks to emit quality events:
 
 ### 2. Case builder and store
 
-Create a small dogfood module under `extensions/ddotz-autopilot/`:
+Create a small dogfood module under `extensions/choco-autopilot/`:
 
 - `dogfood-store.ts`: append/read cases, weekly aggregates, review queue, retention cleanup.
 - `dogfood-case.ts`: case lifecycle helpers and privacy hashing.
 - `dogfood-scoring.ts`: deterministic scoring rules.
 - `dogfood-weekly.ts`: weekly aggregation and improvement candidate generation.
 
-Use atomic writes and JSONL append discipline consistent with existing ddotz-pi state handling.
+Use atomic writes and JSONL append discipline consistent with existing choco-pi state handling.
 
 ### 3. Rule scorer
 
@@ -174,7 +174,7 @@ Weekly output includes:
 Report path:
 
 ```text
-~/.pi/agent/ddotz-pi/dogfood/weekly/YYYY-WW.json
+~/.pi/agent/choco-pi/dogfood/weekly/YYYY-WW.json
 ```
 
 A concise Markdown summary can be generated on demand via `/dogfood report`.
@@ -198,7 +198,7 @@ Approval-gated changes:
 - deleting historical data beyond retention cleanup,
 - publishing packages or deploying externally.
 
-Automatic code changes must use the normal ddotz-pi development loop: TDD where applicable, version check, lint, typecheck, tests, runtime reload when extension behavior changes, structural gate, then commit/push when appropriate.
+Automatic code changes must use the normal choco-pi development loop: TDD where applicable, version check, lint, typecheck, tests, runtime reload when extension behavior changes, structural gate, then commit/push when appropriate.
 
 ## Commands and UI
 
@@ -249,7 +249,7 @@ dogfood 18/25 due:3d clean:72%
    - Convert repeated patterns into proposed prompt/rubric/test/doc/code improvement candidates.
 
 4. **Low-risk auto-improvement**
-   - Allow automatic low-risk patches through the normal verified ddotz-pi development loop.
+   - Allow automatic low-risk patches through the normal verified choco-pi development loop.
 
 5. **Runtime polish**
    - Add footer/widget status, concise reports, and due notifications.
@@ -267,6 +267,6 @@ The following defaults are chosen autonomously unless a hard boundary appears:
 
 - Use SHA-256 with a local random salt for prompt and cwd hashes.
 - Use ISO week IDs for weekly buckets.
-- Keep all dogfood files under `~/.pi/agent/ddotz-pi/dogfood/` rather than the repository workspace.
+- Keep all dogfood files under `~/.pi/agent/choco-pi/dogfood/` rather than the repository workspace.
 - Treat project labels as safe aliases derived from repo basename, with hashes used for stable joins.
 - Start with deterministic scoring and add judge support only after sanitized case generation is tested.

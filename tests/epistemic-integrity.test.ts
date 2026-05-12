@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildEpistemicIntegrityGuidance } from "../extensions/ddotz-autopilot/epistemic-integrity";
-import { buildAutopilotSystemPrompt } from "../extensions/ddotz-autopilot/policy";
+import { buildEpistemicIntegrityGuidance } from "../extensions/choco-autopilot/epistemic-integrity";
+import { buildAutopilotSystemPrompt } from "../extensions/choco-autopilot/policy";
 
 describe("epistemic integrity harness policy", () => {
   it("requires runtime claims to be verified and corrected instead of blindly accepted", () => {
@@ -14,11 +14,11 @@ describe("epistemic integrity harness policy", () => {
     expect(guidance).toContain("verified evidence, assumptions, and unknowns");
   });
 
-  it("routes durable Pi behavior changes through ddotz-pi harness paths instead of agent instruction files", () => {
+  it("routes durable Pi behavior changes through choco-pi harness paths instead of agent instruction files", () => {
     const guidance = buildEpistemicIntegrityGuidance();
 
     expect(guidance).toContain("Do not satisfy recurring Pi/harness behavior requests by editing AGENTS.md");
-    expect(guidance).toContain("ddotz-pi harness policy, extension, guard, or test paths");
+    expect(guidance).toContain("choco-pi harness policy, extension, guard, or test paths");
     expect(guidance).toContain("unless the user explicitly asks for instruction-file edits");
   });
 
@@ -32,6 +32,6 @@ describe("epistemic integrity harness policy", () => {
     expect(prompt).toContain("Runtime reality correction");
     expect(prompt).toContain("If inspected state contradicts the user's premise or instruction");
     expect(prompt).toContain("Do not execute an instruction that depends on a false premise");
-    expect(prompt).toContain("ddotz-pi harness policy, extension, guard, or test paths");
+    expect(prompt).toContain("choco-pi harness policy, extension, guard, or test paths");
   });
 });

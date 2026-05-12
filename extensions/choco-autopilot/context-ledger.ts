@@ -39,7 +39,7 @@ function touch(ledger: ContextLedger): ContextLedger {
 
 export function createEmptyLedger(objective: string): ContextLedger {
   return {
-    objective: objective.trim() || "Autonomous ddotz-pi work",
+    objective: objective.trim() || "Autonomous choco-pi work",
     assumptions: [],
     decisions: [],
     changedFiles: [],

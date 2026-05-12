@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement `web-analysis` as the first non-default ddotz-pi work mode, using fivetaku/insane-search for retrieval-first external research and mode-scoped hook/guardrail checks that raise web research answer quality without changing `default`.
+**Goal:** Implement `web-analysis` as the first non-default choco-pi work mode, using fivetaku/insane-search for retrieval-first external research and mode-scoped hook/guardrail checks that raise web research answer quality without changing `default`.
 
-**Architecture:** Keep the autonomous PM base global, but move web-analysis behavior into a mode-scoped overlay that is appended only when `runtime.workMode === "web-analysis"`. Stage 1 implements the isolated mode overlay and resource policy, then self-reviews and patches leakage or coverage gaps. Stage 2 adds process-level quality guardrails through mode-scoped prompt requirements and final-output validation helpers; it does not build a search engine, router, product UI, saved research service, or custom retrieval backend. `insane-search` remains an external dependency/reference, not vendored into ddotz-pi.
+**Architecture:** Keep the autonomous PM base global, but move web-analysis behavior into a mode-scoped overlay that is appended only when `runtime.workMode === "web-analysis"`. Stage 1 implements the isolated mode overlay and resource policy, then self-reviews and patches leakage or coverage gaps. Stage 2 adds process-level quality guardrails through mode-scoped prompt requirements and final-output validation helpers; it does not build a search engine, router, product UI, saved research service, or custom retrieval backend. `insane-search` remains an external dependency/reference, not vendored into choco-pi.
 
 **Tech Stack:** Pi extension hooks (`before_agent_start`, `message_end`, `/mode` command), TypeScript pure policy modules, Vitest contract tests, Pi mode files under `modes/<mode-id>/MODE.md`, external fivetaku/insane-search skill/engine via GitHub/MIT reference.
 
@@ -14,7 +14,7 @@
 
 1. **Mode isolation is mandatory for every mode change.** Any new mode policy, skill guidance, plugin/extension guidance, tool priority, or output contract must be active-mode-only.
 2. **Default must not change behavior.** `buildAutopilotSystemPrompt({ workMode: "default" })` must not include web-analysis overlay names, retrieval-first workflow, source scoring rubric, or fivetaku-specific engine instructions beyond the already-existing minimal base policy mention of `insane-search` for blocked sites.
-3. **No vendoring insane-search.** Use `https://github.com/fivetaku/insane-search` as an external dependency/reference. Do not copy its engine into `ddotz-pi`; do not reimplement its bypass chain.
+3. **No vendoring insane-search.** Use `https://github.com/fivetaku/insane-search` as an external dependency/reference. Do not copy its engine into `choco-pi`; do not reimplement its bypass chain.
 4. **No global Pi package install in this implementation.** Public package candidates remain optional adapters. Installing a Pi package globally would affect default unless filtered and mode-scoped, so this version uses local policy/guardrail guidance only.
 5. **Activation is explicit.** `/mode set web-analysis` may activate the mode after implementation. Planned modes other than `web-analysis` remain planned.
 6. **No search engine/router/service UX in this version.** Query routing, custom search provider orchestration, source explorer UI, saved research, export UI, and product-thread features are out of scope.
@@ -37,7 +37,7 @@
 - License: MIT
 - Current package/plugin metadata: Claude plugin `insane-search` v0.4.1
 - Core design: Phase 0 official/public APIs, Phase 1 generic fetch chain, WAF profile detection, curl_cffi TLS impersonation grid, Playwright fallback, positive proof validation, No-Site-Name Rule.
-- Security review notes: engine uses network access, optional dependency install, curl_cffi, Node/Playwright templates, temp browser profiles. This is acceptable as an external opt-in dependency, not as bundled ddotz-pi runtime code.
+- Security review notes: engine uses network access, optional dependency install, curl_cffi, Node/Playwright templates, temp browser profiles. This is acceptable as an external opt-in dependency, not as bundled choco-pi runtime code.
 - Verification observed: `python3 engine/bias_check.py` passed. `python3 -m engine --help` worked. Smoke test had 7/8 pass locally; the online `example.com` check failed because `curl_cffi` was not installed in the temporary clone, which confirms the implementation plan must detect/report dependency availability.
 
 ---
@@ -46,31 +46,31 @@
 
 Create and modify these files only:
 
-- Create: `extensions/ddotz-autopilot/mode-resource-policy.ts`
+- Create: `extensions/choco-autopilot/mode-resource-policy.ts`
   - One typed source of truth for mode-specific skills, extension/plugin guidance, tool priority, and process priorities.
   - Returns empty/default policy for `default`.
-- Create: `extensions/ddotz-autopilot/web-analysis-policy.ts`
+- Create: `extensions/choco-autopilot/web-analysis-policy.ts`
   - Web-analysis-only prompt overlay, source quality rubric, required answer contract, and guardrail prompt requirements.
   - Mentions fivetaku/insane-search only inside this active-mode overlay.
-- Create: `extensions/ddotz-autopilot/web-research-quality.ts`
+- Create: `extensions/choco-autopilot/web-research-quality.ts`
   - Pure helpers for final-answer quality checks: citation/provenance hints, critical-review presence, confidence gating, and default-mode bypass.
   - No search engine, no router, no UI, no network access.
-- Modify: `extensions/ddotz-autopilot/policy.ts`
+- Modify: `extensions/choco-autopilot/policy.ts`
   - Import mode overlay builder.
   - Append overlay only when active mode returns non-empty guidance.
-- Modify: `extensions/ddotz-autopilot/mode.ts`
+- Modify: `extensions/choco-autopilot/mode.ts`
   - Mark `web-analysis` as implemented.
   - Keep `coding`, `report`, and `adoption-analysis` planned.
-- Modify: `extensions/ddotz-autopilot/work-mode-registry.ts`
+- Modify: `extensions/choco-autopilot/work-mode-registry.ts`
   - Registry status for `web-analysis` becomes `implemented`.
-- Modify: `extensions/ddotz-autopilot/index.ts`
+- Modify: `extensions/choco-autopilot/index.ts`
   - `/mode set web-analysis` works through existing `isWorkModeImplemented` path.
   - Add no global tool mutation unless Task 6 optional tool-priority status is implemented safely.
 - Modify: `modes/web-analysis/MODE.md`
   - Replace planned overlay with implemented mode instructions.
 - Modify: `README.md`
   - Status, architecture, commands, mode folder structure, and runtime behavior docs.
-- Modify: `skills/ddotz-autopilot/SKILL.md`
+- Modify: `skills/choco-autopilot/SKILL.md`
   - Document `web-analysis` as implemented and mode-isolated.
 - Modify: `prompts/autopilot.md`
   - Keep default-safe wording; mention that specialized mode policies apply only when the mode is active.
@@ -101,8 +101,8 @@ Create `tests/web-analysis-mode.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { buildAutopilotSystemPrompt } from "../extensions/ddotz-autopilot/policy";
-import { buildModeResourcePolicy } from "../extensions/ddotz-autopilot/mode-resource-policy";
+import { buildAutopilotSystemPrompt } from "../extensions/choco-autopilot/policy";
+import { buildModeResourcePolicy } from "../extensions/choco-autopilot/mode-resource-policy";
 
 function promptFor(workMode: "default" | "web-analysis"): string {
   return buildAutopilotSystemPrompt({
@@ -146,7 +146,7 @@ describe("web-analysis mode isolation", () => {
     const policy = buildModeResourcePolicy("web-analysis");
     expect(policy.mode).toBe("web-analysis");
     expect(policy.skills).toContain("insane-search");
-    expect(policy.extensionGuidance).toContain("Use external fivetaku/insane-search; do not vendor it into ddotz-pi.");
+    expect(policy.extensionGuidance).toContain("Use external fivetaku/insane-search; do not vendor it into choco-pi.");
     expect(policy.toolPriority[0]).toBe("external retrieval before synthesis");
     expect(policy.processPriorities).toContain("critical review before final answer");
   });
@@ -199,7 +199,7 @@ it("allows switching to implemented web-analysis mode without changing command n
   await commands.get("mode")!.handler("status", { ui: { notify } });
 
   expect(notify).toHaveBeenCalledWith(expect.stringContaining("mode: web-analysis"), "info");
-  expect([...commands.keys()].filter((name) => name.startsWith("ddotz-"))).toEqual([]);
+  expect([...commands.keys()].filter((name) => name.startsWith("choco-"))).toEqual([]);
 });
 ```
 
@@ -208,7 +208,7 @@ it("allows switching to implemented web-analysis mode without changing command n
 Run:
 
 ```bash
-cd /Users/hyuns/code/ddotz-pi
+cd /Users/hyuns/code/choco-pi
 pnpm vitest run tests/web-analysis-mode.test.ts tests/policy.test.ts tests/work-mode-registry.test.ts tests/extension-commands.test.ts
 ```
 
@@ -219,12 +219,12 @@ Expected: FAIL because `mode-resource-policy.ts` does not exist, `web-analysis` 
 ### Task 2: Add mode resource policy and web-analysis overlay
 
 **Files:**
-- Create: `extensions/ddotz-autopilot/mode-resource-policy.ts`
-- Create: `extensions/ddotz-autopilot/web-analysis-policy.ts`
+- Create: `extensions/choco-autopilot/mode-resource-policy.ts`
+- Create: `extensions/choco-autopilot/web-analysis-policy.ts`
 
 - [ ] **Step 1: Create mode resource policy module**
 
-Create `extensions/ddotz-autopilot/mode-resource-policy.ts`:
+Create `extensions/choco-autopilot/mode-resource-policy.ts`:
 
 ```ts
 import type { WorkMode } from "./mode";
@@ -249,7 +249,7 @@ const WEB_ANALYSIS_POLICY: ModeResourcePolicy = {
   mode: "web-analysis",
   skills: ["insane-search"],
   extensionGuidance: [
-    "Use external fivetaku/insane-search; do not vendor it into ddotz-pi.",
+    "Use external fivetaku/insane-search; do not vendor it into choco-pi.",
     "Use mode-scoped web-analysis retrieval and review instructions only when web-analysis is active.",
     "Keep default mode prompt, resource guidance, and priorities unchanged.",
   ],
@@ -290,7 +290,7 @@ export function formatModeResourcePolicy(policy: ModeResourcePolicy): string {
 
 - [ ] **Step 2: Create web-analysis policy overlay module**
 
-Create `extensions/ddotz-autopilot/web-analysis-policy.ts`:
+Create `extensions/choco-autopilot/web-analysis-policy.ts`:
 
 ```ts
 import { buildModeResourcePolicy, formatModeResourcePolicy } from "./mode-resource-policy";
@@ -340,7 +340,7 @@ export function buildWebAnalysisModeGuidance(): string {
 Run:
 
 ```bash
-cd /Users/hyuns/code/ddotz-pi
+cd /Users/hyuns/code/choco-pi
 pnpm vitest run tests/web-analysis-mode.test.ts tests/policy.test.ts
 ```
 
@@ -351,12 +351,12 @@ Expected: tests still FAIL until `policy.ts` appends the overlay and `mode.ts` m
 ### Task 3: Mark web-analysis implemented without changing default semantics
 
 **Files:**
-- Modify: `extensions/ddotz-autopilot/mode.ts`
-- Modify: `extensions/ddotz-autopilot/work-mode-registry.ts`
+- Modify: `extensions/choco-autopilot/mode.ts`
+- Modify: `extensions/choco-autopilot/work-mode-registry.ts`
 
 - [ ] **Step 1: Update implemented/planned mode constants**
 
-In `extensions/ddotz-autopilot/mode.ts`, replace the constants with:
+In `extensions/choco-autopilot/mode.ts`, replace the constants with:
 
 ```ts
 export const IMPLEMENTED_WORK_MODES: WorkMode[] = ["default", "web-analysis"];
@@ -396,7 +396,7 @@ export function buildModeSwitchGuidance(suggestedMode: WorkMode | undefined): st
 
 - [ ] **Step 4: Update work-mode registry built-in status**
 
-In `extensions/ddotz-autopilot/work-mode-registry.ts`, replace the `web-analysis` definition with:
+In `extensions/choco-autopilot/work-mode-registry.ts`, replace the `web-analysis` definition with:
 
 ```ts
   {
@@ -412,7 +412,7 @@ In `extensions/ddotz-autopilot/work-mode-registry.ts`, replace the `web-analysis
 Run:
 
 ```bash
-cd /Users/hyuns/code/ddotz-pi
+cd /Users/hyuns/code/choco-pi
 pnpm vitest run tests/policy.test.ts tests/work-mode-registry.test.ts tests/extension-commands.test.ts
 ```
 
@@ -423,11 +423,11 @@ Expected: some tests pass; overlay tests still fail until Task 4.
 ### Task 4: Append mode overlay only for active web-analysis mode
 
 **Files:**
-- Modify: `extensions/ddotz-autopilot/policy.ts`
+- Modify: `extensions/choco-autopilot/policy.ts`
 
 - [ ] **Step 1: Import web-analysis overlay**
 
-At the top of `extensions/ddotz-autopilot/policy.ts`, add:
+At the top of `extensions/choco-autopilot/policy.ts`, add:
 
 ```ts
 import { buildWebAnalysisModeGuidance } from "./web-analysis-policy";
@@ -465,7 +465,7 @@ This exact placement keeps the overlay near work-mode rules and ensures default 
 Run:
 
 ```bash
-cd /Users/hyuns/code/ddotz-pi
+cd /Users/hyuns/code/choco-pi
 pnpm vitest run tests/web-analysis-mode.test.ts tests/policy.test.ts
 ```
 
@@ -478,7 +478,7 @@ Expected: PASS for mode overlay and default non-leak tests.
 **Files:**
 - Modify: `modes/web-analysis/MODE.md`
 - Modify: `README.md`
-- Modify: `skills/ddotz-autopilot/SKILL.md`
+- Modify: `skills/choco-autopilot/SKILL.md`
 - Modify: `prompts/autopilot.md`
 
 - [ ] **Step 1: Replace `modes/web-analysis/MODE.md` content**
@@ -499,7 +499,7 @@ Use this mode for external web research, source review, current-information ques
 ## Mode-scoped resources
 
 - Preferred external skill: `insane-search` from `https://github.com/fivetaku/insane-search`.
-- Do not vendor or reimplement insane-search inside `ddotz-pi`.
+- Do not vendor or reimplement insane-search inside `choco-pi`.
 - Use Pi package candidates only as future adapters if they can be isolated from default mode.
 
 ## Retrieval-first process
@@ -541,9 +541,9 @@ Add a runtime behavior bullet:
 - Mode-specific skills, extension/plugin guidance, processes, and priorities must be mode-isolated. `web-analysis` retrieval/review policy is injected only while that mode is active.
 ```
 
-- [ ] **Step 3: Update ddotz-autopilot skill mode section**
+- [ ] **Step 3: Update choco-autopilot skill mode section**
 
-In `skills/ddotz-autopilot/SKILL.md`, replace the Work Modes list with:
+In `skills/choco-autopilot/SKILL.md`, replace the Work Modes list with:
 
 ```md
 - **default**: implemented base autonomous PM/development mode.
@@ -565,7 +565,7 @@ In `prompts/autopilot.md`, add this bullet after the `/mode` bullet:
 Run:
 
 ```bash
-cd /Users/hyuns/code/ddotz-pi
+cd /Users/hyuns/code/choco-pi
 pnpm vitest run tests/language-style-docs.test.ts tests/policy.test.ts tests/web-analysis-mode.test.ts
 ```
 
@@ -577,7 +577,7 @@ Expected: PASS.
 
 **Files:**
 - Modify: `tests/extension-commands.test.ts`
-- Modify: `extensions/ddotz-autopilot/index.ts` only if the test reveals stale status text or planned-mode warning.
+- Modify: `extensions/choco-autopilot/index.ts` only if the test reveals stale status text or planned-mode warning.
 
 - [ ] **Step 1: Add activation and restoration test**
 
@@ -609,7 +609,7 @@ Do not call `pi.setActiveTools()` for web-analysis in v1. The reason is explicit
 Run:
 
 ```bash
-cd /Users/hyuns/code/ddotz-pi
+cd /Users/hyuns/code/choco-pi
 pnpm vitest run tests/extension-commands.test.ts tests/web-analysis-mode.test.ts
 ```
 
@@ -620,9 +620,9 @@ Expected: PASS.
 ### Task 7: Stage 2 — Add web research quality guardrails, no search engine/router
 
 **Files:**
-- Create: `extensions/ddotz-autopilot/web-research-quality.ts`
+- Create: `extensions/choco-autopilot/web-research-quality.ts`
 - Create: `tests/web-research-quality.test.ts`
-- Modify: `extensions/ddotz-autopilot/web-analysis-policy.ts`
+- Modify: `extensions/choco-autopilot/web-analysis-policy.ts`
 - Modify: `tests/web-analysis-mode.test.ts`
 
 - [ ] **Step 1: Write failing guardrail tests**
@@ -631,7 +631,7 @@ Create `tests/web-research-quality.test.ts` with tests for:
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { evaluateWebResearchQuality } from "../extensions/ddotz-autopilot/web-research-quality";
+import { evaluateWebResearchQuality } from "../extensions/choco-autopilot/web-research-quality";
 
 describe("web research quality guardrails", () => {
   it("bypasses non-web-analysis modes", () => {
@@ -695,7 +695,7 @@ Expected: RED because helper does not exist.
 
 - [ ] **Step 2: Implement pure quality helper**
 
-Create `extensions/ddotz-autopilot/web-research-quality.ts`:
+Create `extensions/choco-autopilot/web-research-quality.ts`:
 
 ```ts
 import type { WorkMode } from "./mode";
@@ -766,7 +766,7 @@ If any Stage 2 test fails, do not weaken the guardrail. Fix the helper or prompt
 
 **Files:**
 - Modify: `package.json`
-- Modify: `extensions/ddotz-autopilot/version.ts`
+- Modify: `extensions/choco-autopilot/version.ts`
 - Modify: `README.md`
 - Existing footer tests only if version assertions fail.
 
@@ -780,10 +780,10 @@ In `package.json`:
 "version": "0.2.0"
 ```
 
-In `extensions/ddotz-autopilot/version.ts`:
+In `extensions/choco-autopilot/version.ts`:
 
 ```ts
-export const DDOTZ_PI_VERSION = "0.2.0" as const;
+export const CHOCO_PI_VERSION = "0.2.0" as const;
 ```
 
 In `README.md` status:
@@ -797,7 +797,7 @@ In `README.md` status:
 Run:
 
 ```bash
-cd /Users/hyuns/code/ddotz-pi
+cd /Users/hyuns/code/choco-pi
 pnpm run version:check
 pnpm vitest run tests/web-analysis-mode.test.ts tests/policy.test.ts tests/work-mode-registry.test.ts tests/extension-commands.test.ts
 ```
@@ -809,7 +809,7 @@ Expected: version check OK and focused tests PASS.
 Run:
 
 ```bash
-cd /Users/hyuns/code/ddotz-pi
+cd /Users/hyuns/code/choco-pi
 pnpm run check
 ```
 
@@ -870,7 +870,7 @@ Expected: response does not include `Web Analysis Mode`, source confidence matri
 Run:
 
 ```bash
-cd /Users/hyuns/code/ddotz-pi
+cd /Users/hyuns/code/choco-pi
 git status --short --untracked-files=all
 ```
 
@@ -881,7 +881,7 @@ Expected: only intentional source, docs, and test files are changed. No temp clo
 Run:
 
 ```bash
-git add extensions/ddotz-autopilot mode* README.md prompts/autopilot.md skills/ddotz-autopilot/SKILL.md tests package.json
+git add extensions/choco-autopilot mode* README.md prompts/autopilot.md skills/choco-autopilot/SKILL.md tests package.json
 git commit -m "feat: implement web-analysis mode"
 ```
 
@@ -889,7 +889,7 @@ If the broad `git add` includes unintended files, reset and add exact paths inst
 
 ```bash
 git reset
-git add extensions/ddotz-autopilot/mode.ts extensions/ddotz-autopilot/mode-resource-policy.ts extensions/ddotz-autopilot/policy.ts extensions/ddotz-autopilot/version.ts extensions/ddotz-autopilot/web-analysis-policy.ts extensions/ddotz-autopilot/work-mode-registry.ts modes/web-analysis/MODE.md README.md prompts/autopilot.md skills/ddotz-autopilot/SKILL.md tests/web-analysis-mode.test.ts tests/policy.test.ts tests/work-mode-registry.test.ts tests/extension-commands.test.ts package.json
+git add extensions/choco-autopilot/mode.ts extensions/choco-autopilot/mode-resource-policy.ts extensions/choco-autopilot/policy.ts extensions/choco-autopilot/version.ts extensions/choco-autopilot/web-analysis-policy.ts extensions/choco-autopilot/work-mode-registry.ts modes/web-analysis/MODE.md README.md prompts/autopilot.md skills/choco-autopilot/SKILL.md tests/web-analysis-mode.test.ts tests/policy.test.ts tests/work-mode-registry.test.ts tests/extension-commands.test.ts package.json
 git commit -m "feat: implement web-analysis mode"
 ```
 
@@ -912,7 +912,7 @@ Expected: push to `origin/main` succeeds. This is routine source synchronization
 - `web-analysis` prompt includes fivetaku/insane-search retrieval guidance, source confidence scoring, and critical review.
 - `coding`, `report`, and `adoption-analysis` remain planned.
 - No Pi package is installed globally for web-analysis v1.
-- No insane-search code is vendored into ddotz-pi.
+- No insane-search code is vendored into choco-pi.
 - Tests cover mode isolation, mode activation, registry status, prompt overlay behavior, and web research quality guardrail helpers.
 - `pnpm run check` passes.
 - Runtime reload and mode dogfood pass.

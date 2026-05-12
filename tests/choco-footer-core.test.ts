@@ -12,7 +12,7 @@ import {
   reduceRunState,
   resolveFooterBranch,
   summarizeTodosJson,
-} from "../extensions/ddotz-footer/core";
+} from "../extensions/choco-footer/core";
 
 const codexResponse = {
   rateLimits: {
@@ -35,7 +35,7 @@ const codexResponse = {
   },
 };
 
-describe("ddotz footer core", () => {
+describe("choco footer core", () => {
   it("formats branch version, effective mode, intensity, and run state on the first line", () => {
     const lines = buildFooterLines({
       modelLabel: "GPT-5.5 Codex",
@@ -63,7 +63,7 @@ describe("ddotz footer core", () => {
     const lines = buildFooterLines({
       modelLabel: "GPT-5.5 Codex",
       branch,
-      cwd: "~/code/ddotz-pi",
+      cwd: "~/code/choco-pi",
       thinkingLevel: "xhigh",
       appVersion: "0.1.6",
       modeLabel: "default",

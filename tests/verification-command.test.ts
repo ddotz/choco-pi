@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { verificationCommandFromInput } from "../extensions/ddotz-autopilot/verification-command";
+import { verificationCommandFromInput } from "../extensions/choco-autopilot/verification-command";
 
 describe("verification command detection", () => {
   it("recognizes supported verification commands from bash input", () => {

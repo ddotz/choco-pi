@@ -2,8 +2,8 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { appendDogfoodEvent, cleanupDogfoodCaseRetention, createDogfoodStore, listDogfoodCases, readDogfoodQueue, writeDogfoodCase, writeDogfoodQueue } from "../extensions/ddotz-autopilot/dogfood-store";
-import type { DogfoodCase } from "../extensions/ddotz-autopilot/dogfood-types";
+import { appendDogfoodEvent, cleanupDogfoodCaseRetention, createDogfoodStore, listDogfoodCases, readDogfoodQueue, writeDogfoodCase, writeDogfoodQueue } from "../extensions/choco-autopilot/dogfood-store";
+import type { DogfoodCase } from "../extensions/choco-autopilot/dogfood-types";
 
 let tempDir: string | undefined;
 

@@ -19,7 +19,7 @@ const WEB_ANALYSIS_POLICY: ModeResourcePolicy = {
   mode: "web-analysis",
   skills: ["insane-search"],
   extensionGuidance: [
-    "Use external fivetaku/insane-search; do not vendor it into ddotz-pi.",
+    "Use external fivetaku/insane-search; do not vendor it into choco-pi.",
     "Use mode-scoped web-analysis retrieval and review instructions only when web-analysis is active.",
     "Keep default mode prompt, resource guidance, and priorities unchanged.",
   ],
@@ -41,7 +41,7 @@ const ADOPTION_ANALYSIS_POLICY: ModeResourcePolicy = {
   mode: "adoption-analysis",
   skills: ["insane-search"],
   extensionGuidance: [
-    "Use existing ddotz-pi source-registry behavior; do not duplicate default adoption capability.",
+    "Use existing choco-pi source-registry behavior; do not duplicate default adoption capability.",
     "Use adoption-analysis guidance only when adoption-analysis is active.",
     "Keep default mode prompt, resource guidance, and priorities unchanged.",
   ],

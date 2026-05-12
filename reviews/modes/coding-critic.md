@@ -1,7 +1,7 @@
 # Coding Mode Critic
 
 Date: 2026-05-11
-Scope: `modes/coding/MODE.md`, `extensions/ddotz-autopilot/coding-policy.ts`, `extensions/ddotz-autopilot/coding-quality.ts`, `extensions/ddotz-autopilot/guard-repair-status.ts`, `tests/coding-mode.test.ts`, `tests/coding-quality.test.ts`.
+Scope: `modes/coding/MODE.md`, `extensions/choco-autopilot/coding-policy.ts`, `extensions/choco-autopilot/coding-quality.ts`, `extensions/choco-autopilot/guard-repair-status.ts`, `tests/coding-mode.test.ts`, `tests/coding-quality.test.ts`.
 
 ## Implementation snapshot
 
@@ -56,7 +56,7 @@ Recommended minimal fix: if changed files match common UI extensions or paths, s
 
 Severity: Low
 
-The mode says default code-change gate is `pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test`. That is good for ddotz-pi, but for trivial text-only edits or small docs changes it can be heavier than needed. The prompt says use judgment for trivial tasks, but the final guard does not distinguish.
+The mode says default code-change gate is `pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test`. That is good for choco-pi, but for trivial text-only edits or small docs changes it can be heavier than needed. The prompt says use judgment for trivial tasks, but the final guard does not distinguish.
 
 Recommended minimal fix: keep full gate as default for runtime code changes. For docs-only changes, allow `git diff --check` plus targeted docs/read verification, but require the final answer to say why full gate was not relevant.
 

@@ -3,7 +3,7 @@ import {
   resolveEffectiveWorkMode,
   sessionIdFromContext,
   sessionScopedKey,
-} from "../extensions/ddotz-autopilot/session-scope";
+} from "../extensions/choco-autopilot/session-scope";
 
 describe("session-scoped autopilot state", () => {
   it("keys ledgers by cwd and session id so same-folder sessions do not collide", () => {

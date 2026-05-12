@@ -8,10 +8,10 @@ const PI_CLI_UPDATE_TIMEOUT_MS = 10 * 60 * 1000;
 const INSTALL_TIMEOUT_MS = 5 * 60 * 1000;
 const VERIFY_TIMEOUT_MS = 5 * 60 * 1000;
 
-export type DdotzUpdateStatus = "updated" | "current" | "skipped" | "failed";
+export type ChocoUpdateStatus = "updated" | "current" | "skipped" | "failed";
 
-export interface DdotzUpdateResult {
-  status: DdotzUpdateStatus;
+export interface ChocoUpdateResult {
+  status: ChocoUpdateStatus;
   trigger: "manual" | "auto";
   reason?: string;
   upstream?: string;
@@ -25,7 +25,7 @@ export interface DdotzUpdateResult {
 }
 
 export interface AutoUpdateLastResult {
-  status: DdotzUpdateStatus;
+  status: ChocoUpdateStatus;
   reason?: string;
   oldRevision?: string;
   newRevision?: string;
@@ -65,7 +65,7 @@ interface ExecFail {
   reason: string;
 }
 
-export function ddotzPiPackageRoot(): string {
+export function chocoPiPackageRoot(): string {
   return resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 }
 
@@ -102,7 +102,7 @@ function normalizeLastResult(value: unknown): AutoUpdateLastResult | undefined {
   };
 }
 
-function isUpdateStatus(value: unknown): value is DdotzUpdateStatus {
+function isUpdateStatus(value: unknown): value is ChocoUpdateStatus {
   return value === "updated" || value === "current" || value === "skipped" || value === "failed";
 }
 
@@ -114,7 +114,7 @@ export function shouldRunAutoUpdate(state: AutoUpdateState, now = Date.now()): b
   return now - checkedAt >= state.intervalMs;
 }
 
-export function summarizeAutoUpdateResult(result: DdotzUpdateResult, checkedAt: string): AutoUpdateLastResult {
+export function summarizeAutoUpdateResult(result: ChocoUpdateResult, checkedAt: string): AutoUpdateLastResult {
   return {
     status: result.status,
     reason: result.reason,
@@ -131,36 +131,36 @@ export function formatAutoUpdateStatus(state: AutoUpdateState, version: string):
   const last = state.lastResult
     ? `${state.lastResult.status}${state.lastResult.oldRevision && state.lastResult.newRevision ? ` ${state.lastResult.oldRevision}->${state.lastResult.newRevision}` : ""} at ${state.lastResult.checkedAt}`
     : "never";
-  return [`ddotz-pi ${version}`, `auto-update: ${enabled} every ${intervalHours}h`, `last check: ${last}`].join("\n");
+  return [`choco-pi ${version}`, `auto-update: ${enabled} every ${intervalHours}h`, `last check: ${last}`].join("\n");
 }
 
-function isLocalChangesSkip(result: DdotzUpdateResult): boolean {
+function isLocalChangesSkip(result: ChocoUpdateResult): boolean {
   return result.status === "skipped" && result.reason === "local changes are present";
 }
 
-export function formatManualUpdateResult(result: DdotzUpdateResult): { message: string; level: "info" | "warning" | "error" } {
+export function formatManualUpdateResult(result: ChocoUpdateResult): { message: string; level: "info" | "warning" | "error" } {
   if (result.status === "updated") {
     return {
-      message: `ddotz-pi updated: ${result.oldRevision ?? "unknown"} -> ${result.newRevision ?? "unknown"}. Reloading runtime.`,
+      message: `choco-pi updated: ${result.oldRevision ?? "unknown"} -> ${result.newRevision ?? "unknown"}. Reloading runtime.`,
       level: "info",
     };
   }
-  if (result.status === "current") return { message: `ddotz-pi is already up to date${result.upstream ? ` with ${result.upstream}` : ""}.`, level: "info" };
-  if (isLocalChangesSkip(result)) return { message: "ddotz-pi update skipped: local changes are present; leaving checkout unchanged.", level: "info" };
-  if (result.status === "skipped") return { message: `Skipped ddotz-pi update: ${result.reason ?? "not safe to update"}.`, level: "warning" };
-  return { message: `Failed ddotz-pi update: ${result.reason ?? "unknown error"}.`, level: "error" };
+  if (result.status === "current") return { message: `choco-pi is already up to date${result.upstream ? ` with ${result.upstream}` : ""}.`, level: "info" };
+  if (isLocalChangesSkip(result)) return { message: "choco-pi update skipped: local changes are present; leaving checkout unchanged.", level: "info" };
+  if (result.status === "skipped") return { message: `Skipped choco-pi update: ${result.reason ?? "not safe to update"}.`, level: "warning" };
+  return { message: `Failed choco-pi update: ${result.reason ?? "unknown error"}.`, level: "error" };
 }
 
-export function formatAutoUpdateResult(result: DdotzUpdateResult): { message?: string; level: "info" | "warning" | "error" } {
+export function formatAutoUpdateResult(result: ChocoUpdateResult): { message?: string; level: "info" | "warning" | "error" } {
   if (result.status === "updated") {
     return {
-      message: `Auto-updated ddotz-pi: ${result.oldRevision ?? "unknown"} -> ${result.newRevision ?? "unknown"}. Reloading runtime.`,
+      message: `Auto-updated choco-pi: ${result.oldRevision ?? "unknown"} -> ${result.newRevision ?? "unknown"}. Reloading runtime.`,
       level: "info",
     };
   }
-  if (isLocalChangesSkip(result)) return { message: "ddotz-pi auto-update skipped: local changes are present; leaving checkout unchanged.", level: "info" };
-  if (result.status === "skipped" && result.reason) return { message: `Skipped ddotz-pi auto-update: ${result.reason}.`, level: "warning" };
-  if (result.status === "failed") return { message: `Failed ddotz-pi auto-update: ${result.reason ?? "unknown error"}.`, level: "error" };
+  if (isLocalChangesSkip(result)) return { message: "choco-pi auto-update skipped: local changes are present; leaving checkout unchanged.", level: "info" };
+  if (result.status === "skipped" && result.reason) return { message: `Skipped choco-pi auto-update: ${result.reason}.`, level: "warning" };
+  if (result.status === "failed") return { message: `Failed choco-pi auto-update: ${result.reason ?? "unknown error"}.`, level: "error" };
   return { level: "info" };
 }
 
@@ -205,7 +205,7 @@ async function execChecked(
   }
 }
 
-function skipped(trigger: "manual" | "auto", reason: string, extra: Partial<DdotzUpdateResult> = {}): DdotzUpdateResult {
+function skipped(trigger: "manual" | "auto", reason: string, extra: Partial<ChocoUpdateResult> = {}): ChocoUpdateResult {
   return {
     status: "skipped",
     trigger,
@@ -217,7 +217,7 @@ function skipped(trigger: "manual" | "auto", reason: string, extra: Partial<Ddot
   };
 }
 
-function failed(trigger: "manual" | "auto", reason: string, extra: Partial<DdotzUpdateResult> = {}): DdotzUpdateResult {
+function failed(trigger: "manual" | "auto", reason: string, extra: Partial<ChocoUpdateResult> = {}): ChocoUpdateResult {
   return {
     status: "failed",
     trigger,
@@ -241,8 +241,8 @@ function parseAheadBehind(output: string): { ahead: number; behind: number } | u
   return { ahead, behind };
 }
 
-export async function runDdotzPiUpdate(services: AutoUpdateServices, options: RunUpdateOptions): Promise<DdotzUpdateResult> {
-  const packageRoot = options.packageRoot ?? ddotzPiPackageRoot();
+export async function runChocoPiUpdate(services: AutoUpdateServices, options: RunUpdateOptions): Promise<ChocoUpdateResult> {
+  const packageRoot = options.packageRoot ?? chocoPiPackageRoot();
   const trigger = options.trigger;
   const signal = options.signal;
 
@@ -296,7 +296,7 @@ export async function runDdotzPiUpdate(services: AutoUpdateServices, options: Ru
   const pullResult = await execChecked(services, "git", ["pull", "--ff-only"], packageRoot, signal);
   if (!pullResult.ok) return failed(trigger, `git pull --ff-only failed: ${pullResult.reason}`, { upstream, ahead: counts.ahead, behind: counts.behind, oldRevision, changedFiles });
 
-  let dependencyInstall: DdotzUpdateResult["dependencyInstall"] = "skipped";
+  let dependencyInstall: ChocoUpdateResult["dependencyInstall"] = "skipped";
   if (changedFilesRequireInstall(changedFiles)) {
     const installResult = await execChecked(services, "pnpm", ["install", "--frozen-lockfile"], packageRoot, signal, INSTALL_TIMEOUT_MS);
     if (!installResult.ok) return failed(trigger, `pnpm install failed: ${installResult.reason}`, { upstream, ahead: counts.ahead, behind: counts.behind, oldRevision, changedFiles, dependencyInstall: "ran" });

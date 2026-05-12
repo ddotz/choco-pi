@@ -1,22 +1,22 @@
-# ddotz-pi 현재 버전 전체 기능 크리틱 보고서
+# choco-pi 현재 버전 전체 기능 크리틱 보고서
 
-**대상 버전:** `ddotz-pi` 0.9.2  
+**대상 버전:** `choco-pi` 0.9.2
 **대상 리비전:** `7416634` (`main`, 2026-05-12 00:28:48 +0900)  
 **작성일:** 2026-05-12  
 **목적:** 현재 구현 기준으로 전체 기능과 모든 work mode를 순차 검토해 향후 개발 우선순위를 정한다.  
-**독자:** ddotz-pi 개발 의사결정자  
+**독자:** choco-pi 개발 의사결정자
 **범위:** `README.md`, `docs/`, `modes/`, `skills/`, `prompts/`, `extensions/`, `tests/`, 현재 런타임 상태와 품질 게이트 결과.
 
 ---
 
 ## 1. Executive summary
 
-현재 ddotz-pi는 “default-root all-purpose generalist” 철학을 명확히 잡았고, mode isolation·todo 보존·structural gate·quality guard·source registry·runtime reload·UI 편의 기능까지 폭넓게 구현되어 있습니다. 전체 테스트도 `232 passed`로 통과했습니다. 그러나 완전자율 철학 기준에서는 몇 가지 핵심 런타임 단절이 남아 있습니다.
+현재 choco-pi는 “default-root all-purpose generalist” 철학을 명확히 잡았고, mode isolation·todo 보존·structural gate·quality guard·source registry·runtime reload·UI 편의 기능까지 폭넓게 구현되어 있습니다. 전체 테스트도 `232 passed`로 통과했습니다. 그러나 완전자율 철학 기준에서는 몇 가지 핵심 런타임 단절이 남아 있습니다.
 
 핵심 결론은 다음입니다.
 
 1. **가장 먼저 고칠 것은 structural gate의 차단/대기 종료 흐름입니다.** 현재 구현은 `readyToComplete=false`를 항상 실패로 처리하므로, 승인 경계나 외부 블로커처럼 “멈추고 보고해야 하는 상태”도 hidden repair loop로 되돌릴 수 있습니다.
-2. **`/btw` side session은 가장 큰 guardrail 우회 경로입니다.** 별도 `AgentSession`이 `read/bash/edit/write`를 쓰면서 ddotz-autopilot guard를 로드하지 않습니다. 사이드 대화가 실제 파일/명령을 실행할 수 있어 approval boundary와 structural gate를 우회할 수 있습니다.
+2. **`/btw` side session은 가장 큰 guardrail 우회 경로입니다.** 별도 `AgentSession`이 `read/bash/edit/write`를 쓰면서 choco-autopilot guard를 로드하지 않습니다. 사이드 대화가 실제 파일/명령을 실행할 수 있어 approval boundary와 structural gate를 우회할 수 있습니다.
 3. **UI 확장 간 load-order 충돌이 있습니다.** `raw-paste`가 기존 editor factory를 감싸지 않고 교체해 `fff-search`의 @mention autocomplete를 덮을 수 있습니다. footer도 설치된 패키지 버전·effective mode를 정확히 표시하지 못합니다.
 4. **mode 정책은 강하지만 일부는 prompt-only입니다.** report/web/adoption/coding guard는 최종 답변 모양을 검사하지만, 실제 source retrieval, TDD 순서, source registry 실행, artifact 생성 여부까지 보장하지 않습니다.
 5. **문서와 현재 구현이 일부 불일치합니다.** `README.md`와 runtime은 모든 built-in mode가 implemented라고 말하지만 `docs/design.md`는 “Only default work mode is implemented”라고 남아 있습니다.
@@ -34,8 +34,8 @@
 | E1 | 패키지 버전 0.9.2, Pi extension 9개, skills/prompts 등록 | `package.json` | 파일 읽기·`node` 확인 | 직접 | High |
 | E2 | 현재 리비전 `7416634`, `main`, `origin/main` | git | `git log -1` | 직접 | High |
 | E3 | 공식 Pi extension 문서는 extension tool/hook, custom editor composition, reload, state, tool override 규칙을 정의 | Pi docs `docs/extensions.md`, `docs/tui.md`, `docs/packages.md` | 문서 읽기 | 1차 문서 | High |
-| E4 | 모든 built-in work mode는 implemented: default, web-analysis, adoption-analysis, report, coding | `extensions/ddotz-autopilot/mode.ts`, `README.md`, `work-mode-registry.ts` | 파일 읽기 | 직접 | High |
-| E5 | 현재 세션 effective mode는 report, persistent mode는 default | `~/.pi/agent/ddotz-pi/state.json` | 파일 읽기 | 런타임 상태 | High |
+| E4 | 모든 built-in work mode는 implemented: default, web-analysis, adoption-analysis, report, coding | `extensions/choco-autopilot/mode.ts`, `README.md`, `work-mode-registry.ts` | 파일 읽기 | 직접 | High |
+| E5 | 현재 세션 effective mode는 report, persistent mode는 default | `~/.pi/agent/choco-pi/state.json` | 파일 읽기 | 런타임 상태 | High |
 | E6 | `buildAutopilotSystemPrompt()`는 base 철학, mode overlay, approval boundary, loop governance, structural gate를 주입 | `policy.ts` | 파일 읽기 | 직접 | High |
 | E7 | `structural_gate`는 `readyToComplete=false`를 실패로 처리 | `structural-gate.ts`, `tests/structural-gate.test.ts` | 파일·테스트 읽기 | 직접 | High |
 | E8 | `loop_transition`은 todo done 이후 transition 수를 강제하고 새 todo 추가를 감지 | `structural-gate.ts` | 파일 읽기 | 직접 | High |
@@ -49,8 +49,8 @@
 | E16 | `/btw`는 별도 AgentSession을 만들고 tools `read/bash/edit/write`, empty extension runtime/resource loader를 사용 | `extensions/btw.ts` | 파일 읽기 | 직접 | High |
 | E17 | raw-paste는 `ctx.ui.setEditorComponent()`로 새 editor를 설정하나 이전 factory를 감싸지 않음 | `raw-paste/index.ts`, Pi docs custom editor composition | 파일·문서 확인 | 직접 | High |
 | E18 | fff-search는 editor factory를 감싸 @mention provider를 추가함 | `fff-search/index.ts` | 파일 읽기 | 직접 | High |
-| E19 | footer는 version을 `~/code/ddotz-pi/package.json`에서 읽고, 현재 설치 경로에는 해당 파일이 없었음 | `ddotz-footer/index.ts`, shell 확인 | 파일·명령 확인 | 직접 | High |
-| E20 | footer mode label은 persistent `runtime.workMode`만 읽어 effective overlay를 표시하지 않음 | `ddotz-footer/index.ts`, state | 파일·상태 확인 | 직접 | High |
+| E19 | footer는 version을 `~/code/choco-pi/package.json`에서 읽고, 현재 설치 경로에는 해당 파일이 없었음 | `choco-footer/index.ts`, shell 확인 | 파일·명령 확인 | 직접 | High |
+| E20 | footer mode label은 persistent `runtime.workMode`만 읽어 effective overlay를 표시하지 않음 | `choco-footer/index.ts`, state | 파일·상태 확인 | 직접 | High |
 | E21 | auto-update는 update 후 `pnpm run version:check`만 검증하고 reload할 수 있음 | `auto-update.ts` | 파일 읽기 | 직접 | High |
 | E22 | `docs/design.md`는 “Only default work mode is implemented”라고 하여 README/runtime과 충돌 | `docs/design.md`, `README.md` | 파일 읽기 | 직접 | High |
 | E23 | full quality gate는 `pnpm install --frozen-lockfile` 후 통과: version check, lint, typecheck, 52 files/232 tests | shell | `pnpm run check` | 직접 | High |
@@ -62,9 +62,9 @@
 
 ### 3.1 현재 기능 구조 요약
 
-현재 ddotz-pi는 Pi package로 로드됩니다. `package.json`의 `pi.extensions`는 autopilot, input-newline, todo-widget, footer, fff-search, pi-lsp-client, focus-rendering, raw-paste, btw를 순서대로 등록합니다. 이 구조는 Pi 공식 package/extension 모델과 부합합니다.
+현재 choco-pi는 Pi package로 로드됩니다. `package.json`의 `pi.extensions`는 autopilot, input-newline, todo-widget, footer, fff-search, pi-lsp-client, focus-rendering, raw-paste, btw를 순서대로 등록합니다. 이 구조는 Pi 공식 package/extension 모델과 부합합니다.
 
-핵심 runtime은 `ddotz-autopilot`입니다. 이 extension은 `before_agent_start`에서 policy prompt를 주입하고, `tool_call`에서 approval boundary와 changed-file ledger를 처리하며, `tool_result`에서 verification command를 기록하고, `message_end`에서 structural/report/web/coding/adoption guard를 실행합니다.
+핵심 runtime은 `choco-autopilot`입니다. 이 extension은 `before_agent_start`에서 policy prompt를 주입하고, `tool_call`에서 approval boundary와 changed-file ledger를 처리하며, `tool_result`에서 verification command를 기록하고, `message_end`에서 structural/report/web/coding/adoption guard를 실행합니다.
 
 작업 모드는 persistent mode와 effective overlay로 분리되어 있습니다. 현재 state 기준 persistent mode는 `default`, 이 세션 effective mode는 `report`입니다. 이 설계는 “기본은 generalist, 필요 시 전문 overlay”라는 철학에 잘 맞습니다.
 
@@ -86,7 +86,7 @@
 
 사이드 대화 prompt가 “메인 작업을 이어받지 말라”고 안내하지만, hard guard가 아닙니다. 사용자가 `/btw`에서 “이 파일 고쳐봐”라고 하면 별도 session이 실제 파일을 수정할 수 있는 구조입니다. 이는 guardrail 명확성과 flow 안전성 양쪽에서 가장 큰 우회 경로입니다.
 
-**권장 수정:** 기본 `/btw`는 read-only tools로 제한합니다. write/bash가 필요하면 main session으로 inject하거나, side session에도 approval-boundary와 structural gate를 포함한 최소 ddotz guard runtime을 로드합니다.
+**권장 수정:** 기본 `/btw`는 read-only tools로 제한합니다. write/bash가 필요하면 main session으로 inject하거나, side session에도 approval-boundary와 structural gate를 포함한 최소 choco guard runtime을 로드합니다.
 
 #### P1-1. Editor 확장 load-order 충돌이 있습니다
 
@@ -98,7 +98,7 @@
 
 #### P1-2. Footer가 현재 runtime 상태를 정확히 보여주지 못합니다
 
-Footer version은 `~/code/ddotz-pi/package.json`에서 읽습니다. 현재 설치 경로는 `~/.pi/agent/git/github.com/ddotz/ddotz-pi`이며 `~/code/ddotz-pi/package.json`은 없었습니다. 따라서 footer version이 비거나 틀릴 수 있습니다.
+Footer version은 `~/code/choco-pi/package.json`에서 읽습니다. 현재 설치 경로는 `~/.pi/agent/git/github.com/choco/choco-pi`이며 `~/code/choco-pi/package.json`은 없었습니다. 따라서 footer version이 비거나 틀릴 수 있습니다.
 
 또한 footer mode label은 `state.runtime.workMode`만 읽습니다. 현재 세션처럼 persistent `default` 위에 effective `report` overlay가 적용된 경우 footer는 effective mode를 보여주지 않습니다. Autopilot이 `ctx.ui.setStatus("mode", ...)`로 더 풍부한 status를 설정해도 custom footer가 extension statuses를 렌더링하지 않아 사용자가 보기 어렵습니다.
 
@@ -120,7 +120,7 @@ report/web/adoption/coding mode resource policy는 `insane-search`, `kami`, `gst
 
 #### P1-5. Auto-update 검증이 reload 위험에 비해 얕습니다
 
-`runDdotzPiUpdate()`는 update 후 `pnpm run version:check`만 실행하고 `updated`로 간주할 수 있습니다. extension code가 깨져도 version sync만 통과하면 reload될 수 있습니다. 이것은 “자율 self-update” 기능의 failure mode입니다.
+`runChocoPiUpdate()`는 update 후 `pnpm run version:check`만 실행하고 `updated`로 간주할 수 있습니다. extension code가 깨져도 version sync만 통과하면 reload될 수 있습니다. 이것은 “자율 self-update” 기능의 failure mode입니다.
 
 **권장 수정:** auto-update는 최소 `version:check && typecheck`를 실행하고, runtime extension 파일 변경이 있으면 targeted tests 또는 full `pnpm run check`를 기본값으로 둡니다. 시간 제한 때문에 full gate를 생략하면 footer/notification에 “verification: partial”을 표시합니다.
 

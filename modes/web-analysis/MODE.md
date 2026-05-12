@@ -11,7 +11,7 @@ Use this mode for external web research, source review, current-information ques
 ## Mode-scoped resources
 
 - Preferred external skill: `insane-search` from `https://github.com/fivetaku/insane-search`.
-- Do not vendor or reimplement insane-search inside `ddotz-pi`.
+- Do not vendor or reimplement insane-search inside `choco-pi`.
 - Use Pi package candidates only as future adapters if they can be isolated from default mode.
 
 ## Retrieval-first process

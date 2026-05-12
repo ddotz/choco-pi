@@ -4,7 +4,7 @@ import {
   buildAutopilotSystemPrompt,
   classifyExecutionIntensity,
   shouldAskUser,
-} from "../extensions/ddotz-autopilot/policy";
+} from "../extensions/choco-autopilot/policy";
 import {
   DEFAULT_WORK_MODE,
   IMPLEMENTED_WORK_MODES,
@@ -12,9 +12,9 @@ import {
   isWorkModeImplemented,
   parseExecutionIntensity,
   parseWorkMode,
-} from "../extensions/ddotz-autopilot/mode";
+} from "../extensions/choco-autopilot/mode";
 
-describe("ddotz autonomous PM policy", () => {
+describe("choco autonomous PM policy", () => {
   it("keeps autonomous PM as the base philosophy while implementing every built-in work mode", () => {
     expect(AUTONOMOUS_PM_BASE).toBe(true);
     expect(DEFAULT_WORK_MODE).toBe("default");
@@ -114,7 +114,7 @@ describe("ddotz autonomous PM policy", () => {
       dueSourceSummary: "- can1357/oh-my-pi changed since last check",
     });
 
-    expect(prompt).toContain("ddotz-pi default-root all-purpose generalist base");
+    expect(prompt).toContain("choco-pi default-root all-purpose generalist base");
     expect(prompt).toContain("root all-purpose generalist mode");
     expect(prompt).toContain("one managed project");
     expect(prompt).toContain("structural gates intact");
@@ -128,9 +128,9 @@ describe("ddotz autonomous PM policy", () => {
     expect(prompt).toContain("If inspected state contradicts the user's premise or instruction");
     expect(prompt).toContain("Do not execute an instruction that depends on a false premise");
     expect(prompt).toContain("Do not satisfy recurring Pi/harness behavior requests by editing AGENTS.md");
-    expect(prompt).toContain("ddotz-pi harness policy, extension, guard, or test paths");
+    expect(prompt).toContain("choco-pi harness policy, extension, guard, or test paths");
     expect(prompt).toContain("Do not ask the user for routine implementation choices");
-    expect(prompt).toContain("Treat ddotz-pi as one coherent Pi environment");
+    expect(prompt).toContain("Treat choco-pi as one coherent Pi environment");
     expect(prompt).toContain("Keep final reports concise");
     expect(prompt).toContain("Keep code creation/modification/deletion details folded by default");
     expect(prompt).toContain("User-facing conversation must be in Korean by default");

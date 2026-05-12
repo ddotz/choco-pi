@@ -1,6 +1,6 @@
 import type { AssistantMessage } from "@mariozechner/pi-ai";
 import { describe, expect, it, vi } from "vitest";
-import ddotzAutopilot from "../extensions/ddotz-autopilot/index";
+import chocoAutopilot from "../extensions/choco-autopilot/index";
 
 interface RegisteredTool {
   name: string;
@@ -33,7 +33,7 @@ function setupAutopilot(): {
   const sendMessage = vi.fn();
   const sendUserMessage = vi.fn();
 
-  ddotzAutopilot({
+  chocoAutopilot({
     on: (event: string, handler: EventHandler) => {
       const existing = handlers.get(event) ?? [];
       existing.push(handler);
@@ -78,7 +78,7 @@ describe("structural gate guard", () => {
     expect(sendUserMessage).not.toHaveBeenCalled();
     expect(sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        customType: "ddotz.structural_gate.repair",
+        customType: "choco.structural_gate.repair",
         display: false,
         content: expect.stringContaining("structural_gate 보강이 필요합니다"),
       }),
@@ -96,7 +96,7 @@ describe("structural gate guard", () => {
     await emitFirst(handlers, "message_end", { type: "message_end", message: firstFailure });
     await emitFirst(handlers, "message_end", { type: "message_end", message: laterFailedRepair });
 
-    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "ddotz.structural_gate.repair");
+    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "choco.structural_gate.repair");
     expect(repairCalls).toHaveLength(1);
     expect(repairCalls[0][0].content).toContain("structural_gate tool was not called");
   });
@@ -191,7 +191,7 @@ describe("structural gate guard", () => {
     expect(replacementText).toContain("답변 검증 가드가 보강을 진행 중입니다");
     expect(sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        customType: "ddotz.structural_gate.repair",
+        customType: "choco.structural_gate.repair",
         display: false,
         content: expect.stringContaining("active/current todo remains"),
       }),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildDogfoodWeeklyReport, formatDogfoodWeeklyReport } from "../extensions/ddotz-autopilot/dogfood-weekly";
-import type { DogfoodCase } from "../extensions/ddotz-autopilot/dogfood-types";
+import { buildDogfoodWeeklyReport, formatDogfoodWeeklyReport } from "../extensions/choco-autopilot/dogfood-weekly";
+import type { DogfoodCase } from "../extensions/choco-autopilot/dogfood-types";
 
 function dogCase(id: string, outcome: DogfoodCase["outcome"], pattern?: string): DogfoodCase {
   return {

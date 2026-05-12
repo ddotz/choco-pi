@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { buildModeResourcePolicy } from "../extensions/ddotz-autopilot/mode-resource-policy";
-import { buildAutopilotSystemPrompt } from "../extensions/ddotz-autopilot/policy";
-import { inferPlannedWorkMode, parseWorkMode } from "../extensions/ddotz-autopilot/mode";
+import { buildModeResourcePolicy } from "../extensions/choco-autopilot/mode-resource-policy";
+import { buildAutopilotSystemPrompt } from "../extensions/choco-autopilot/policy";
+import { inferPlannedWorkMode, parseWorkMode } from "../extensions/choco-autopilot/mode";
 
 function promptForDesignMode(): string {
   return buildAutopilotSystemPrompt({

@@ -4,27 +4,27 @@
 
 **Goal:** Build the MVP for cross-project dogfooding quality capture, deterministic weekly scoring, privacy-preserving storage, and `/dogfood` reporting.
 
-**Architecture:** Add focused dogfood modules under `extensions/ddotz-autopilot/` and keep hook wiring thin in `index.ts`. The MVP stores sanitized case metadata globally under `~/.pi/agent/ddotz-pi/dogfood/`, scores cases deterministically, and exposes `/dogfood status`, `/dogfood weekly`, `/dogfood report`, `/dogfood queue`, and `/dogfood explain <id>`.
+**Architecture:** Add focused dogfood modules under `extensions/choco-autopilot/` and keep hook wiring thin in `index.ts`. The MVP stores sanitized case metadata globally under `~/.pi/agent/choco-pi/dogfood/`, scores cases deterministically, and exposes `/dogfood status`, `/dogfood weekly`, `/dogfood report`, `/dogfood queue`, and `/dogfood explain <id>`.
 
-**Tech Stack:** TypeScript, Pi extension hooks, Node `fs/promises`, Node `crypto`, Vitest, existing ddotz-pi command and hook test style.
+**Tech Stack:** TypeScript, Pi extension hooks, Node `fs/promises`, Node `crypto`, Vitest, existing choco-pi command and hook test style.
 
 ---
 
 ## File structure
 
-- Create `extensions/ddotz-autopilot/dogfood-types.ts`
+- Create `extensions/choco-autopilot/dogfood-types.ts`
   - Own shared dogfood TypeScript types and constants.
-- Create `extensions/ddotz-autopilot/dogfood-privacy.ts`
+- Create `extensions/choco-autopilot/dogfood-privacy.ts`
   - Own salted hash creation, safe project labels, ISO week IDs, and prompt task classification without raw prompt persistence.
-- Create `extensions/ddotz-autopilot/dogfood-scoring.ts`
+- Create `extensions/choco-autopilot/dogfood-scoring.ts`
   - Own deterministic `clean / assisted / miss / review` scoring and weekly repeated-pattern detection.
-- Create `extensions/ddotz-autopilot/dogfood-store.ts`
+- Create `extensions/choco-autopilot/dogfood-store.ts`
   - Own global dogfood path layout, atomic JSON writes, JSONL events, case read/write, weekly reports, queue files, and 12-week retention cleanup.
-- Create `extensions/ddotz-autopilot/dogfood-weekly.ts`
+- Create `extensions/choco-autopilot/dogfood-weekly.ts`
   - Own weekly aggregation, report formatting, and auto-improvement threshold decisions.
-- Create `extensions/ddotz-autopilot/dogfood-collector.ts`
+- Create `extensions/choco-autopilot/dogfood-collector.ts`
   - Own active case lifecycle helpers used by hooks.
-- Modify `extensions/ddotz-autopilot/index.ts`
+- Modify `extensions/choco-autopilot/index.ts`
   - Wire collector calls into existing hooks and register `/dogfood` command.
 - Create `tests/dogfood-privacy.test.ts`
 - Create `tests/dogfood-scoring.test.ts`
@@ -37,8 +37,8 @@
 ## Task 1: Privacy helpers and shared types
 
 **Files:**
-- Create: `extensions/ddotz-autopilot/dogfood-types.ts`
-- Create: `extensions/ddotz-autopilot/dogfood-privacy.ts`
+- Create: `extensions/choco-autopilot/dogfood-types.ts`
+- Create: `extensions/choco-autopilot/dogfood-privacy.ts`
 - Test: `tests/dogfood-privacy.test.ts`
 
 - [ ] **Step 1: Write privacy tests**
@@ -47,7 +47,7 @@ Create `tests/dogfood-privacy.test.ts` with:
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { classifyPromptForDogfood, dogfoodHash, isoWeekId, safeProjectLabel } from "../extensions/ddotz-autopilot/dogfood-privacy";
+import { classifyPromptForDogfood, dogfoodHash, isoWeekId, safeProjectLabel } from "../extensions/choco-autopilot/dogfood-privacy";
 
 const SALT = "0123456789abcdef0123456789abcdef";
 
@@ -69,7 +69,7 @@ describe("dogfood privacy helpers", () => {
   });
 
   it("uses safe project labels instead of full paths", () => {
-    expect(safeProjectLabel("/Users/hyuns/Code/ddotz-pi")).toBe("ddotz-pi");
+    expect(safeProjectLabel("/Users/hyuns/Code/choco-pi")).toBe("choco-pi");
     expect(safeProjectLabel("/")).toBe("root");
   });
 
@@ -93,7 +93,7 @@ Expected: TypeScript module resolution fails because `dogfood-privacy.ts` does n
 
 - [ ] **Step 3: Add shared types**
 
-Create `extensions/ddotz-autopilot/dogfood-types.ts` with:
+Create `extensions/choco-autopilot/dogfood-types.ts` with:
 
 ```ts
 export type DogfoodOutcome = "clean" | "assisted" | "miss" | "review";
@@ -169,7 +169,7 @@ export const DOGFOOD_MIN_REPEATED_PATTERN_COUNT = 3;
 
 - [ ] **Step 4: Add privacy helper implementation**
 
-Create `extensions/ddotz-autopilot/dogfood-privacy.ts` with:
+Create `extensions/choco-autopilot/dogfood-privacy.ts` with:
 
 ```ts
 import { createHash } from "node:crypto";
@@ -219,14 +219,14 @@ Expected: 4 tests pass.
 Run:
 
 ```bash
-git add extensions/ddotz-autopilot/dogfood-types.ts extensions/ddotz-autopilot/dogfood-privacy.ts tests/dogfood-privacy.test.ts
+git add extensions/choco-autopilot/dogfood-types.ts extensions/choco-autopilot/dogfood-privacy.ts tests/dogfood-privacy.test.ts
 git commit -m "feat: add dogfood privacy helpers"
 ```
 
 ## Task 2: Deterministic scoring
 
 **Files:**
-- Create: `extensions/ddotz-autopilot/dogfood-scoring.ts`
+- Create: `extensions/choco-autopilot/dogfood-scoring.ts`
 - Test: `tests/dogfood-scoring.test.ts`
 
 - [ ] **Step 1: Write scoring tests**
@@ -235,8 +235,8 @@ Create `tests/dogfood-scoring.test.ts` with:
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { scoreDogfoodCase, repeatedDogfoodPatterns } from "../extensions/ddotz-autopilot/dogfood-scoring";
-import type { DogfoodCase } from "../extensions/ddotz-autopilot/dogfood-types";
+import { scoreDogfoodCase, repeatedDogfoodPatterns } from "../extensions/choco-autopilot/dogfood-scoring";
+import type { DogfoodCase } from "../extensions/choco-autopilot/dogfood-types";
 
 function baseCase(overrides: Partial<DogfoodCase> = {}): DogfoodCase {
   return {
@@ -323,7 +323,7 @@ Expected: module resolution fails because `dogfood-scoring.ts` does not exist.
 
 - [ ] **Step 3: Implement scoring**
 
-Create `extensions/ddotz-autopilot/dogfood-scoring.ts` with:
+Create `extensions/choco-autopilot/dogfood-scoring.ts` with:
 
 ```ts
 import type { DogfoodCase, DogfoodWeeklyPattern } from "./dogfood-types";
@@ -396,15 +396,15 @@ Expected: 5 tests pass.
 Run:
 
 ```bash
-git add extensions/ddotz-autopilot/dogfood-scoring.ts tests/dogfood-scoring.test.ts
+git add extensions/choco-autopilot/dogfood-scoring.ts tests/dogfood-scoring.test.ts
 git commit -m "feat: score dogfood quality cases"
 ```
 
 ## Task 3: Store, retention, and weekly aggregation
 
 **Files:**
-- Create: `extensions/ddotz-autopilot/dogfood-store.ts`
-- Create: `extensions/ddotz-autopilot/dogfood-weekly.ts`
+- Create: `extensions/choco-autopilot/dogfood-store.ts`
+- Create: `extensions/choco-autopilot/dogfood-weekly.ts`
 - Test: `tests/dogfood-store.test.ts`
 - Test: `tests/dogfood-weekly.test.ts`
 
@@ -417,8 +417,8 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { appendDogfoodEvent, createDogfoodStore, listDogfoodCases, readDogfoodQueue, writeDogfoodCase, writeDogfoodQueue } from "../extensions/ddotz-autopilot/dogfood-store";
-import type { DogfoodCase } from "../extensions/ddotz-autopilot/dogfood-types";
+import { appendDogfoodEvent, createDogfoodStore, listDogfoodCases, readDogfoodQueue, writeDogfoodCase, writeDogfoodQueue } from "../extensions/choco-autopilot/dogfood-store";
+import type { DogfoodCase } from "../extensions/choco-autopilot/dogfood-types";
 
 let tempDir: string | undefined;
 
@@ -475,8 +475,8 @@ Create `tests/dogfood-weekly.test.ts` with:
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { buildDogfoodWeeklyReport, formatDogfoodWeeklyReport } from "../extensions/ddotz-autopilot/dogfood-weekly";
-import type { DogfoodCase } from "../extensions/ddotz-autopilot/dogfood-types";
+import { buildDogfoodWeeklyReport, formatDogfoodWeeklyReport } from "../extensions/choco-autopilot/dogfood-weekly";
+import type { DogfoodCase } from "../extensions/choco-autopilot/dogfood-types";
 
 function dogCase(id: string, outcome: DogfoodCase["outcome"], pattern?: string): DogfoodCase {
   return {
@@ -536,7 +536,7 @@ Expected: module resolution fails because `dogfood-store.ts` and `dogfood-weekly
 
 - [ ] **Step 4: Implement the store**
 
-Create `extensions/ddotz-autopilot/dogfood-store.ts` with:
+Create `extensions/choco-autopilot/dogfood-store.ts` with:
 
 ```ts
 import { randomUUID } from "node:crypto";
@@ -619,7 +619,7 @@ export async function readDogfoodWeeklyReport(store: DogfoodStore, week: string)
 
 - [ ] **Step 5: Implement weekly aggregation**
 
-Create `extensions/ddotz-autopilot/dogfood-weekly.ts` with:
+Create `extensions/choco-autopilot/dogfood-weekly.ts` with:
 
 ```ts
 import { DOGFOOD_MIN_REPEATED_PATTERN_COUNT, DOGFOOD_MIN_WEEKLY_CASES, type DogfoodCase, type DogfoodWeeklyReport } from "./dogfood-types";
@@ -698,15 +698,15 @@ Expected: all tests pass.
 Run:
 
 ```bash
-git add extensions/ddotz-autopilot/dogfood-store.ts extensions/ddotz-autopilot/dogfood-weekly.ts tests/dogfood-store.test.ts tests/dogfood-weekly.test.ts
+git add extensions/choco-autopilot/dogfood-store.ts extensions/choco-autopilot/dogfood-weekly.ts tests/dogfood-store.test.ts tests/dogfood-weekly.test.ts
 git commit -m "feat: store dogfood cases and weekly reports"
 ```
 
 ## Task 4: Hook collector and `/dogfood` commands
 
 **Files:**
-- Create: `extensions/ddotz-autopilot/dogfood-collector.ts`
-- Modify: `extensions/ddotz-autopilot/index.ts`
+- Create: `extensions/choco-autopilot/dogfood-collector.ts`
+- Modify: `extensions/choco-autopilot/index.ts`
 - Test: `tests/dogfood-commands.test.ts`
 
 - [ ] **Step 1: Write command and hook integration tests**
@@ -718,7 +718,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import ddotzAutopilot from "../extensions/ddotz-autopilot/index";
+import chocoAutopilot from "../extensions/choco-autopilot/index";
 
 type EventHandler = (event: Record<string, unknown>, ctx: Record<string, unknown>) => unknown | Promise<unknown>;
 
@@ -735,14 +735,14 @@ afterEach(async () => {
 });
 
 async function useTempAgentDir(): Promise<void> {
-  tempAgentDir = await mkdtemp(join(tmpdir(), "ddotz-pi-dogfood-test-"));
+  tempAgentDir = await mkdtemp(join(tmpdir(), "choco-pi-dogfood-test-"));
   process.env.PI_CODING_AGENT_DIR = tempAgentDir;
 }
 
 function setupAutopilot(): { handlers: Map<string, EventHandler[]>; commands: Map<string, RegisteredCommand> } {
   const handlers = new Map<string, EventHandler[]>();
   const commands = new Map<string, RegisteredCommand>();
-  ddotzAutopilot({
+  chocoAutopilot({
     on: (event: string, handler: EventHandler) => {
       handlers.set(event, [...(handlers.get(event) ?? []), handler]);
     },
@@ -813,7 +813,7 @@ Expected: `/dogfood` command is not registered and dogfood collector modules do 
 
 - [ ] **Step 3: Implement collector**
 
-Create `extensions/ddotz-autopilot/dogfood-collector.ts` with:
+Create `extensions/choco-autopilot/dogfood-collector.ts` with:
 
 ```ts
 import { randomUUID } from "node:crypto";
@@ -917,7 +917,7 @@ export async function finishDogfoodCase(state: ActiveDogfoodCaseState, store: Do
 
 - [ ] **Step 4: Wire hooks and command in `index.ts`**
 
-Modify `extensions/ddotz-autopilot/index.ts`:
+Modify `extensions/choco-autopilot/index.ts`:
 
 1. Add imports near other local imports:
 
@@ -932,11 +932,11 @@ import { buildDogfoodWeeklyReport, formatDogfoodWeeklyReport } from "./dogfood-w
 
 ```ts
 function dogfoodRootPath(): string {
-  return join(agentDir(), "ddotz-pi", "dogfood");
+  return join(agentDir(), "choco-pi", "dogfood");
 }
 
 function dogfoodSaltPath(): string {
-  return join(agentDir(), "ddotz-pi", "dogfood", "salt");
+  return join(agentDir(), "choco-pi", "dogfood", "salt");
 }
 
 async function dogfoodSalt(): Promise<string> {
@@ -945,7 +945,7 @@ async function dogfoodSalt(): Promise<string> {
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     const salt = randomUUID();
-    await mkdir(join(agentDir(), "ddotz-pi", "dogfood"), { recursive: true });
+    await mkdir(join(agentDir(), "choco-pi", "dogfood"), { recursive: true });
     await writeFile(dogfoodSaltPath(), `${salt}\n`, "utf8");
     return salt;
   }
@@ -954,7 +954,7 @@ async function dogfoodSalt(): Promise<string> {
 
 Also add `import { randomUUID } from "node:crypto";` near Node imports.
 
-3. Add a module-level state inside `ddotzAutopilot` before hooks:
+3. Add a module-level state inside `chocoAutopilot` before hooks:
 
 ```ts
 const dogfoodCases = createActiveDogfoodCaseState();
@@ -1058,7 +1058,7 @@ Expected: 2 tests pass.
 Run:
 
 ```bash
-git add extensions/ddotz-autopilot/index.ts extensions/ddotz-autopilot/dogfood-collector.ts tests/dogfood-commands.test.ts
+git add extensions/choco-autopilot/index.ts extensions/choco-autopilot/dogfood-collector.ts tests/dogfood-commands.test.ts
 git commit -m "feat: capture dogfood cases from pi hooks"
 ```
 
@@ -1074,7 +1074,7 @@ Add this subsection under the architecture area after Context ledger, memory, an
 ```md
 ### Dogfooding quality system
 
-`ddotz-pi` records privacy-preserving cross-project quality cases under `~/.pi/agent/ddotz-pi/dogfood/`. It does not store raw prompt text by default. Each case stores a salted prompt hash, safe project label, work mode, task type, tool counts, verification signals, structural gate signals, and a deterministic `clean / assisted / miss / review` outcome.
+`choco-pi` records privacy-preserving cross-project quality cases under `~/.pi/agent/choco-pi/dogfood/`. It does not store raw prompt text by default. Each case stores a salted prompt hash, safe project label, work mode, task type, tool counts, verification signals, structural gate signals, and a deterministic `clean / assisted / miss / review` outcome.
 
 Use `/dogfood status` to see the current week sample count, `/dogfood weekly` to generate a deterministic weekly report, `/dogfood report` to show the latest report, `/dogfood queue` to inspect ambiguous cases, and `/dogfood explain <id>` to explain a case without raw prompt text.
 
@@ -1138,5 +1138,5 @@ git push
 - [ ] `pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test` passes.
 - [ ] `/dogfood status`, `/dogfood weekly`, and `/dogfood report` work after runtime reload.
 - [ ] New dogfood files do not store raw prompt text in tests or reports.
-- [ ] New dogfood state lives under `~/.pi/agent/ddotz-pi/dogfood/`.
+- [ ] New dogfood state lives under `~/.pi/agent/choco-pi/dogfood/`.
 - [ ] Structural gate passes before final reporting.

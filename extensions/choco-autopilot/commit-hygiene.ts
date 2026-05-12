@@ -59,7 +59,7 @@ const GENERATED_OR_CACHE_PATTERNS = [
 ];
 
 const PACKAGE_VERSION_PATH = "package.json";
-const PLUGIN_VERSION_PATH = "extensions/ddotz-autopilot/version.ts";
+const PLUGIN_VERSION_PATH = "extensions/choco-autopilot/version.ts";
 
 function normalizePath(path: string): string {
   return path.trim().replace(/^\.\//, "");

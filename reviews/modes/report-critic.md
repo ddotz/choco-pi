@@ -1,7 +1,7 @@
 # Report Mode Critic
 
 Date: 2026-05-11
-Scope: `modes/report/MODE.md`, `extensions/ddotz-autopilot/report-policy.ts`, `extensions/ddotz-autopilot/mode-resource-policy.ts`, `tests/report-mode.test.ts`.
+Scope: `modes/report/MODE.md`, `extensions/choco-autopilot/report-policy.ts`, `extensions/choco-autopilot/mode-resource-policy.ts`, `tests/report-mode.test.ts`.
 
 ## Implementation snapshot
 

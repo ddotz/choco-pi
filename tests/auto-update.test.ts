@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import ddotzAutopilot from "../extensions/ddotz-autopilot/index";
+import chocoAutopilot from "../extensions/choco-autopilot/index";
 
 interface ExecResult {
   code: number;
@@ -31,7 +31,7 @@ afterEach(async () => {
 });
 
 async function useTempAgentDir(): Promise<string> {
-  tempAgentDir = await mkdtemp(join(tmpdir(), "ddotz-pi-auto-update-test-"));
+  tempAgentDir = await mkdtemp(join(tmpdir(), "choco-pi-auto-update-test-"));
   process.env.PI_CODING_AGENT_DIR = tempAgentDir;
   return tempAgentDir;
 }
@@ -45,7 +45,7 @@ function setupAutopilot(exec: ExecMock): {
   const handlers = new Map<string, EventHandler[]>();
   const sendUserMessage = vi.fn();
 
-  ddotzAutopilot({
+  chocoAutopilot({
     on: (event: string, handler: EventHandler) => {
       handlers.set(event, [...(handlers.get(event) ?? []), handler]);
     },
@@ -69,7 +69,7 @@ async function emitAll(handlers: Map<string, EventHandler[]>, eventName: string,
 function dirtyCheckoutExec(): ExecMock {
   return vi.fn(async (command: string, args: string[]): Promise<ExecResult> => {
     const key = `${command} ${args.join(" ")}`;
-    if (key === "git status --porcelain") return { code: 0, stdout: " M extensions/ddotz-autopilot/index.ts\n" };
+    if (key === "git status --porcelain") return { code: 0, stdout: " M extensions/choco-autopilot/index.ts\n" };
     throw new Error(`Unexpected exec: ${key}`);
   });
 }
@@ -78,7 +78,7 @@ function successfulPiAndDirtyLocalUpdateExec(): ExecMock {
   return vi.fn(async (command: string, args: string[]): Promise<ExecResult> => {
     const key = `${command} ${args.join(" ")}`;
     if (key === "pi update") return { code: 0, stdout: "pi updated\n" };
-    if (key === "git status --porcelain") return { code: 0, stdout: " M extensions/ddotz-autopilot/index.ts\n" };
+    if (key === "git status --porcelain") return { code: 0, stdout: " M extensions/choco-autopilot/index.ts\n" };
     throw new Error(`Unexpected exec: ${key}`);
   });
 }
@@ -91,7 +91,7 @@ function failedPiUpdateExec(): ExecMock {
   });
 }
 
-function successfulUpdateExec(changedFiles = "extensions/ddotz-autopilot/index.ts\n"): ExecMock {
+function successfulUpdateExec(changedFiles = "extensions/choco-autopilot/index.ts\n"): ExecMock {
   let shortHeadCalls = 0;
   return vi.fn(async (command: string, args: string[]): Promise<ExecResult> => {
     const key = `${command} ${args.join(" ")}`;
@@ -108,7 +108,7 @@ function successfulUpdateExec(changedFiles = "extensions/ddotz-autopilot/index.t
   });
 }
 
-function successfulPiAndLocalUpdateExec(changedFiles = "extensions/ddotz-autopilot/index.ts\n"): ExecMock {
+function successfulPiAndLocalUpdateExec(changedFiles = "extensions/choco-autopilot/index.ts\n"): ExecMock {
   const localUpdateExec = successfulUpdateExec(changedFiles);
   return vi.fn(async (command: string, args: string[], options?: Record<string, unknown>): Promise<ExecResult> => {
     const key = `${command} ${args.join(" ")}`;
@@ -118,10 +118,10 @@ function successfulPiAndLocalUpdateExec(changedFiles = "extensions/ddotz-autopil
   });
 }
 
-describe("ddotz-pi auto update", () => {
-  it("registers /update and runs canonical pi update before the local ddotz-pi checkout update", async () => {
+describe("choco-pi auto update", () => {
+  it("registers /update and runs canonical pi update before the local choco-pi checkout update", async () => {
     await useTempAgentDir();
-    const exec = successfulPiAndLocalUpdateExec("package.json\npnpm-lock.yaml\nextensions/ddotz-autopilot/index.ts\n");
+    const exec = successfulPiAndLocalUpdateExec("package.json\npnpm-lock.yaml\nextensions/choco-autopilot/index.ts\n");
     const { commands } = setupAutopilot(exec);
     const waitForIdle = vi.fn().mockResolvedValue(undefined);
     const reload = vi.fn().mockResolvedValue(undefined);
@@ -139,10 +139,10 @@ describe("ddotz-pi auto update", () => {
     expect(execKeys).not.toContain("pnpm run version:check");
     expect(waitForIdle).toHaveBeenCalledTimes(1);
     expect(reload).toHaveBeenCalledTimes(1);
-    expect(notify).toHaveBeenCalledWith(expect.stringContaining("ddotz-pi updated: abc1234 -> def5678"), "info");
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("choco-pi updated: abc1234 -> def5678"), "info");
   });
 
-  it("forwards explicit pi update arguments instead of rejecting them as ddotz-pi subcommands", async () => {
+  it("forwards explicit pi update arguments instead of rejecting them as choco-pi subcommands", async () => {
     await useTempAgentDir();
     const exec = successfulPiAndLocalUpdateExec();
     const { commands } = setupAutopilot(exec);
@@ -173,7 +173,7 @@ describe("ddotz-pi auto update", () => {
     expect(execKeys[0]).toBe("pi update");
     expect(waitForIdle).toHaveBeenCalledTimes(1);
     expect(reload).toHaveBeenCalledTimes(1);
-    expect(notify).toHaveBeenCalledWith("ddotz-pi update skipped: local changes are present; leaving checkout unchanged.", "info");
+    expect(notify).toHaveBeenCalledWith("choco-pi update skipped: local changes are present; leaving checkout unchanged.", "info");
   });
 
   it("stops before local update and reload when canonical pi update fails", async () => {
@@ -211,7 +211,7 @@ describe("ddotz-pi auto update", () => {
 
     expect(sendUserMessage).not.toHaveBeenCalled();
     expect(notify).not.toHaveBeenCalledWith(expect.any(String), "warning");
-    expect(notify).toHaveBeenCalledWith("ddotz-pi auto-update skipped: local changes are present; leaving checkout unchanged.", "info");
+    expect(notify).toHaveBeenCalledWith("choco-pi auto-update skipped: local changes are present; leaving checkout unchanged.", "info");
   });
 
   it("auto-updates on interactive startup when enabled and queues a runtime reload", async () => {
@@ -231,9 +231,9 @@ describe("ddotz-pi auto update", () => {
     });
 
     expect(sendUserMessage).toHaveBeenCalledWith("/reload-runtime", { deliverAs: "followUp" });
-    expect(notify).toHaveBeenCalledWith(expect.stringContaining("Auto-updated ddotz-pi: abc1234 -> def5678"), "info");
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("Auto-updated choco-pi: abc1234 -> def5678"), "info");
 
-    const state = JSON.parse(await readFile(join(agentDir, "ddotz-pi", "state.json"), "utf8")) as { autoUpdate?: { lastCheckedAt?: string; lastResult?: { status?: string } } };
+    const state = JSON.parse(await readFile(join(agentDir, "choco-pi", "state.json"), "utf8")) as { autoUpdate?: { lastCheckedAt?: string; lastResult?: { status?: string } } };
     expect(state.autoUpdate?.lastCheckedAt).toBeTruthy();
     expect(state.autoUpdate?.lastResult?.status).toBe("updated");
   });

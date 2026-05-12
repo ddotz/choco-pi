@@ -5,11 +5,11 @@ import type { ExtensionAPI, Theme, ToolDefinition } from "@earendil-works/pi-cod
 
 const ESC = String.fromCharCode(27);
 const ANSI_PATTERN = new RegExp(`${ESC}\\[[0-?]*[ -/]*[@-~]`, "g");
-const FOCUS_RESULT_COMPONENT = Symbol.for("ddotz.focus-rendering.result-component");
-const RENDER_PATCH_VERSION_KEY = Symbol.for("ddotz.focus-rendering.render-patch-version");
-const RESULT_RENDERER_PATCH_VERSION_KEY = Symbol.for("ddotz.focus-rendering.result-renderer-patch-version");
-const UPDATE_DISPLAY_PATCH_VERSION_KEY = Symbol.for("ddotz.focus-rendering.update-display-patch-version");
-const INTERNAL_SPACER_COMPONENT = Symbol.for("ddotz.focus-rendering.internal-spacer-component");
+const FOCUS_RESULT_COMPONENT = Symbol.for("choco.focus-rendering.result-component");
+const RENDER_PATCH_VERSION_KEY = Symbol.for("choco.focus-rendering.render-patch-version");
+const RESULT_RENDERER_PATCH_VERSION_KEY = Symbol.for("choco.focus-rendering.result-renderer-patch-version");
+const UPDATE_DISPLAY_PATCH_VERSION_KEY = Symbol.for("choco.focus-rendering.update-display-patch-version");
+const INTERNAL_SPACER_COMPONENT = Symbol.for("choco.focus-rendering.internal-spacer-component");
 const RENDER_PATCH_VERSION = 7;
 
 type RenderableComponent = {
@@ -333,7 +333,7 @@ async function installToolExecutionPatches(): Promise<number> {
     try {
       const moduleUrl = pathToFileURL(candidate).href;
       const mod = (await import(moduleUrl)) as { ToolExecutionComponent?: ToolExecutionComponentConstructor };
-      const freshMod = (await import(`${moduleUrl}?ddotzFocusPatch=${RENDER_PATCH_VERSION}-${Date.now()}-${Math.random()}`)) as {
+      const freshMod = (await import(`${moduleUrl}?chocoFocusPatch=${RENDER_PATCH_VERSION}-${Date.now()}-${Math.random()}`)) as {
         ToolExecutionComponent?: ToolExecutionComponentConstructor;
       };
       if (mod.ToolExecutionComponent?.prototype && patchToolExecutionPrototype(mod.ToolExecutionComponent.prototype, freshMod.ToolExecutionComponent?.prototype)) patched += 1;

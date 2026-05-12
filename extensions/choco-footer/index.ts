@@ -33,7 +33,7 @@ const CODEX_RETRY_FLOOR_MS = 5000;
 const GIT_BRANCH_FALLBACK_TTL_MS = 1000;
 const GIT_BRANCH_FALLBACK_TIMEOUT_MS = 250;
 const CODEX_FAST_MODE_STATE_PATH = join(homedir(), ".pi", "agent", "codex-fast-mode.json");
-const DDOTZ_STATE_PATH = join(homedir(), ".pi", "agent", "ddotz-pi", "state.json");
+const CHOCO_STATE_PATH = join(homedir(), ".pi", "agent", "choco-pi", "state.json");
 
 export interface FooterProjectMetadata {
   branch: string | null;
@@ -60,10 +60,10 @@ export function readProjectPackageVersion(cwd: string): string | undefined {
   }
 }
 
-function readDdotzModeLabel(sessionId?: string): string {
+function readChocoModeLabel(sessionId?: string): string {
   try {
-    if (!existsSync(DDOTZ_STATE_PATH)) return "default";
-    const parsed = JSON.parse(readFileSync(DDOTZ_STATE_PATH, "utf8")) as {
+    if (!existsSync(CHOCO_STATE_PATH)) return "default";
+    const parsed = JSON.parse(readFileSync(CHOCO_STATE_PATH, "utf8")) as {
       runtime?: { workMode?: unknown; executionIntensity?: unknown };
       sessions?: Record<string, { effectiveWorkMode?: unknown; executionIntensity?: unknown; automaticMode?: unknown }>;
     };
@@ -240,7 +240,7 @@ function requestCodexRateLimitsWithBinary(binary: string): Promise<CodexRateLimi
     });
 
     send(1, "initialize", {
-      clientInfo: { name: "pi-ddotz-footer", title: "Pi ddotz footer", version: "0.1.0" },
+      clientInfo: { name: "pi-choco-footer", title: "Pi choco footer", version: "0.1.0" },
       capabilities: { experimentalApi: true, optOutNotificationMethods: [] },
     });
   });
@@ -471,12 +471,12 @@ function collectFooterData(
     todoLabel: todo.label,
     todoError: todo.error,
     appVersion: projectMetadata.version,
-    modeLabel: readDdotzModeLabel(ctx.sessionManager.getSessionId()),
+    modeLabel: readChocoModeLabel(ctx.sessionManager.getSessionId()),
     runStateLabel: runState.label,
   };
 }
 
-export default function ddotzFooterExtension(pi: ExtensionAPI) {
+export default function chocoFooterExtension(pi: ExtensionAPI) {
   const codexCache = new CodexRateLimitCache();
   const gitBranchFallbackCache = new GitBranchFallbackCache();
   const renderCallbacks = new Set<() => void>();

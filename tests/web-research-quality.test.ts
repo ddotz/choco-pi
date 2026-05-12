@@ -2,8 +2,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import ddotzAutopilot from "../extensions/ddotz-autopilot/index";
-import { evaluateWebResearchQuality, guardWebResearchQualityMessage } from "../extensions/ddotz-autopilot/web-research-quality";
+import chocoAutopilot from "../extensions/choco-autopilot/index";
+import { evaluateWebResearchQuality, guardWebResearchQualityMessage } from "../extensions/choco-autopilot/web-research-quality";
 
 let tempAgentDir: string | undefined;
 
@@ -14,7 +14,7 @@ afterEach(async () => {
 });
 
 async function useTempAgentDir(): Promise<void> {
-  tempAgentDir = await mkdtemp(join(tmpdir(), "ddotz-pi-web-quality-test-"));
+  tempAgentDir = await mkdtemp(join(tmpdir(), "choco-pi-web-quality-test-"));
   process.env.PI_CODING_AGENT_DIR = tempAgentDir;
 }
 
@@ -142,7 +142,7 @@ describe("web research quality guardrails", () => {
     const commands = new Map<string, RegisteredCommand>();
     const sendMessage = vi.fn();
 
-    ddotzAutopilot({
+    chocoAutopilot({
       on: (name: string, handler: (event: never, ctx: never) => unknown) => {
         handlers[name] = [...(handlers[name] ?? []), handler];
       },
@@ -171,7 +171,7 @@ describe("web research quality guardrails", () => {
 
     expect(results).toContainEqual({ message: expect.objectContaining({ content: [{ type: "text", text: expect.stringContaining("답변 검증 가드가 보강을 진행 중입니다") }] }) });
     expect(sendMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ customType: "ddotz.web_analysis_quality.repair" }),
+      expect.objectContaining({ customType: "choco.web_analysis_quality.repair" }),
       { deliverAs: "followUp", triggerTurn: true },
     );
   });
@@ -183,7 +183,7 @@ describe("web research quality guardrails", () => {
     const commands = new Map<string, RegisteredCommand>();
     const sendMessage = vi.fn();
 
-    ddotzAutopilot({
+    chocoAutopilot({
       on: (name: string, handler: (event: never, ctx: never) => unknown) => {
         handlers[name] = [...(handlers[name] ?? []), handler];
       },
@@ -209,7 +209,7 @@ describe("web research quality guardrails", () => {
     for (const handler of handlers.message_end ?? []) await handler(badEvent, { cwd: "/repo" } as never);
     for (const handler of handlers.message_end ?? []) await handler(badEvent, { cwd: "/repo" } as never);
 
-    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "ddotz.web_analysis_quality.repair");
+    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "choco.web_analysis_quality.repair");
     expect(repairCalls).toHaveLength(1);
   });
 
@@ -220,7 +220,7 @@ describe("web research quality guardrails", () => {
     const commands = new Map<string, RegisteredCommand>();
     const sendMessage = vi.fn();
 
-    ddotzAutopilot({
+    chocoAutopilot({
       on: (name: string, handler: (event: never, ctx: never) => unknown) => {
         handlers[name] = [...(handlers[name] ?? []), handler];
       },
@@ -256,7 +256,7 @@ describe("web research quality guardrails", () => {
     for (const handler of handlers.message_end ?? []) await handler(firstFailure, { cwd: "/repo" } as never);
     for (const handler of handlers.message_end ?? []) await handler(laterFailedRepair, { cwd: "/repo" } as never);
 
-    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "ddotz.web_analysis_quality.repair");
+    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "choco.web_analysis_quality.repair");
     expect(repairCalls).toHaveLength(1);
     expect(repairCalls[0][0].content).toContain("missing-evidence-or-provenance");
   });

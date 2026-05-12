@@ -21,13 +21,13 @@ const testTheme = {
 const baseToolExecutionRender = ToolExecutionComponent.prototype.render;
 
 function installLegacyBlankLineFilterPatch(): void {
-  const prototype = ToolExecutionComponent.prototype as typeof ToolExecutionComponent.prototype & { __ddotzFocusRenderingPatched?: boolean };
+  const prototype = ToolExecutionComponent.prototype as typeof ToolExecutionComponent.prototype & { __chocoFocusRenderingPatched?: boolean };
   prototype.render = function legacyRenderWithoutBlankLines(this: typeof ToolExecutionComponent.prototype, width: number): string[] {
     return baseToolExecutionRender.call(this, width).filter((line) => line.trim() !== "");
   };
-  prototype.__ddotzFocusRenderingPatched = true;
-  Reflect.deleteProperty(prototype, Symbol.for("ddotz.focus-rendering.render-patch-version"));
-  Reflect.deleteProperty(prototype, Symbol.for("ddotz.focus-rendering.result-renderer-patch-version"));
+  prototype.__chocoFocusRenderingPatched = true;
+  Reflect.deleteProperty(prototype, Symbol.for("choco.focus-rendering.render-patch-version"));
+  Reflect.deleteProperty(prototype, Symbol.for("choco.focus-rendering.result-renderer-patch-version"));
 }
 
 async function setupFocusExtension(): Promise<{
@@ -92,7 +92,7 @@ describe("focus rendering", () => {
 
     const visibleBlock = new ToolExecutionComponent("visible", "visible-legacy", {}, {}, visibleTool, ui() as never, "/repo");
     const contentBox = (visibleBlock as unknown as { contentBox: { paddingY: number; children: unknown[] } }).contentBox;
-    const internalSpacerKey = Symbol.for("ddotz.focus-rendering.internal-spacer-component");
+    const internalSpacerKey = Symbol.for("choco.focus-rendering.internal-spacer-component");
 
     expect(contentBox.paddingY).toBe(1);
     expect(contentBox.children.some((child) => !!child && typeof child === "object" && Reflect.get(child, internalSpacerKey) === true)).toBe(false);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyPromptForDogfood, dogfoodHash, isoWeekId, safeProjectLabel } from "../extensions/ddotz-autopilot/dogfood-privacy";
+import { classifyPromptForDogfood, dogfoodHash, isoWeekId, safeProjectLabel } from "../extensions/choco-autopilot/dogfood-privacy";
 
 const SALT = "0123456789abcdef0123456789abcdef";
 
@@ -21,7 +21,7 @@ describe("dogfood privacy helpers", () => {
   });
 
   it("uses safe project labels instead of full paths", () => {
-    expect(safeProjectLabel("/Users/hyuns/Code/ddotz-pi")).toBe("ddotz-pi");
+    expect(safeProjectLabel("/Users/hyuns/Code/choco-pi")).toBe("choco-pi");
     expect(safeProjectLabel("/")).toBe("root");
   });
 

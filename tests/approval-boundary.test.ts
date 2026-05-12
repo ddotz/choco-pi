@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { classifyApprovalBoundaryToolCall } from "../extensions/ddotz-autopilot/approval-boundary";
-import ddotzAutopilot from "../extensions/ddotz-autopilot/index";
+import { classifyApprovalBoundaryToolCall } from "../extensions/choco-autopilot/approval-boundary";
+import chocoAutopilot from "../extensions/choco-autopilot/index";
 
 type EventHandler = (event: Record<string, unknown>, ctx: Record<string, unknown>) => unknown | Promise<unknown>;
 
 function setupHandlers(): Map<string, EventHandler[]> {
   const handlers = new Map<string, EventHandler[]>();
-  ddotzAutopilot({
+  chocoAutopilot({
     on: (event: string, handler: EventHandler) => {
       const existing = handlers.get(event) ?? [];
       existing.push(handler);

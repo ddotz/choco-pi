@@ -3,7 +3,7 @@ import {
   buildCompletionBoundaryGuidance,
   classifyFollowUp,
   shouldContinueAutonomousWork,
-} from "../extensions/ddotz-autopilot/completion-boundary";
+} from "../extensions/choco-autopilot/completion-boundary";
 
 describe("completion boundary", () => {
   it("stops when the requested outcome is done and verification passed", () => {

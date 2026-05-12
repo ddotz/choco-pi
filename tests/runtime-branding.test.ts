@@ -5,18 +5,18 @@ import { describe, expect, it } from "vitest";
 const publicRuntimeFiles = [
   "README.md",
   "docs/design.md",
-  "skills/ddotz-autopilot/SKILL.md",
+  "skills/choco-autopilot/SKILL.md",
   "prompts/autopilot.md",
   "modes/_base/MODE.md",
   "modes/default/MODE.md",
 ];
 
 describe("runtime branding", () => {
-  it("does not expose upstream roach-pi or ddotz-prefixed mode command names in public runtime docs", () => {
+  it("does not expose upstream roach-pi or choco-prefixed mode command names in public runtime docs", () => {
     for (const file of publicRuntimeFiles) {
       const content = readFileSync(join(process.cwd(), file), "utf8");
       expect(content, file).not.toMatch(/\broach-pi\b/i);
-      expect(content, file).not.toMatch(/\bddotz-mode\b/i);
+      expect(content, file).not.toMatch(/\bchoco-mode\b/i);
     }
   });
 });

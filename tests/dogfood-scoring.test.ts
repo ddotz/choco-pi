@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { repeatedDogfoodPatterns, scoreDogfoodCase } from "../extensions/ddotz-autopilot/dogfood-scoring";
-import type { DogfoodCase } from "../extensions/ddotz-autopilot/dogfood-types";
+import { repeatedDogfoodPatterns, scoreDogfoodCase } from "../extensions/choco-autopilot/dogfood-scoring";
+import type { DogfoodCase } from "../extensions/choco-autopilot/dogfood-types";
 
 function baseCase(overrides: Partial<DogfoodCase> = {}): DogfoodCase {
   return {

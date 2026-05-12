@@ -23,7 +23,7 @@ export interface AddCustomWorkModeInput {
 const BUILT_IN_MODES: Array<Omit<WorkModeDefinition, "createdAt" | "folder" | "instructionFile">> = [
   {
     id: "default",
-    description: "Root all-purpose generalist mode that best preserves ddotz-pi philosophy and can apply specialized overlays when useful.",
+    description: "Root all-purpose generalist mode that best preserves choco-pi philosophy and can apply specialized overlays when useful.",
     status: "implemented",
     custom: false,
   },

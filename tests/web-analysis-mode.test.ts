@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildAutopilotSystemPrompt } from "../extensions/ddotz-autopilot/policy";
-import { buildModeResourcePolicy } from "../extensions/ddotz-autopilot/mode-resource-policy";
+import { buildAutopilotSystemPrompt } from "../extensions/choco-autopilot/policy";
+import { buildModeResourcePolicy } from "../extensions/choco-autopilot/mode-resource-policy";
 
 function promptFor(workMode: "default" | "web-analysis"): string {
   return buildAutopilotSystemPrompt({
@@ -44,7 +44,7 @@ describe("web-analysis mode isolation", () => {
     const policy = buildModeResourcePolicy("web-analysis");
     expect(policy.mode).toBe("web-analysis");
     expect(policy.skills).toContain("insane-search");
-    expect(policy.extensionGuidance).toContain("Use external fivetaku/insane-search; do not vendor it into ddotz-pi.");
+    expect(policy.extensionGuidance).toContain("Use external fivetaku/insane-search; do not vendor it into choco-pi.");
     expect(policy.toolPriority[0]).toBe("external retrieval before synthesis");
     expect(policy.processPriorities).toContain("critical review before final answer");
   });
@@ -56,7 +56,7 @@ describe("web-analysis mode isolation", () => {
 
     const fresh = buildModeResourcePolicy("web-analysis");
     expect(fresh.skills).toEqual(["insane-search"]);
-    expect(fresh.extensionGuidance).toContain("Use external fivetaku/insane-search; do not vendor it into ddotz-pi.");
+    expect(fresh.extensionGuidance).toContain("Use external fivetaku/insane-search; do not vendor it into choco-pi.");
   });
 
   it("documents guardrail conditions for High confidence without adding service UX", () => {

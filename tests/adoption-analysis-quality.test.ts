@@ -2,8 +2,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import ddotzAutopilot from "../extensions/ddotz-autopilot/index";
-import { evaluateAdoptionAnalysisQuality, guardAdoptionAnalysisQualityMessage } from "../extensions/ddotz-autopilot/adoption-analysis-quality";
+import chocoAutopilot from "../extensions/choco-autopilot/index";
+import { evaluateAdoptionAnalysisQuality, guardAdoptionAnalysisQualityMessage } from "../extensions/choco-autopilot/adoption-analysis-quality";
 
 let tempAgentDir: string | undefined;
 
@@ -14,17 +14,17 @@ afterEach(async () => {
 });
 
 async function useTempAgentDir(): Promise<void> {
-  tempAgentDir = await mkdtemp(join(tmpdir(), "ddotz-pi-adoption-quality-test-"));
+  tempAgentDir = await mkdtemp(join(tmpdir(), "choco-pi-adoption-quality-test-"));
   process.env.PI_CODING_AGENT_DIR = tempAgentDir;
 }
 
 const structuredAnswer = [
   "Decision: partially adopt",
   "Adoption depth: partial-port",
-  "Fit review: ddotz-pi philosophy fit is high; mode isolation stays intact; default behavior does not change.",
+  "Fit review: choco-pi philosophy fit is high; mode isolation stays intact; default behavior does not change.",
   "Risk review: license/security/source freshness reviewed; maintenance and privacy risk are low.",
   "Scope: adopt the mode-scoped quality guard, reject wholesale vendoring.",
-  "Tracking decision: track because code is reflected into ddotz-pi.",
+  "Tracking decision: track because code is reflected into choco-pi.",
   "Confidence: High",
 ].join("\n");
 
@@ -94,7 +94,7 @@ describe("adoption-analysis quality guardrails", () => {
       "## Adoption depth",
       "partial-port",
       "## Fit review",
-      "ddotz-pi philosophy fit is high; mode isolation stays intact; default behavior does not change.",
+      "choco-pi philosophy fit is high; mode isolation stays intact; default behavior does not change.",
       "## Risk review",
       "license, security, source freshness, maintenance, privacy, and runtime conflict risk reviewed.",
       "## Scope",
@@ -142,7 +142,7 @@ describe("adoption-analysis quality guardrails", () => {
     const commands = new Map<string, RegisteredCommand>();
     const sendMessage = vi.fn();
 
-    ddotzAutopilot({
+    chocoAutopilot({
       on: (name: string, handler: (event: never, ctx: never) => unknown) => {
         handlers[name] = [...(handlers[name] ?? []), handler];
       },
@@ -171,7 +171,7 @@ describe("adoption-analysis quality guardrails", () => {
 
     expect(results).toContainEqual({ message: expect.objectContaining({ content: [{ type: "text", text: expect.stringContaining("답변 검증 가드가 보강을 진행 중입니다") }] }) });
     expect(sendMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ customType: "ddotz.adoption_analysis_quality.repair" }),
+      expect.objectContaining({ customType: "choco.adoption_analysis_quality.repair" }),
       { deliverAs: "followUp", triggerTurn: true },
     );
   });
@@ -183,7 +183,7 @@ describe("adoption-analysis quality guardrails", () => {
     const commands = new Map<string, RegisteredCommand>();
     const sendMessage = vi.fn();
 
-    ddotzAutopilot({
+    chocoAutopilot({
       on: (name: string, handler: (event: never, ctx: never) => unknown) => {
         handlers[name] = [...(handlers[name] ?? []), handler];
       },
@@ -209,7 +209,7 @@ describe("adoption-analysis quality guardrails", () => {
     for (const handler of handlers.message_end ?? []) await handler(badEvent, { cwd: "/repo" } as never);
     for (const handler of handlers.message_end ?? []) await handler(badEvent, { cwd: "/repo" } as never);
 
-    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "ddotz.adoption_analysis_quality.repair");
+    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "choco.adoption_analysis_quality.repair");
     expect(repairCalls).toHaveLength(1);
   });
 
@@ -220,7 +220,7 @@ describe("adoption-analysis quality guardrails", () => {
     const commands = new Map<string, RegisteredCommand>();
     const sendMessage = vi.fn();
 
-    ddotzAutopilot({
+    chocoAutopilot({
       on: (name: string, handler: (event: never, ctx: never) => unknown) => {
         handlers[name] = [...(handlers[name] ?? []), handler];
       },
@@ -247,7 +247,7 @@ describe("adoption-analysis quality guardrails", () => {
     const laterFailedRepair = {
       message: {
         role: "assistant",
-        content: [{ type: "text", text: ["Decision: adopt", "Adoption depth: idea-only", "Fit review: ddotz-pi mode isolation reviewed.", "Confidence: High"].join("\n") }],
+        content: [{ type: "text", text: ["Decision: adopt", "Adoption depth: idea-only", "Fit review: choco-pi mode isolation reviewed.", "Confidence: High"].join("\n") }],
         stopReason: "stop",
         timestamp: 2,
       },
@@ -256,7 +256,7 @@ describe("adoption-analysis quality guardrails", () => {
     for (const handler of handlers.message_end ?? []) await handler(firstFailure, { cwd: "/repo" } as never);
     for (const handler of handlers.message_end ?? []) await handler(laterFailedRepair, { cwd: "/repo" } as never);
 
-    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "ddotz.adoption_analysis_quality.repair");
+    const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "choco.adoption_analysis_quality.repair");
     expect(repairCalls).toHaveLength(1);
     expect(repairCalls[0][0].content).toContain("missing-adoption-depth");
   });

@@ -8,13 +8,13 @@ import {
   sourcesDueForWeeklyCheck,
   summarizeDueSources,
   updateSourceCheckResult,
-} from "../extensions/ddotz-autopilot/source-registry";
+} from "../extensions/choco-autopilot/source-registry";
 
 describe("external source registry", () => {
   it("does not track links for simple analysis unless their ideas were applied", () => {
-    expect(shouldTrackSourceFromAnalysis({ appliedToDdotzPi: false, explicitTrackRequest: false })).toBe(false);
-    expect(shouldTrackSourceFromAnalysis({ appliedToDdotzPi: true, explicitTrackRequest: false })).toBe(true);
-    expect(shouldTrackSourceFromAnalysis({ appliedToDdotzPi: false, explicitTrackRequest: true })).toBe(true);
+    expect(shouldTrackSourceFromAnalysis({ appliedToChocoPi: false, explicitTrackRequest: false })).toBe(false);
+    expect(shouldTrackSourceFromAnalysis({ appliedToChocoPi: true, explicitTrackRequest: false })).toBe(true);
+    expect(shouldTrackSourceFromAnalysis({ appliedToChocoPi: false, explicitTrackRequest: true })).toBe(true);
   });
 
   it("tracks adopted external repos/links and their adopted items", () => {

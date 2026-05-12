@@ -1,18 +1,18 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DDOTZ_PI_VERSION } from "../extensions/ddotz-autopilot/version";
-import { analyzeVersionSync } from "../extensions/ddotz-autopilot/version-sync";
+import { CHOCO_PI_VERSION } from "../extensions/choco-autopilot/version";
+import { analyzeVersionSync } from "../extensions/choco-autopilot/version-sync";
 
 describe("version sync", () => {
   it("keeps package, plugin, and README current package versions identical", () => {
     const currentPackageJson = readFileSync(join(process.cwd(), "package.json"), "utf8");
     const packageJson = JSON.parse(currentPackageJson) as { version: string };
-    expect(DDOTZ_PI_VERSION).toBe(packageJson.version);
+    expect(CHOCO_PI_VERSION).toBe(packageJson.version);
 
     const result = analyzeVersionSync({
       currentPackageJson,
-      currentPluginVersion: DDOTZ_PI_VERSION,
+      currentPluginVersion: CHOCO_PI_VERSION,
       currentReadme: readFileSync(join(process.cwd(), "README.md"), "utf8"),
     });
     expect(result.ok).toBe(true);
@@ -50,7 +50,7 @@ describe("version sync", () => {
       currentLockfile: "lock-a",
       headLockfile: "lock-a",
       currentPluginVersion: "0.1.1",
-      currentReadme: "# ddotz-pi\n\n- Current package version: `0.1.0`.\n",
+      currentReadme: "# choco-pi\n\n- Current package version: `0.1.0`.\n",
     });
 
     expect(result.ok).toBe(false);

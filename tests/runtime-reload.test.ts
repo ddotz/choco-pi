@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import ddotzAutopilot from "../extensions/ddotz-autopilot/index";
+import chocoAutopilot from "../extensions/choco-autopilot/index";
 
 interface RegisteredTool {
   name: string;
@@ -32,7 +32,7 @@ function setupAutopilot(options: { exec?: ReturnType<typeof vi.fn> } = {}): {
   const sendUserMessage = vi.fn();
   const exec = options.exec ?? vi.fn();
 
-  ddotzAutopilot({
+  chocoAutopilot({
     on: (event: string, handler: EventHandler) => {
       const existing = handlers.get(event) ?? [];
       existing.push(handler);
@@ -64,7 +64,7 @@ async function emit(
 
 async function withTempAgentDir<T>(fn: (agentDir: string) => Promise<T>): Promise<T> {
   const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
-  const agentDir = await mkdtemp(join(tmpdir(), "ddotz-pi-runtime-reload-"));
+  const agentDir = await mkdtemp(join(tmpdir(), "choco-pi-runtime-reload-"));
   process.env.PI_CODING_AGENT_DIR = agentDir;
   try {
     return await fn(agentDir);
@@ -76,7 +76,7 @@ async function withTempAgentDir<T>(fn: (agentDir: string) => Promise<T>): Promis
 }
 
 function reloadResumeMarkerPath(agentDir: string): string {
-  return join(agentDir, "ddotz-pi", "reload-runtime-resume.json");
+  return join(agentDir, "choco-pi", "reload-runtime-resume.json");
 }
 
 function deferred(): { promise: Promise<void>; resolve: () => void } {

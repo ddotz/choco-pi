@@ -5,17 +5,17 @@ Scope: `design` work-mode overlay only. Default/coding/report/web/adoption modes
 
 ## Research findings
 
-### Current ddotz-pi state
+### Current choco-pi state
 
-- `modes/design/MODE.md` and `extensions/ddotz-autopilot/design-policy.ts` already require a design brief, existing design-system scan, visual thesis, responsive/accessibility states, and browser-backed QA.
-- `extensions/ddotz-autopilot/mode-resource-policy.ts` currently names `frontend-ui-ux`, `taste-skill`, `web-design-guidelines`, and `gstack`, but does not name `taste-ko` or slide-specific skills.
+- `modes/design/MODE.md` and `extensions/choco-autopilot/design-policy.ts` already require a design brief, existing design-system scan, visual thesis, responsive/accessibility states, and browser-backed QA.
+- `extensions/choco-autopilot/mode-resource-policy.ts` currently names `frontend-ui-ux`, `taste-skill`, `web-design-guidelines`, and `gstack`, but does not name `taste-ko` or slide-specific skills.
 - `tests/design-mode.test.ts` verifies mode isolation and basic design guidance, but does not cover Korean line breaking, anti-slop language, or platform/artifact-specific design tracks.
 - There is no design-mode message-end quality guard equivalent to `coding-quality`, `report-quality`, `web-research-quality`, or `adoption-analysis-quality`.
 
 ### Pi runtime constraints
 
 - Pi skills are progressive-disclosure resources. The mode prompt should explicitly name the skills the model should load when relevant.
-- Pi extensions can enforce quality in `message_end` and queue hidden repair follow-ups; existing ddotz-pi guard architecture already supports this pattern.
+- Pi extensions can enforce quality in `message_end` and queue hidden repair follow-ups; existing choco-pi guard architecture already supports this pattern.
 - Resource changes to prompts/extensions/skills require runtime reload after verification.
 
 ### Skill and guideline synthesis
@@ -29,9 +29,9 @@ Scope: `design` work-mode overlay only. Default/coding/report/web/adoption modes
 ### Pi package search
 
 - `https://pi.dev/packages` was checked. The closest package was `@juicesharp/rpiv-pi@1.4.2`, MIT, a broad research/design/plan/implement/validate workflow.
-- Decision: do not add it as a dependency. It is a workflow package, not a Korean UI typography/design-mode overlay, and would overlap ddotz-pi’s existing autonomy/guard system.
-- Rejected scope: wholesale package adoption, vendoring its agents/skills, or replacing ddotz-pi mode flow.
-- Idea-only note: its `frontend-design` skill reinforces style-system scan before aesthetic direction and explicit anti-slop aesthetic checkpoints. That idea matches existing ddotz-pi direction and is reflected as local policy language, not copied code.
+- Decision: do not add it as a dependency. It is a workflow package, not a Korean UI typography/design-mode overlay, and would overlap choco-pi’s existing autonomy/guard system.
+- Rejected scope: wholesale package adoption, vendoring its agents/skills, or replacing choco-pi mode flow.
+- Idea-only note: its `frontend-design` skill reinforces style-system scan before aesthetic direction and explicit anti-slop aesthetic checkpoints. That idea matches existing choco-pi direction and is reflected as local policy language, not copied code.
 
 ## Product decision
 
@@ -86,8 +86,8 @@ If the artifact type is unclear, choose the safest likely track from the user’
 Files:
 
 - Modify: `tests/design-mode.test.ts`
-- Modify: `extensions/ddotz-autopilot/mode-resource-policy.ts`
-- Modify: `extensions/ddotz-autopilot/design-policy.ts`
+- Modify: `extensions/choco-autopilot/mode-resource-policy.ts`
+- Modify: `extensions/choco-autopilot/design-policy.ts`
 - Modify: `modes/design/MODE.md`
 
 Steps:
@@ -102,9 +102,9 @@ Steps:
 
 Files:
 
-- Create: `extensions/ddotz-autopilot/design-quality.ts`
+- Create: `extensions/choco-autopilot/design-quality.ts`
 - Create: `tests/design-quality.test.ts`
-- Modify: `extensions/ddotz-autopilot/index.ts`
+- Modify: `extensions/choco-autopilot/index.ts`
 
 Steps:
 
@@ -126,13 +126,13 @@ Steps:
 Files:
 
 - Modify: `README.md`
-- Maybe modify: `package.json`, `extensions/ddotz-autopilot/version.ts`
+- Maybe modify: `package.json`, `extensions/choco-autopilot/version.ts`
 
 Steps:
 
 1. Document that design mode now includes anti-slop, Korean typography, and artifact-track routing.
 2. Choose patch bump because this is a small runtime behavior change to design mode guidance/guardrails.
-3. Keep `package.json`, `extensions/ddotz-autopilot/version.ts`, and README current version synchronized.
+3. Keep `package.json`, `extensions/choco-autopilot/version.ts`, and README current version synchronized.
 4. Run `pnpm run version:check`.
 
 ### Task 4: Full verification, cleanup, reload, commit, push

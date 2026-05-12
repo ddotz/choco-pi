@@ -1,13 +1,13 @@
 ---
-name: ddotz-autopilot
+name: choco-autopilot
 description: Use when the user asks to build, fix, research, review, run, complete, polish, analyze external links, or autonomously drive work in pi without routine clarification.
 ---
 
-# ddotz Autopilot
+# choco Autopilot
 
 ## Prime Directive
 
-Drive work through the ddotz-pi root all-purpose generalist base. `default` is the canonical mode that best preserves the project philosophy: treat each user order as one managed project, execute the practical work, verify, and use implemented specialized overlays when useful. Structural gates remain non-negotiable. `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`, and `design` are implemented work modes; no built-in mode is currently planned-only.
+Drive work through the choco-pi root all-purpose generalist base. `default` is the canonical mode that best preserves the project philosophy: treat each user order as one managed project, execute the practical work, verify, and use implemented specialized overlays when useful. Structural gates remain non-negotiable. `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`, and `design` are implemented work modes; no built-in mode is currently planned-only.
 
 ## Default Behavior
 
@@ -15,11 +15,11 @@ Drive work through the ddotz-pi root all-purpose generalist base. `default` is t
 - If a choice is reversible and has a reasonable default, choose the default and continue.
 - Record assumptions and decisions compactly.
 - Keep going through self-review, fix, verification, and polish until the task is done, blocked by a true approval boundary, or fails with concrete evidence.
-- Treat ddotz-pi as one coherent Pi environment: package recurring Pi UX/runtime fixes as ddotz-pi-local extensions or policy, not as one-off local tweaks.
+- Treat choco-pi as one coherent Pi environment: package recurring Pi UX/runtime fixes as choco-pi-local extensions or policy, not as one-off local tweaks.
 - For major tasks, after verification passes, run a small in-scope technical-debt cleanup pass and re-run verification before final reporting. You decide whether a task is major; do not ask the user for routine classification.
 - For new Pi feature/capability requests, check https://pi.dev/packages before building from scratch; if a high-similarity package exists, inspect source/license/security, fork or clone it as the baseline, and customize it to the user's final requirements.
 - Assume Pi itself runs inside tmux by default. When direct runtime input is needed (for example `/reload`, `/reload-runtime`, pressing Enter, or editor commands), detect the Pi tmux session/pane and use `tmux send-keys` before falling back to GUI automation.
-- Use `/btw` for ddotz-pi-owned Korean-localized side conversations; do not rely on a separate `npm:pi-btw` runtime package.
+- Use `/btw` for choco-pi-owned Korean-localized side conversations; do not rely on a separate `npm:pi-btw` runtime package.
 - Treat each plan/todo step as a bounded loop. Before crossing to the next step or todo, re-check that the next action still fits the current plan/current todo and call `loop_transition` after completing a todo/plan step.
 - If new work appears after the current todo, do not append it silently. Start from a new plan, create/update todos for that scope without clearing or removing active todos, and continue only after new steering/follow-up starts the new loop; otherwise defer it explicitly.
 - After newly discovered dependent work is implemented and verified, return to the preserved parent todo instead of treating it as done or discarded.
@@ -51,7 +51,7 @@ Use `/mode` as the canonical work-mode command. Run `/mode` with no arguments to
 - Mode isolation is mandatory for every work mode, including future planned and custom modes.
 - New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.
 - No mode may change default or any other mode as a side effect; shared changes belong in `modes/_base/MODE.md` only when they are mode-agnostic.
-- Mode folders use `modes/_base/MODE.md` for shared philosophy and `modes/<mode-id>/MODE.md` for mode-specific overlays. Custom runtime modes are registered by `/mode add` under `~/.pi/agent/ddotz-pi/modes/<mode-id>/MODE.md`.
+- Mode folders use `modes/_base/MODE.md` for shared philosophy and `modes/<mode-id>/MODE.md` for mode-specific overlays. Custom runtime modes are registered by `/mode add` under `~/.pi/agent/choco-pi/modes/<mode-id>/MODE.md`.
 - Before writable parallel development, create a collision-avoidance ownership map first: one writable owner per file/domain, shared files serialized, dependencies ordered, and a worktree per lane when practical.
 - Use the default hybrid parallel strategy: writable lanes run in isolated worktrees, read-only lanes may use spawned agents, and shared/integration lanes stay serial.
 - Prefer isolated git worktrees for parallel/multi-session work. Todo and ledger state are session-scoped by default; use project-shared todos only when explicitly needed.
@@ -84,7 +84,7 @@ If this gate was skipped, acknowledge the skip, run the gate immediately, fix wh
 
 ## External Source Tracking
 
-Do not track links for simple analysis. Track only when the source was actually reflected into ddotz-pi or the user explicitly asks to track it. When tracked/adopted sources change upstream, autonomously analyze fit, decide adopt / partially adopt / reject against the concise all-purpose ddotz-pi goal, proceed when safe, and report the decision. Ask only when a hard approval boundary is hit.
+Do not track links for simple analysis. Track only when the source was actually reflected into choco-pi or the user explicitly asks to track it. When tracked/adopted sources change upstream, autonomously analyze fit, decide adopt / partially adopt / reject against the concise all-purpose choco-pi goal, proceed when safe, and report the decision. Ask only when a hard approval boundary is hit.
 
 ## Reporting Style
 

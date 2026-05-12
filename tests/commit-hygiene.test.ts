@@ -5,7 +5,7 @@ import {
   findCommitHygieneIssues,
   findVersionSyncIssues,
   shouldIncludeInCommit,
-} from "../extensions/ddotz-autopilot/commit-hygiene";
+} from "../extensions/choco-autopilot/commit-hygiene";
 
 describe("commit hygiene", () => {
   it("excludes superpowers runtime artifacts, private files, secrets, and unnecessary dotfiles", () => {
@@ -14,7 +14,7 @@ describe("commit hygiene", () => {
     expect(shouldIncludeInCommit(".env")).toBe(false);
     expect(shouldIncludeInCommit("private-notes.md")).toBe(false);
     expect(shouldIncludeInCommit(".DS_Store")).toBe(false);
-    expect(shouldIncludeInCommit("extensions/ddotz-autopilot/policy.ts")).toBe(true);
+    expect(shouldIncludeInCommit("extensions/choco-autopilot/policy.ts")).toBe(true);
     expect(shouldIncludeInCommit(".gitignore")).toBe(true);
   });
 
@@ -30,7 +30,7 @@ describe("commit hygiene", () => {
       "README.md",
       ".env",
       ".superpowers/run.json",
-      "extensions/ddotz-autopilot/index.ts",
+      "extensions/choco-autopilot/index.ts",
     ]);
 
     expect(issues).toHaveLength(2);
@@ -39,10 +39,10 @@ describe("commit hygiene", () => {
 
   it("does not force a version bump for every package metadata change", () => {
     expect(findVersionSyncIssues(["package.json"])).toEqual([]);
-    expect(findVersionSyncIssues(["extensions/ddotz-autopilot/version.ts"])).toEqual([
+    expect(findVersionSyncIssues(["extensions/choco-autopilot/version.ts"])).toEqual([
       expect.objectContaining({ missingPath: "package.json" }),
     ]);
-    expect(findVersionSyncIssues(["package.json", "extensions/ddotz-autopilot/version.ts"])).toEqual([]);
+    expect(findVersionSyncIssues(["package.json", "extensions/choco-autopilot/version.ts"])).toEqual([]);
   });
 
   it("requires lint and version sync as part of the default post-change quality gate", () => {
@@ -55,7 +55,7 @@ describe("commit hygiene", () => {
   });
 
   it("documents autonomous commit, push, and version-bump judgment", async () => {
-    const { buildCommitHygieneGuidance } = await import("../extensions/ddotz-autopilot/commit-hygiene");
+    const { buildCommitHygieneGuidance } = await import("../extensions/choco-autopilot/commit-hygiene");
 
     const guidance = buildCommitHygieneGuidance();
 

@@ -52,13 +52,13 @@ import { guardAdoptionAnalysisQualityMessage, type AdoptionAnalysisRepairState }
 import { classifyApprovalBoundaryToolCall, formatApprovalBoundaryBlock } from "./approval-boundary";
 import {
   createAutoUpdateState,
-  ddotzPiPackageRoot,
+  chocoPiPackageRoot,
   formatAutoUpdateResult,
   formatAutoUpdateStatus,
   formatManualUpdateResult,
   formatPiCliUpdateResult,
   normalizeAutoUpdateState,
-  runDdotzPiUpdate,
+  runChocoPiUpdate,
   runPiCliUpdate,
   shouldRunAutoUpdate,
   summarizeAutoUpdateResult,
@@ -74,7 +74,7 @@ import { registerRuntimeReload } from "./runtime-reload";
 import { resolveEffectiveWorkMode, sessionIdFromContext, sessionScopedKey } from "./session-scope";
 import { installStructuralGate } from "./structural-gate";
 import { discoverSuperpowersSkillPath } from "./superpowers-dependency";
-import { DDOTZ_PI_VERSION } from "./version";
+import { CHOCO_PI_VERSION } from "./version";
 import { verificationCommandFromInput } from "./verification-command";
 import { guardWebResearchQualityMessage, type WebResearchRepairState } from "./web-research-quality";
 import {
@@ -97,7 +97,7 @@ interface SessionRuntimeState {
   updatedAt: string;
 }
 
-interface DdotzState {
+interface ChocoState {
   version: 4;
   runtime: RuntimeState;
   sessions: Record<string, SessionRuntimeState>;
@@ -128,11 +128,11 @@ function agentDir(): string {
 }
 
 function statePath(): string {
-  return join(agentDir(), "ddotz-pi", "state.json");
+  return join(agentDir(), "choco-pi", "state.json");
 }
 
 function dogfoodRootPath(): string {
-  return join(agentDir(), "ddotz-pi", "dogfood");
+  return join(agentDir(), "choco-pi", "dogfood");
 }
 
 function dogfoodSaltPath(): string {
@@ -152,12 +152,12 @@ async function dogfoodSalt(): Promise<string> {
 }
 
 function modeFilePath(folder: string): string {
-  return join(agentDir(), "ddotz-pi", folder, "MODE.md");
+  return join(agentDir(), "choco-pi", folder, "MODE.md");
 }
 
 async function writeCustomModeFile(id: string, folder: string, description: string): Promise<void> {
   const filePath = modeFilePath(folder);
-  await mkdir(join(agentDir(), "ddotz-pi", folder), { recursive: true });
+  await mkdir(join(agentDir(), "choco-pi", folder), { recursive: true });
   await writeFile(
     filePath,
     [`# ${id} Mode`, "", "Status: planned, custom.", "", description.trim(), ""].join("\n"),
@@ -166,10 +166,10 @@ async function writeCustomModeFile(id: string, folder: string, description: stri
 }
 
 async function removeCustomModeFile(folder: string): Promise<void> {
-  await rm(join(agentDir(), "ddotz-pi", folder), { recursive: true, force: true });
+  await rm(join(agentDir(), "choco-pi", folder), { recursive: true, force: true });
 }
 
-function emptyState(): DdotzState {
+function emptyState(): ChocoState {
   return {
     version: STATE_VERSION,
     runtime: createRuntimeState(DEFAULT_WORK_MODE, DEFAULT_EXECUTION_INTENSITY),
@@ -193,10 +193,10 @@ function ledgerKey(cwd: string, sessionId: string): string {
   return sessionScopedKey(cwd || process.cwd(), sessionId);
 }
 
-async function loadState(): Promise<DdotzState> {
+async function loadState(): Promise<ChocoState> {
   try {
     const raw = await readFile(statePath(), "utf8");
-    const parsed = JSON.parse(raw) as Partial<DdotzState> & { mode?: { mode?: string } };
+    const parsed = JSON.parse(raw) as Partial<ChocoState> & { mode?: { mode?: string } };
     return {
       version: STATE_VERSION,
       runtime: migrateLegacyMode(parsed),
@@ -213,13 +213,13 @@ async function loadState(): Promise<DdotzState> {
   }
 }
 
-async function saveState(state: DdotzState): Promise<void> {
+async function saveState(state: ChocoState): Promise<void> {
   const path = statePath();
-  await mkdir(join(agentDir(), "ddotz-pi"), { recursive: true });
+  await mkdir(join(agentDir(), "choco-pi"), { recursive: true });
   await writeFile(path, `${JSON.stringify(state, null, 2)}\n`, "utf8");
 }
 
-function getLedger(state: DdotzState, cwd: string, sessionId: string, prompt?: string): ContextLedger {
+function getLedger(state: ChocoState, cwd: string, sessionId: string, prompt?: string): ContextLedger {
   const key = ledgerKey(cwd, sessionId);
   const existing = state.ledgers[key];
   if (existing) return existing;
@@ -234,7 +234,7 @@ function nowIso(): string {
 }
 
 function formatMemories(memories: StoredMemory[]): string {
-  if (memories.length === 0) return "No ddotz-pi memories stored.";
+  if (memories.length === 0) return "No choco-pi memories stored.";
   return memories
     .slice(-20)
     .map((memory) => `- [${memory.kind}] ${memory.text}`)
@@ -242,7 +242,7 @@ function formatMemories(memories: StoredMemory[]): string {
 }
 
 function formatSources(registry: SourceRegistry): string {
-  if (registry.sources.length === 0) return "No ddotz-pi external sources tracked.";
+  if (registry.sources.length === 0) return "No choco-pi external sources tracked.";
   return registry.sources
     .map((source) => {
       const changed = source.changedSinceLastCheck ? " changed" : "";
@@ -315,7 +315,7 @@ async function setExecutionIntensity(executionIntensity: ExecutionIntensity, ctx
   ctx.ui.notify(`intensity: ${executionIntensity}`, "info");
 }
 
-async function selectWorkMode(state: DdotzState, ctx: ExtensionCommandContext): Promise<void> {
+async function selectWorkMode(state: ChocoState, ctx: ExtensionCommandContext): Promise<void> {
   const options = listWorkModeSelectionOptions(state.workModeRegistry, state.runtime.workMode);
   const selected = await ctx.ui.select(`Current mode: ${state.runtime.workMode}`, options);
   if (!selected) {
@@ -357,7 +357,7 @@ async function checkSource(pi: ExtensionAPI, source: ExternalSource): Promise<{ 
   return { id: source.id, ok: true, message: `HEAD ${ref.slice(0, 12)}`, ref };
 }
 
-async function checkSources(pi: ExtensionAPI, state: DdotzState, sources: ExternalSource[]): Promise<string[]> {
+async function checkSources(pi: ExtensionAPI, state: ChocoState, sources: ExternalSource[]): Promise<string[]> {
   const messages: string[] = [];
   for (const source of sources) {
     const checkedAt = new Date();
@@ -395,10 +395,10 @@ function registerSourceRegistryTool(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "source_registry",
     label: "Source registry",
-    description: "Track adopted, watched, and rejected external sources for ddotz-pi adoption analysis.",
-    promptSnippet: "source_registry: list/add/watch/adopt/reject/check external sources that are reflected into ddotz-pi or explicitly requested for tracking.",
+    description: "Track adopted, watched, and rejected external sources for choco-pi adoption analysis.",
+    promptSnippet: "source_registry: list/add/watch/adopt/reject/check external sources that are reflected into choco-pi or explicitly requested for tracking.",
     promptGuidelines: [
-      "Track sources only when their code/design is reflected into ddotz-pi or the user explicitly asks to track them.",
+      "Track sources only when their code/design is reflected into choco-pi or the user explicitly asks to track them.",
       "Use watch for sources that are relevant but not adopted yet, especially when license, security, or freshness is unresolved.",
       "When adopting, record the smallest sufficient adoptionDepth and the concrete adopted/rejected scope.",
     ],
@@ -437,7 +437,7 @@ function registerSourceRegistryTool(pi: ExtensionAPI): void {
       }
       if (input.action === "adopt") {
         const id = requireSourceId(input.id);
-        state.sourceRegistry = markSourceAdopted(state.sourceRegistry, id, input.review || "Adopted for ddotz-pi.", {
+        state.sourceRegistry = markSourceAdopted(state.sourceRegistry, id, input.review || "Adopted for choco-pi.", {
           adoptionDepth: input.adoptionDepth,
           adoptedItems: input.adoptedItems,
           rejectedItems: input.rejectedItems,
@@ -449,7 +449,7 @@ function registerSourceRegistryTool(pi: ExtensionAPI): void {
       }
       if (input.action === "reject") {
         const id = requireSourceId(input.id);
-        state.sourceRegistry = markSourceRejected(state.sourceRegistry, id, input.review || "Rejected for ddotz-pi.");
+        state.sourceRegistry = markSourceRejected(state.sourceRegistry, id, input.review || "Rejected for choco-pi.");
         await saveState(state);
         return { content: [{ type: "text", text: `Marked rejected: ${id}` }], details: details() };
       }
@@ -515,7 +515,7 @@ async function updateLedgerForToolResult(
   await saveState(state);
 }
 
-export default function ddotzAutopilot(pi: ExtensionAPI) {
+export default function chocoAutopilot(pi: ExtensionAPI) {
   installStructuralGate(pi);
   registerRuntimeReload(pi);
   registerSourceRegistryTool(pi);
@@ -556,7 +556,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
       await saveState(state);
     }
     if (ctx.hasUI && event.reason === "startup" && shouldRunAutoUpdate(state.autoUpdate)) {
-      const result = await runDdotzPiUpdate(pi, { trigger: "auto", packageRoot: ddotzPiPackageRoot() });
+      const result = await runChocoPiUpdate(pi, { trigger: "auto", packageRoot: chocoPiPackageRoot() });
       const checkedAt = nowIso();
       state.autoUpdate.lastCheckedAt = checkedAt;
       state.autoUpdate.lastResult = summarizeAutoUpdateResult(result, checkedAt);
@@ -570,7 +570,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     const effective = sessionRuntime?.effectiveWorkMode ?? state.runtime.workMode;
     ctx.ui.setStatus(
       "mode",
-      ctx.ui.theme.fg("accent", `mode:${state.runtime.workMode}->${effective}/${state.runtime.executionIntensity}@${DDOTZ_PI_VERSION}`),
+      ctx.ui.theme.fg("accent", `mode:${state.runtime.workMode}->${effective}/${state.runtime.executionIntensity}@${CHOCO_PI_VERSION}`),
     );
   });
 
@@ -653,23 +653,23 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     const effectiveWorkMode = sessionRuntime?.effectiveWorkMode ?? state.runtime.workMode;
     const guardResult = runGuardPipeline(assistantMessage, [
       {
-        customType: "ddotz.web_analysis_quality.repair",
+        customType: "choco.web_analysis_quality.repair",
         run: () => guardWebResearchQualityMessage(effectiveWorkMode, assistantMessage, repairStateFor(webRepairStates, sessionId)),
       },
       {
-        customType: "ddotz.coding_quality.repair",
+        customType: "choco.coding_quality.repair",
         run: () => guardCodingQualityMessage(effectiveWorkMode, assistantMessage, repairStateFor(codingRepairStates, sessionId)),
       },
       {
-        customType: "ddotz.adoption_analysis_quality.repair",
+        customType: "choco.adoption_analysis_quality.repair",
         run: () => guardAdoptionAnalysisQualityMessage(effectiveWorkMode, assistantMessage, repairStateFor(adoptionRepairStates, sessionId)),
       },
       {
-        customType: "ddotz.report_quality.repair",
+        customType: "choco.report_quality.repair",
         run: () => guardReportQualityMessage(effectiveWorkMode, assistantMessage, repairStateFor(reportRepairStates, sessionId)),
       },
       {
-        customType: "ddotz.design_quality.repair",
+        customType: "choco.design_quality.repair",
         run: () => guardDesignQualityMessage(effectiveWorkMode, assistantMessage, repairStateFor(designRepairStates, sessionId)),
       },
     ]);
@@ -736,13 +736,13 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   });
 
   pi.registerCommand("update", {
-    description: "Run canonical pi update, refresh ddotz-pi when safe, and manage automatic updates",
+    description: "Run canonical pi update, refresh choco-pi when safe, and manage automatic updates",
     handler: async (args: string, ctx: ExtensionCommandContext) => {
       const state = await loadState();
       const [command = "now", ...rest] = splitCommandArgs(args);
 
       if (command === "status") {
-        ctx.ui.notify(formatAutoUpdateStatus(state.autoUpdate, DDOTZ_PI_VERSION), "info");
+        ctx.ui.notify(formatAutoUpdateStatus(state.autoUpdate, CHOCO_PI_VERSION), "info");
         return;
       }
 
@@ -755,27 +755,27 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
           return;
         }
         if (value === "status") {
-          ctx.ui.notify(formatAutoUpdateStatus(state.autoUpdate, DDOTZ_PI_VERSION), "info");
+          ctx.ui.notify(formatAutoUpdateStatus(state.autoUpdate, CHOCO_PI_VERSION), "info");
           return;
         }
         ctx.ui.notify("Usage: /update [now|run|status|auto on|auto off|auto status|<pi update args...>]", "error");
         return;
       }
 
-      const runLocalDdotzUpdate = command === "now" || command === "run";
-      const piUpdateArgs = runLocalDdotzUpdate ? [] : [command, ...rest];
+      const runLocalChocoUpdate = command === "now" || command === "run";
+      const piUpdateArgs = runLocalChocoUpdate ? [] : [command, ...rest];
       const piResult = await runPiCliUpdate(pi, piUpdateArgs, ctx.cwd || process.cwd());
       const formattedPiResult = formatPiCliUpdateResult(piResult);
       ctx.ui.notify(formattedPiResult.message, formattedPiResult.level);
       if (piResult.status !== "completed") return;
 
-      if (!runLocalDdotzUpdate) {
+      if (!runLocalChocoUpdate) {
         await ctx.waitForIdle();
         await ctx.reload();
         return;
       }
 
-      const result = await runDdotzPiUpdate(pi, { trigger: "manual", packageRoot: ddotzPiPackageRoot() });
+      const result = await runChocoPiUpdate(pi, { trigger: "manual", packageRoot: chocoPiPackageRoot() });
       const checkedAt = nowIso();
       state.autoUpdate.lastCheckedAt = checkedAt;
       state.autoUpdate.lastResult = summarizeAutoUpdateResult(result, checkedAt);
@@ -942,7 +942,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
           ctx.ui.notify("Usage: /source adopt <id> [review]", "error");
           return;
         }
-        state.sourceRegistry = markSourceAdopted(state.sourceRegistry, id, reviewParts.join(" ") || "Adopted for ddotz-pi.");
+        state.sourceRegistry = markSourceAdopted(state.sourceRegistry, id, reviewParts.join(" ") || "Adopted for choco-pi.");
         await saveState(state);
         ctx.ui.notify(`Marked adopted: ${id}`, "info");
         return;
@@ -954,7 +954,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
           ctx.ui.notify("Usage: /source reject <id> [review]", "error");
           return;
         }
-        state.sourceRegistry = markSourceRejected(state.sourceRegistry, id, reviewParts.join(" ") || "Rejected for ddotz-pi.");
+        state.sourceRegistry = markSourceRejected(state.sourceRegistry, id, reviewParts.join(" ") || "Rejected for choco-pi.");
         await saveState(state);
         ctx.ui.notify(`Marked rejected: ${id}`, "info");
         return;

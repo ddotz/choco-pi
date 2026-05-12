@@ -393,7 +393,7 @@ export function createStructuralGateTool(state: StructuralGateState): ToolDefini
   return {
     name: STRUCTURAL_GATE_TOOL_NAME,
     label: "Structural gate",
-    description: "Required fail-closed completion gate for non-trivial ddotz-pi work. Call before final completion reporting.",
+    description: "Required fail-closed completion gate for non-trivial choco-pi work. Call before final completion reporting.",
     promptSnippet: "structural_gate: required before final completion on non-trivial work; records Acceptance fit, Runtime fit, Failure modes, Verification evidence, Loop governance, Completion boundary, and confidence.",
     promptGuidelines: [
       "For non-trivial problem-solving/development turns, call structural_gate before final completion reporting.",
@@ -438,7 +438,7 @@ export function installStructuralGate(pi: Pick<ExtensionAPI, "on" | "registerToo
     if (result.followUp) {
       pi.sendMessage(
         {
-          customType: "ddotz.structural_gate.repair",
+          customType: "choco.structural_gate.repair",
           content: result.followUp,
           display: false,
           details: { repairQueued: true },

@@ -42,7 +42,7 @@ function hasAdoptionDepth(text: string): boolean {
 }
 
 function hasFitReview(text: string): boolean {
-  return sectionHas(text, "Fit review", /ddotz-pi|mode isolation|default behavior|Pi-native|philosophy|철학|격리/i);
+  return sectionHas(text, "Fit review", /choco-pi|mode isolation|default behavior|Pi-native|philosophy|철학|격리/i);
 }
 
 function hasRiskReview(text: string): boolean {

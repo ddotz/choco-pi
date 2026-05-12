@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import ddotzAutopilot from "../extensions/ddotz-autopilot/index";
+import chocoAutopilot from "../extensions/choco-autopilot/index";
 import todoWidget from "../extensions/todo-widget";
 
 type EventHandler = (event: Record<string, unknown>, ctx: Record<string, unknown>) => unknown | Promise<unknown>;
@@ -23,12 +23,12 @@ afterEach(async () => {
 });
 
 async function useTempAgentDir(): Promise<void> {
-  tempAgentDir = await mkdtemp(join(tmpdir(), "ddotz-pi-multi-agent-"));
+  tempAgentDir = await mkdtemp(join(tmpdir(), "choco-pi-multi-agent-"));
   process.env.PI_CODING_AGENT_DIR = tempAgentDir;
 }
 
 async function makeTempCwd(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "ddotz-pi-multi-cwd-"));
+  const dir = await mkdtemp(join(tmpdir(), "choco-pi-multi-cwd-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -54,7 +54,7 @@ function ctx(cwd: string, sessionId: string, notify = vi.fn()): Record<string, u
 function setupAutopilot(): { handlers: Map<string, EventHandler[]>; commands: Map<string, { handler: EventHandler }> } {
   const handlers = new Map<string, EventHandler[]>();
   const commands = new Map<string, { handler: EventHandler }>();
-  ddotzAutopilot({
+  chocoAutopilot({
     on: (event: string, handler: EventHandler) => {
       const list = handlers.get(event) ?? [];
       list.push(handler);

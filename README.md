@@ -1,8 +1,8 @@
-# ddotz-pi
+# choco-pi
 
 Personal Pi package for a default-root all-purpose generalist workflow.
 
-`ddotz-pi` makes Pi treat each user order as one managed project by default: choose reversible defaults, execute across domains, self-review, fix, verify, and report evidence. It keeps Claude/Codex state isolated, uses Pi-native extensions/skills/prompts, and avoids exposing upstream package names in runtime settings.
+`choco-pi` makes Pi treat each user order as one managed project by default: choose reversible defaults, execute across domains, self-review, fix, verify, and report evidence. It keeps Claude/Codex state isolated, uses Pi-native extensions/skills/prompts, and avoids exposing upstream package names in runtime settings.
 
 ## Status
 
@@ -15,22 +15,22 @@ No built-in mode is currently planned-only. Future planned modes should be docum
 
 ## Fresh environment setup
 
-For a new machine or a clean Pi agent directory, install `ddotz-pi` as a Pi package and then reload or restart Pi.
+For a new machine or a clean Pi agent directory, install `choco-pi` as a Pi package and then reload or restart Pi.
 
 Git install, after the target revision is pushed:
 
 ```bash
-pi install git:github.com/ddotz/ddotz-pi
+pi install git:github.com/choco/choco-pi
 ```
 
 Local checkout install for unreleased or local changes:
 
 ```bash
-git clone https://github.com/ddotz/ddotz-pi.git /absolute/path/to/ddotz-pi
-cd /absolute/path/to/ddotz-pi
+git clone https://github.com/choco/choco-pi.git /absolute/path/to/choco-pi
+cd /absolute/path/to/choco-pi
 pnpm install --frozen-lockfile
 pnpm run check
-pi install /absolute/path/to/ddotz-pi
+pi install /absolute/path/to/choco-pi
 ```
 
 If Pi is already running, run `/reload-runtime` after installation. Otherwise, start Pi normally; Pi loads installed packages from `~/.pi/agent/settings.json`.
@@ -40,10 +40,10 @@ If Pi is already running, run `/reload-runtime` after installation. Otherwise, s
 `package.json` declares the Pi resources explicitly:
 
 - Extensions
-  - `extensions/ddotz-autopilot/index.ts`
+  - `extensions/choco-autopilot/index.ts`
   - `extensions/input-newline/index.ts`
   - `extensions/todo-widget.ts`
-  - `extensions/ddotz-footer/index.ts`
+  - `extensions/choco-footer/index.ts`
   - `extensions/fff-search/index.ts`
   - `node_modules/pi-lsp-client/src/index.ts`
   - `extensions/focus-rendering/index.ts`
@@ -52,27 +52,27 @@ If Pi is already running, run `/reload-runtime` after installation. Otherwise, s
 - Skills: `skills/`
 - Prompt templates: `prompts/`
 
-Selected utility behavior is absorbed as local `ddotz-pi` extensions so a new environment only needs this package entry.
+Selected utility behavior is absorbed as local `choco-pi` extensions so a new environment only needs this package entry.
 
 ## Architecture (English)
 
 ### 1. Package boundary and load model
 
-`ddotz-pi` is a Pi package, not a fork of Pi. Pi loads it through the `pi` field in `package.json`, which registers extensions, skills, and prompt templates from this repository. The package keeps runtime behavior local to Pi's extension system and avoids depending on Claude-only runtime state.
+`choco-pi` is a Pi package, not a fork of Pi. Pi loads it through the `pi` field in `package.json`, which registers extensions, skills, and prompt templates from this repository. The package keeps runtime behavior local to Pi's extension system and avoids depending on Claude-only runtime state.
 
 ```text
 Pi runtime
   ├─ package.json pi.extensions[]
-  │   ├─ ddotz-autopilot        # PM loop, guards, state, commands, reload tool
+  │   ├─ choco-autopilot        # PM loop, guards, state, commands, reload tool
   │   ├─ input-newline          # routes extension text prompts through multiline editor
   │   ├─ todo-widget            # session-scoped todo tool/widget
-  │   ├─ ddotz-footer           # custom two-line footer
+  │   ├─ choco-footer           # custom two-line footer
   │   ├─ fff-search             # FFF-backed find/grep and @mention search
   │   ├─ pi-lsp-client          # LSP diagnostics/navigation integration
   │   ├─ focus-rendering        # focused tool-output view
   │   ├─ raw-paste              # bracketed raw paste editor mode
   │   └─ btw                    # Korean-localized side conversation overlay
-  ├─ package.json pi.skills[]   # skills/ddotz-autopilot
+  ├─ package.json pi.skills[]   # skills/choco-autopilot
   └─ package.json pi.prompts[]  # prompts/autopilot.md
 ```
 
@@ -86,10 +86,10 @@ The core design is layered:
 
 ### 2. Autopilot extension
 
-`extensions/ddotz-autopilot/index.ts` is the coordination hub. It owns the persistent ddotz state at:
+`extensions/choco-autopilot/index.ts` is the coordination hub. It owns the persistent choco state at:
 
 ```text
-~/.pi/agent/ddotz-pi/state.json
+~/.pi/agent/choco-pi/state.json
 ```
 
 State schema version `4` stores:
@@ -99,14 +99,14 @@ State schema version `4` stores:
 - `ledgers`: cwd-keyed compact work ledgers.
 - `sourceRegistry`: tracked/adopted external sources and weekly check metadata.
 - `workModeRegistry`: built-in and custom work-mode metadata, including implemented/planned status.
-- `autoUpdate`: ddotz-pi self-update settings and last check result.
+- `autoUpdate`: choco-pi self-update settings and last check result.
 
 The extension hooks into Pi lifecycle events:
 
-- `before_agent_start`: loads state, creates/updates the context ledger, infers work-mode hints, classifies execution intensity, and appends the ddotz default-root prompt.
+- `before_agent_start`: loads state, creates/updates the context ledger, infers work-mode hints, classifies execution intensity, and appends the choco default-root prompt.
 - `tool_call`: applies approval-boundary guards and records changed files for write/edit calls.
 - `tool_result`: records verification command results from bash output.
-- `session_start`: checks due tracked GitHub sources, runs scheduled ddotz-pi self-update checks, and sets the mode/intensity/version status indicator.
+- `session_start`: checks due tracked GitHub sources, runs scheduled choco-pi self-update checks, and sets the mode/intensity/version status indicator.
 - `resources_discover`: ensures the external `obra/superpowers` skill repository is available unchanged and contributes it as a skill path.
 - `session_shutdown`: removes the mode status indicator.
 
@@ -117,23 +117,23 @@ It also registers user commands:
 - `/source`: track, watch, adopt/reject, and check external sources.
 - `/memory`: list/save durable memory.
 - `/ledger`: show/reset the context ledger.
-- `/update`: update ddotz-pi from upstream and manage automatic self-updates.
+- `/update`: update choco-pi from upstream and manage automatic self-updates.
 - `/reload-runtime`: reload extensions/skills/prompts/themes without starting a new session.
 
 ### 3. Hooks
 
-`ddotz-pi` uses Pi hooks as runtime interception points rather than shell wrappers or external daemons.
+`choco-pi` uses Pi hooks as runtime interception points rather than shell wrappers or external daemons.
 
 | Hook | Owner | Purpose |
 | --- | --- | --- |
-| `before_agent_start` | `ddotz-autopilot` | Inject default-root all-purpose policy, current mode/intensity, ledger summary, and source-tracking context. |
-| `tool_call` | `ddotz-autopilot` | Guard dangerous tool calls before execution; record edit/write paths for the ledger. |
-| `tool_result` | `ddotz-autopilot` | Capture verification commands and pass/fail evidence into the ledger. |
+| `before_agent_start` | `choco-autopilot` | Inject default-root all-purpose policy, current mode/intensity, ledger summary, and source-tracking context. |
+| `tool_call` | `choco-autopilot` | Guard dangerous tool calls before execution; record edit/write paths for the ledger. |
+| `tool_result` | `choco-autopilot` | Capture verification commands and pass/fail evidence into the ledger. |
 | `message_end` | `structural-gate` | Fail closed if a non-trivial turn tries to finish without passing the structural gate, and reopen when the final text still asserts an active/current todo remains. |
 | `session_start` | multiple extensions | Rehydrate state, install UI widgets/footer/editor components, clear current-session todos on `/new`, and update runtime status. |
 | `session_shutdown` | multiple extensions | Dispose UI/status/editor patches and clear per-session references. |
 | `agent_start` | `focus-rendering` | Keep Pi's built-in working indicator hidden while the focused tool view is active. |
-| `resources_discover` | Pi package loader, `ddotz-autopilot` | Pi discovers package skills/prompts/themes from `package.json`; runtime reload re-runs discovery. `ddotz-autopilot` clones `https://github.com/obra/superpowers.git` unchanged when missing and adds it as a skill path. |
+| `resources_discover` | Pi package loader, `choco-autopilot` | Pi discovers package skills/prompts/themes from `package.json`; runtime reload re-runs discovery. `choco-autopilot` clones `https://github.com/obra/superpowers.git` unchanged when missing and adds it as a skill path. |
 
 Hook order matters mainly for UI and guard behavior: guards must run before tool execution, structural completion checks must run at assistant `message_end`, and UI components are reinstalled on each `session_start` because `/new`, `/resume`, `/fork`, and `/reload` replace extension runtime bindings.
 
@@ -175,7 +175,7 @@ The structural gate tracks completed todo steps and loop transitions. If a todo 
 
 #### Commit-hygiene and version-sync guards
 
-`commit-hygiene.ts` classifies paths before commits and excludes secrets, private files, generated artifacts, caches, logs, Superpowers runtime artifacts, and unneeded dotfiles. `scripts/check-version-sync.ts` keeps `package.json` and `extensions/ddotz-autopilot/version.ts` synchronized when a version bump is chosen.
+`commit-hygiene.ts` classifies paths before commits and excludes secrets, private files, generated artifacts, caches, logs, Superpowers runtime artifacts, and unneeded dotfiles. `scripts/check-version-sync.ts` keeps `package.json` and `extensions/choco-autopilot/version.ts` synchronized when a version bump is chosen.
 
 ### 5. Work modes and execution intensity
 
@@ -195,7 +195,7 @@ modes/<planned-mode>/MODE.md
 Custom modes created with `/mode add` are stored under:
 
 ```text
-~/.pi/agent/ddotz-pi/modes/<mode-id>/MODE.md
+~/.pi/agent/choco-pi/modes/<mode-id>/MODE.md
 ```
 
 Future planned modes can be listed and registered, but they must not be activated unless implementation and tests are added later.
@@ -221,7 +221,7 @@ The source registry tracks only adopted or explicitly tracked external sources. 
 
 ### 7. Dogfooding quality system
 
-`ddotz-pi` records privacy-preserving cross-project quality cases under `~/.pi/agent/ddotz-pi/dogfood/`. It does not store raw prompt text by default. Each case stores a salted prompt hash, safe project label, work mode, task type, tool counts, verification signals, structural gate signals, and a deterministic `clean / assisted / miss / review` outcome.
+`choco-pi` records privacy-preserving cross-project quality cases under `~/.pi/agent/choco-pi/dogfood/`. It does not store raw prompt text by default. Each case stores a salted prompt hash, safe project label, work mode, task type, tool counts, verification signals, structural gate signals, and a deterministic `clean / assisted / miss / review` outcome.
 
 Use `/dogfood status` to see the current week sample count, `/dogfood weekly` to generate a deterministic weekly report, `/dogfood report` to show the latest report, `/dogfood queue` to inspect ambiguous cases, and `/dogfood explain <id>` to explain a case without raw prompt text.
 
@@ -254,7 +254,7 @@ The tool renderer is intentionally empty so tool calls stay visually quiet while
 
 ### 9. Footer subsystem
 
-`extensions/ddotz-footer/` replaces Pi's footer with a two-line footer:
+`extensions/choco-footer/` replaces Pi's footer with a two-line footer:
 
 ```text
 <model> | ⎇ <branch> v<version> | <cwd> | ◉ <thinking>
@@ -264,9 +264,9 @@ The tool renderer is intentionally empty so tool calls stay visually quiet while
 Data sources:
 
 - model/provider from `ctx.model`,
-- branch from Pi footer data, then `git -C <cwd>`, then the ddotz-pi repo fallback,
+- branch from Pi footer data, then `git -C <cwd>`, then the choco-pi repo fallback,
 - version from `package.json`,
-- mode from `~/.pi/agent/ddotz-pi/state.json`,
+- mode from `~/.pi/agent/choco-pi/state.json`,
 - todo summary from `<cwd>/.pi/sessions/<sessionId>/todos.json`,
 - run state from agent/tool lifecycle hooks,
 - Codex rate limits from `codex app-server --listen stdio://`,
@@ -299,11 +299,11 @@ This is a UI-only layer: it does not mutate tool results or session content. It 
 ~/.pi/agent/fff/
 ```
 
-`extensions/input-newline/` treats ddotz-pi as one coherent Pi environment by routing extension text prompts through Pi's multiline editor. `Ctrl+J` follows the same newline behavior as the main prompt instead of being interpreted as a single-line submit.
+`extensions/input-newline/` treats choco-pi as one coherent Pi environment by routing extension text prompts through Pi's multiline editor. `Ctrl+J` follows the same newline behavior as the main prompt instead of being interpreted as a single-line submit.
 
 `extensions/raw-paste/` owns the editor component for bracketed paste. `/paste` arms raw paste mode so the next bracketed paste is inserted into the editor as visible text instead of being interpreted as keystroke commands. `/paste cancel` disarms it.
 
-`extensions/btw.ts` owns `/btw` side conversations as a local ddotz-pi feature. It is adapted from `pi-btw` under MIT license, localized for Korean respectful side-session answers, and no longer needs a separate `npm:pi-btw` package entry.
+`extensions/btw.ts` owns `/btw` side conversations as a local choco-pi feature. It is adapted from `pi-btw` under MIT license, localized for Korean respectful side-session answers, and no longer needs a separate `npm:pi-btw` package entry.
 
 `pi-lsp-client` is loaded as a package dependency and supplies LSP diagnostics/navigation tools.
 
@@ -327,21 +327,21 @@ Tests are organized by subsystem: approval boundary, completion boundary, commit
 
 ### 1. 패키지 경계와 로드 모델
 
-`ddotz-pi`는 Pi 포크가 아니라 Pi 패키지입니다. Pi는 `package.json`의 `pi` 필드를 읽어 이 저장소의 extension, skill, prompt template을 로드합니다. 런타임 동작은 Pi extension 시스템 안에 두고, Claude 전용 런타임 상태에는 의존하지 않습니다.
+`choco-pi`는 Pi 포크가 아니라 Pi 패키지입니다. Pi는 `package.json`의 `pi` 필드를 읽어 이 저장소의 extension, skill, prompt template을 로드합니다. 런타임 동작은 Pi extension 시스템 안에 두고, Claude 전용 런타임 상태에는 의존하지 않습니다.
 
 ```text
 Pi runtime
   ├─ package.json pi.extensions[]
-  │   ├─ ddotz-autopilot        # PM 루프, guard, 상태, 명령, reload tool
+  │   ├─ choco-autopilot        # PM 루프, guard, 상태, 명령, reload tool
   │   ├─ input-newline          # extension text prompt를 multiline editor로 라우팅
   │   ├─ todo-widget            # 세션 격리 todo tool/widget
-  │   ├─ ddotz-footer           # 2줄 footer
+  │   ├─ choco-footer           # 2줄 footer
   │   ├─ fff-search             # FFF 기반 find/grep 및 @mention 검색
   │   ├─ pi-lsp-client          # LSP diagnostics/navigation
   │   ├─ focus-rendering        # focused tool-output view
   │   ├─ raw-paste              # bracketed raw paste editor mode
   │   └─ btw                    # Korean-localized side conversation overlay
-  ├─ package.json pi.skills[]   # skills/ddotz-autopilot
+  ├─ package.json pi.skills[]   # skills/choco-autopilot
   └─ package.json pi.prompts[]  # prompts/autopilot.md
 ```
 
@@ -355,10 +355,10 @@ Pi runtime
 
 ### 2. Autopilot extension
 
-`extensions/ddotz-autopilot/index.ts`가 전체 조정 허브입니다. ddotz 상태는 아래 파일에 저장됩니다.
+`extensions/choco-autopilot/index.ts`가 전체 조정 허브입니다. choco 상태는 아래 파일에 저장됩니다.
 
 ```text
-~/.pi/agent/ddotz-pi/state.json
+~/.pi/agent/choco-pi/state.json
 ```
 
 state schema version `4`는 다음을 저장합니다.
@@ -368,14 +368,14 @@ state schema version `4`는 다음을 저장합니다.
 - `ledgers`: cwd별 compact work ledger.
 - `sourceRegistry`: 추적/채택한 외부 source와 주간 체크 메타데이터.
 - `workModeRegistry`: built-in/custom work-mode 메타데이터와 implemented/planned 상태.
-- `autoUpdate`: ddotz-pi self-update 설정과 마지막 체크 결과.
+- `autoUpdate`: choco-pi self-update 설정과 마지막 체크 결과.
 
 주요 Pi hook 연결은 다음과 같습니다.
 
 - `before_agent_start`: state를 읽고, context ledger를 생성/갱신하고, work-mode hint와 execution intensity를 계산한 뒤 default-root prompt를 추가합니다.
 - `tool_call`: approval-boundary guard를 적용하고 write/edit 경로를 ledger에 기록합니다.
 - `tool_result`: bash 검증 명령 결과를 ledger에 기록합니다.
-- `session_start`: due 상태인 GitHub source를 체크하고, 예약된 ddotz-pi self-update를 실행하고, mode/intensity/version status를 설정합니다.
+- `session_start`: due 상태인 GitHub source를 체크하고, 예약된 choco-pi self-update를 실행하고, mode/intensity/version status를 설정합니다.
 - `resources_discover`: 외부 `obra/superpowers` skill repository를 원본 그대로 보장하고 skill path로 제공합니다.
 - `session_shutdown`: status indicator를 제거합니다.
 
@@ -383,18 +383,18 @@ state schema version `4`는 다음을 저장합니다.
 
 ### 3. Hook 구조
 
-`ddotz-pi`는 shell wrapper나 외부 daemon 대신 Pi hook을 런타임 interception point로 사용합니다.
+`choco-pi`는 shell wrapper나 외부 daemon 대신 Pi hook을 런타임 interception point로 사용합니다.
 
 | Hook | 담당 | 역할 |
 | --- | --- | --- |
-| `before_agent_start` | `ddotz-autopilot` | default-root all-purpose policy, 현재 mode/intensity, ledger summary, source-tracking context 주입. |
-| `tool_call` | `ddotz-autopilot` | tool 실행 전 위험 호출 차단, edit/write 경로 ledger 기록. |
-| `tool_result` | `ddotz-autopilot` | 검증 명령과 pass/fail evidence를 ledger에 기록. |
+| `before_agent_start` | `choco-autopilot` | default-root all-purpose policy, 현재 mode/intensity, ledger summary, source-tracking context 주입. |
+| `tool_call` | `choco-autopilot` | tool 실행 전 위험 호출 차단, edit/write 경로 ledger 기록. |
+| `tool_result` | `choco-autopilot` | 검증 명령과 pass/fail evidence를 ledger에 기록. |
 | `message_end` | `structural-gate` | non-trivial turn이 structural gate 없이 끝나면 fail-closed 처리하고, 최종 문장이 active/current todo 잔존을 상태로 주장하면 재개. |
 | `session_start` | 여러 extension | state 복원, UI widget/footer/editor 설치, `/new` current-session todo clear, runtime status 갱신. |
 | `session_shutdown` | 여러 extension | UI/status/editor reference 정리. |
 | `agent_start` | `focus-rendering` | focused view 활성 시 Pi 기본 working indicator 숨김. |
-| `resources_discover` | Pi package loader, `ddotz-autopilot` | `package.json`의 skills/prompts/themes 재발견; runtime reload 때 다시 실행. `ddotz-autopilot`은 미설치 환경에서 `https://github.com/obra/superpowers.git`을 원본 그대로 clone하고 skill path를 추가합니다. |
+| `resources_discover` | Pi package loader, `choco-autopilot` | `package.json`의 skills/prompts/themes 재발견; runtime reload 때 다시 실행. `choco-autopilot`은 미설치 환경에서 `https://github.com/obra/superpowers.git`을 원본 그대로 clone하고 skill path를 추가합니다. |
 
 `/new`, `/resume`, `/fork`, `/reload`는 extension runtime binding을 바꾸므로 UI component는 `session_start`에서 다시 설치하고 `session_shutdown`에서 정리합니다.
 
@@ -436,7 +436,7 @@ Structural gate는 todo 완료와 loop transition 수를 추적합니다. todo�
 
 #### Commit-hygiene / version-sync guard
 
-`commit-hygiene.ts`는 커밋 전 path risk를 분류합니다. secret/private file, generated artifact, cache, log, Superpowers runtime artifact, 불필요한 dotfile은 제외합니다. `scripts/check-version-sync.ts`는 버전 bump 시 `package.json`과 `extensions/ddotz-autopilot/version.ts`를 동기화합니다.
+`commit-hygiene.ts`는 커밋 전 path risk를 분류합니다. secret/private file, generated artifact, cache, log, Superpowers runtime artifact, 불필요한 dotfile은 제외합니다. `scripts/check-version-sync.ts`는 버전 bump 시 `package.json`과 `extensions/choco-autopilot/version.ts`를 동기화합니다.
 
 ### 5. Work mode와 execution intensity
 
@@ -456,7 +456,7 @@ modes/<planned-mode>/MODE.md
 `/mode add`로 만든 custom mode는 아래에 저장됩니다.
 
 ```text
-~/.pi/agent/ddotz-pi/modes/<mode-id>/MODE.md
+~/.pi/agent/choco-pi/modes/<mode-id>/MODE.md
 ```
 
 향후 planned mode는 등록/표시는 가능하지만, 구현과 테스트 전에는 활성화하지 않습니다.
@@ -473,7 +473,7 @@ Source registry는 실제로 채택했거나 사용자가 명시적으로 추적
 
 ### 7. Dogfooding quality system
 
-`ddotz-pi`는 cross-project 품질 case를 `~/.pi/agent/ddotz-pi/dogfood/` 아래에 privacy-preserving 형태로 기록합니다. 기본적으로 raw prompt text는 저장하지 않습니다. 각 case는 salted prompt hash, 안전한 project label, work mode, task type, tool count, verification signal, structural gate signal, deterministic `clean / assisted / miss / review` outcome을 저장합니다.
+`choco-pi`는 cross-project 품질 case를 `~/.pi/agent/choco-pi/dogfood/` 아래에 privacy-preserving 형태로 기록합니다. 기본적으로 raw prompt text는 저장하지 않습니다. 각 case는 salted prompt hash, 안전한 project label, work mode, task type, tool count, verification signal, structural gate signal, deterministic `clean / assisted / miss / review` outcome을 저장합니다.
 
 `/dogfood status`는 현재 주 sample count를 보여주고, `/dogfood weekly`는 deterministic weekly report를 생성하며, `/dogfood report`는 최신 report를 표시합니다. `/dogfood queue`는 애매한 case 수를 보여주고, `/dogfood explain <id>`는 raw prompt text 없이 case 판정 이유를 설명합니다.
 
@@ -506,7 +506,7 @@ Source registry는 실제로 채택했거나 사용자가 명시적으로 추적
 
 ### 9. Footer subsystem
 
-`extensions/ddotz-footer/`는 Pi footer를 2줄 footer로 교체합니다.
+`extensions/choco-footer/`는 Pi footer를 2줄 footer로 교체합니다.
 
 ```text
 <model> | ⎇ <branch> v<version> | <cwd> | ◉ <thinking>
@@ -516,9 +516,9 @@ Source registry는 실제로 채택했거나 사용자가 명시적으로 추적
 데이터 source는 다음입니다.
 
 - `ctx.model`의 model/provider,
-- Pi footer branch data → `git -C <cwd>` → ddotz-pi repo branch fallback,
+- Pi footer branch data → `git -C <cwd>` → choco-pi repo branch fallback,
 - `package.json` version,
-- `~/.pi/agent/ddotz-pi/state.json` mode,
+- `~/.pi/agent/choco-pi/state.json` mode,
 - `<cwd>/.pi/sessions/<sessionId>/todos.json` todo summary,
 - agent/tool lifecycle hook 기반 run state,
 - `codex app-server --listen stdio://` 기반 Codex rate limit,
@@ -551,11 +551,11 @@ Source registry는 실제로 채택했거나 사용자가 명시적으로 추적
 ~/.pi/agent/fff/
 ```
 
-`extensions/input-newline/`은 ddotz-pi를 하나의 Pi 환경으로 다루기 위해 extension text prompt를 Pi multiline editor로 라우팅합니다. 그래서 `Ctrl+J`가 단일행 submit으로 해석되지 않고 main prompt와 같은 newline 동작을 따릅니다.
+`extensions/input-newline/`은 choco-pi를 하나의 Pi 환경으로 다루기 위해 extension text prompt를 Pi multiline editor로 라우팅합니다. 그래서 `Ctrl+J`가 단일행 submit으로 해석되지 않고 main prompt와 같은 newline 동작을 따릅니다.
 
 `extensions/raw-paste/`는 bracketed paste용 editor component를 소유합니다. `/paste`는 다음 bracketed paste를 arm해서 keystroke command가 아니라 editor text로 삽입하게 하고, `/paste cancel`은 해제합니다.
 
-`extensions/btw.ts`는 `/btw` side conversation을 ddotz-pi 로컬 기능으로 소유합니다. MIT 라이선스의 `pi-btw`에서 흡수하되 한국어 존댓말 side-session 답변에 맞게 로컬라이즈했으며, 별도 `npm:pi-btw` package entry는 필요하지 않습니다.
+`extensions/btw.ts`는 `/btw` side conversation을 choco-pi 로컬 기능으로 소유합니다. MIT 라이선스의 `pi-btw`에서 흡수하되 한국어 존댓말 side-session 답변에 맞게 로컬라이즈했으며, 별도 `npm:pi-btw` package entry는 필요하지 않습니다.
 
 `pi-lsp-client`는 package dependency로 로드되어 LSP diagnostics/navigation tool을 제공합니다.
 
@@ -584,7 +584,7 @@ pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test
 - `/btw`, `/btw:new`, `/btw:tangent`, `/btw:inject`, `/btw:summarize`, `/btw:clear`, `/btw:model`, `/btw:thinking` — run Korean-localized side conversations in a focused overlay without installing `npm:pi-btw` separately.
 - `/memory [list|save <text>]` — list/save durable memories.
 - `/ledger [reset]` — show/reset the compact workspace Context Ledger.
-- `/update [now|status|auto on|auto off|auto status]` — fast-forward ddotz-pi from its upstream branch, run dependency install/version sync when needed, reload the runtime after successful updates, and report automatic update state.
+- `/update [now|status|auto on|auto off|auto status]` — fast-forward choco-pi from its upstream branch, run dependency install/version sync when needed, reload the runtime after successful updates, and report automatic update state.
 - `/reload-runtime` — reload extensions, skills, prompts, and themes without starting a new session. The LLM-callable `reload_runtime` tool self-submits `/reload-runtime --continue` through tmux when direct tool reload is unavailable, waits for the command acknowledgement marker, then the reloaded extension sends `continue` from `session_start(reason: "reload")`.
 
 ## Mode folder structure
@@ -600,13 +600,13 @@ modes/
   adoption-analysis/MODE.md    # implemented source adoption overlay
 ```
 
-Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created custom modes are stored under `~/.pi/agent/ddotz-pi/modes/<mode-id>/MODE.md` and registered by `/mode add`.
+Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created custom modes are stored under `~/.pi/agent/choco-pi/modes/<mode-id>/MODE.md` and registered by `/mode add`.
 
 ## Runtime behavior
 
 - Ask only for hard approval boundaries: production deployment/package publishing, payment, secrets/accounts, large deletion, external private-data transfer, irreversible actions, work mode switching, or contradictory goals without safe defaults.
 - For new Pi feature/capability requests, check https://pi.dev/packages before building from scratch. If a high-similarity package exists, inspect source/license/security, fork or clone it as the baseline, and customize it to the user's final requirements.
-- Superpowers is treated as an external skill dependency: ddotz-pi first reuses existing Claude Code/Codex superpowers skill directories when present, otherwise clones `https://github.com/obra/superpowers.git` unchanged under `~/.pi/agent/ddotz-pi/deps/superpowers`, then exposes only the repo's `skills/` directory via Pi skill discovery.
+- Superpowers is treated as an external skill dependency: choco-pi first reuses existing Claude Code/Codex superpowers skill directories when present, otherwise clones `https://github.com/obra/superpowers.git` unchanged under `~/.pi/agent/choco-pi/deps/superpowers`, then exposes only the repo's `skills/` directory via Pi skill discovery.
 - Mode isolation is mandatory for every work mode, including future planned and custom modes.
 - New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.
 - No mode may change default or any other mode as a side effect; shared changes belong in `modes/_base/MODE.md` only when they are mode-agnostic.
@@ -634,7 +634,7 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 - Do not end replies with suggestion-led opt-in phrasing such as `원하면 ~해드릴게요`.
 - Todo tool calls render silently while the session-scoped todo widget updates.
 - Read previews stay header-only while collapsed and expand on demand.
-- Footer line 1 shows `⎇ <project-branch> v<project-version>` from the active session cwd and ends with Codex-style run state (`Ready`, `Starting`, `Thinking`, `Working`); it does not fall back to the ddotz-pi package branch/version when working in another folder. Line 2 starts with the current mode and keeps rate/context/cost/tool/todo details.
+- Footer line 1 shows `⎇ <project-branch> v<project-version>` from the active session cwd and ends with Codex-style run state (`Ready`, `Starting`, `Thinking`, `Working`); it does not fall back to the choco-pi package branch/version when working in another folder. Line 2 starts with the current mode and keeps rate/context/cost/tool/todo details.
 - Footer usage values (`5h`, `wk`, `ctx`) highlight only numeric values in cyan.
 - Confidence labels are `High`, `Medium`, and `Low`; terminal/UI rendering should use white text on green/yellow/red backgrounds.
 - Final Markdown should use plain labels such as `Confidence: High`, not HTML badges.
@@ -643,12 +643,12 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 
 Do not track links for simple analysis. Track only when:
 
-- the source was actually reflected into `ddotz-pi`, or
+- the source was actually reflected into `choco-pi`, or
 - the user explicitly asks to track it.
 
-Tracked/adopted sources are checked weekly. If upstream changed, the agent analyzes fit, decides adopt / partially adopt / reject against the all-purpose ddotz-pi goal, proceeds when safe, and reports the decision.
+Tracked/adopted sources are checked weekly. If upstream changed, the agent analyzes fit, decides adopt / partially adopt / reject against the all-purpose choco-pi goal, proceeds when safe, and reports the decision.
 
-`insane-search` remains an external skill dependency for blocked/WAF-protected access and supported platforms. `ddotz-pi` references it by policy instead of reimplementing it.
+`insane-search` remains an external skill dependency for blocked/WAF-protected access and supported platforms. `choco-pi` references it by policy instead of reimplementing it.
 
 ## Development checks
 
@@ -664,4 +664,4 @@ The check runs:
 pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test
 ```
 
-Before a commit, inspect `git status --short --untracked-files=all` and exclude private files, generated artifacts, caches, logs, and unrelated runtime state. Version bumping is autonomous: no bump for tiny docs/comments/tests-only/housekeeping commits, patch for bug fixes or small runtime behavior changes, minor for meaningful new capabilities, and major for breaking behavior/config changes. If a version bump is chosen, keep `package.json` and `extensions/ddotz-autopilot/version.ts` synchronized.
+Before a commit, inspect `git status --short --untracked-files=all` and exclude private files, generated artifacts, caches, logs, and unrelated runtime state. Version bumping is autonomous: no bump for tiny docs/comments/tests-only/housekeeping commits, patch for bug fixes or small runtime behavior changes, minor for meaningful new capabilities, and major for breaking behavior/config changes. If a version bump is chosen, keep `package.json` and `extensions/choco-autopilot/version.ts` synchronized.

@@ -46,7 +46,7 @@ function agentDir(): string {
 }
 
 function reloadResumeMarkerDir(): string {
-  return join(agentDir(), "ddotz-pi");
+  return join(agentDir(), "choco-pi");
 }
 
 function reloadResumeMarkerPath(): string {

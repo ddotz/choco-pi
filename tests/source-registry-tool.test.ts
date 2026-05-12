@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import ddotzAutopilot from "../extensions/ddotz-autopilot/index";
+import chocoAutopilot from "../extensions/choco-autopilot/index";
 
 interface RegisteredTool {
   name: string;
@@ -24,13 +24,13 @@ afterEach(async () => {
 });
 
 async function useTempAgentDir(): Promise<void> {
-  tempAgentDir = await mkdtemp(join(tmpdir(), "ddotz-pi-source-tool-test-"));
+  tempAgentDir = await mkdtemp(join(tmpdir(), "choco-pi-source-tool-test-"));
   process.env.PI_CODING_AGENT_DIR = tempAgentDir;
 }
 
 function registeredTools(): Map<string, RegisteredTool> {
   const tools = new Map<string, RegisteredTool>();
-  ddotzAutopilot({
+  chocoAutopilot({
     on: vi.fn(),
     registerCommand: vi.fn(),
     registerTool: (definition: RegisteredTool) => {

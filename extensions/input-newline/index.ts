@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionUIDialogOptions } from "@mariozechner/pi-coding-agent";
 
-const INPUT_NEWLINE_PATCHED = Symbol.for("ddotz.input-newline.patched");
+const INPUT_NEWLINE_PATCHED = Symbol.for("choco.input-newline.patched");
 
 type PatchableInputUi = {
   input: (title: string, placeholder?: string, opts?: ExtensionUIDialogOptions) => Promise<string | undefined>;
@@ -26,7 +26,7 @@ function requiresOriginalInputOptions(opts?: ExtensionUIDialogOptions): boolean 
  * Route extension text inputs through Pi's multiline editor.
  *
  * Pi's single-line ExtensionInputComponent treats raw LF (Ctrl+J in tmux) as
- * submit/confirm before the editor newline keybinding can win. ddotz-pi is one
+ * submit/confirm before the editor newline keybinding can win. choco-pi is one
  * coherent Pi environment, so extension prompts should use the same editor
  * newline behavior as the main prompt instead of keeping a separate one-off
  * input path.

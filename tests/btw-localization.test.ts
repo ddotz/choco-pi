@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-describe("local ddotz-pi BTW integration", () => {
-  it("ships BTW as a local ddotz-pi extension instead of a separate package", () => {
+describe("local choco-pi BTW integration", () => {
+  it("ships BTW as a local choco-pi extension instead of a separate package", () => {
     const packageJson = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as {
       pi: { extensions: string[] };
       dependencies?: Record<string, string>;

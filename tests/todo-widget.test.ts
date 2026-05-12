@@ -19,7 +19,7 @@ afterEach(async () => {
 });
 
 async function makeTempCwd(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "ddotz-pi-todos-"));
+  const dir = await mkdtemp(join(tmpdir(), "choco-pi-todos-"));
   tempDirs.push(dir);
   return dir;
 }

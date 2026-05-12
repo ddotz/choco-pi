@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildAutopilotSystemPrompt } from "../extensions/ddotz-autopilot/policy";
-import { buildModeResourcePolicy } from "../extensions/ddotz-autopilot/mode-resource-policy";
+import { buildAutopilotSystemPrompt } from "../extensions/choco-autopilot/policy";
+import { buildModeResourcePolicy } from "../extensions/choco-autopilot/mode-resource-policy";
 
 function promptFor(workMode: "default" | "adoption-analysis"): string {
   return buildAutopilotSystemPrompt({
