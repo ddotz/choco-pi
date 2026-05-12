@@ -56,8 +56,10 @@ import {
   formatAutoUpdateResult,
   formatAutoUpdateStatus,
   formatManualUpdateResult,
+  formatPiCliUpdateResult,
   normalizeAutoUpdateState,
   runDdotzPiUpdate,
+  runPiCliUpdate,
   shouldRunAutoUpdate,
   summarizeAutoUpdateResult,
   type AutoUpdateState,
@@ -734,7 +736,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   });
 
   pi.registerCommand("update", {
-    description: "Update ddotz-pi to the latest upstream version and manage automatic updates",
+    description: "Run canonical pi update, refresh ddotz-pi when safe, and manage automatic updates",
     handler: async (args: string, ctx: ExtensionCommandContext) => {
       const state = await loadState();
       const [command = "now", ...rest] = splitCommandArgs(args);
@@ -756,12 +758,20 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
           ctx.ui.notify(formatAutoUpdateStatus(state.autoUpdate, DDOTZ_PI_VERSION), "info");
           return;
         }
-        ctx.ui.notify("Usage: /update [now|status|auto on|auto off|auto status]", "error");
+        ctx.ui.notify("Usage: /update [now|run|status|auto on|auto off|auto status|<pi update args...>]", "error");
         return;
       }
 
-      if (command !== "now" && command !== "run") {
-        ctx.ui.notify("Usage: /update [now|status|auto on|auto off|auto status]", "error");
+      const runLocalDdotzUpdate = command === "now" || command === "run";
+      const piUpdateArgs = runLocalDdotzUpdate ? [] : [command, ...rest];
+      const piResult = await runPiCliUpdate(pi, piUpdateArgs, ctx.cwd || process.cwd());
+      const formattedPiResult = formatPiCliUpdateResult(piResult);
+      ctx.ui.notify(formattedPiResult.message, formattedPiResult.level);
+      if (piResult.status !== "completed") return;
+
+      if (!runLocalDdotzUpdate) {
+        await ctx.waitForIdle();
+        await ctx.reload();
         return;
       }
 
@@ -772,7 +782,6 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
       await saveState(state);
       const formatted = formatManualUpdateResult(result);
       ctx.ui.notify(formatted.message, formatted.level);
-      if (result.status !== "updated") return;
 
       await ctx.waitForIdle();
       await ctx.reload();

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const DEFAULT_AUTO_UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const UPDATE_TIMEOUT_MS = 2 * 60 * 1000;
+const PI_CLI_UPDATE_TIMEOUT_MS = 10 * 60 * 1000;
 const INSTALL_TIMEOUT_MS = 5 * 60 * 1000;
 const VERIFY_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -37,6 +38,12 @@ export interface AutoUpdateState {
   intervalMs: number;
   lastCheckedAt?: string;
   lastResult?: AutoUpdateLastResult;
+}
+
+export interface PiCliUpdateResult {
+  status: "completed" | "failed";
+  args: string[];
+  reason?: string;
 }
 
 type ExecResult = Awaited<ReturnType<ExtensionAPI["exec"]>>;
@@ -155,6 +162,28 @@ export function formatAutoUpdateResult(result: DdotzUpdateResult): { message?: s
   if (result.status === "skipped" && result.reason) return { message: `Skipped ddotz-pi auto-update: ${result.reason}.`, level: "warning" };
   if (result.status === "failed") return { message: `Failed ddotz-pi auto-update: ${result.reason ?? "unknown error"}.`, level: "error" };
   return { level: "info" };
+}
+
+function formatPiCliUpdateCommand(args: string[]): string {
+  return ["pi", "update", ...args].join(" ");
+}
+
+export function formatPiCliUpdateResult(result: PiCliUpdateResult): { message: string; level: "info" | "error" } {
+  const command = formatPiCliUpdateCommand(result.args);
+  if (result.status === "completed") return { message: `${command} completed.`, level: "info" };
+  return { message: `Failed ${command}: ${result.reason ?? "unknown error"}.`, level: "error" };
+}
+
+export async function runPiCliUpdate(services: AutoUpdateServices, args: string[], cwd: string, signal?: AbortSignal): Promise<PiCliUpdateResult> {
+  try {
+    const result = await services.exec("pi", ["update", ...args], { cwd, timeout: PI_CLI_UPDATE_TIMEOUT_MS, signal });
+    if (!result || typeof result.code !== "number") return { status: "failed", args, reason: "pi update returned no exec result" };
+    if (result.code === 0) return { status: "completed", args };
+    const reason = [result.stderr?.trim(), result.stdout?.trim(), `exit ${result.code}`].filter(Boolean).join(" — ");
+    return { status: "failed", args, reason };
+  } catch (error) {
+    return { status: "failed", args, reason: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 async function execChecked(

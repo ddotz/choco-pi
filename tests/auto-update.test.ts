@@ -74,6 +74,23 @@ function dirtyCheckoutExec(): ExecMock {
   });
 }
 
+function successfulPiAndDirtyLocalUpdateExec(): ExecMock {
+  return vi.fn(async (command: string, args: string[]): Promise<ExecResult> => {
+    const key = `${command} ${args.join(" ")}`;
+    if (key === "pi update") return { code: 0, stdout: "pi updated\n" };
+    if (key === "git status --porcelain") return { code: 0, stdout: " M extensions/ddotz-autopilot/index.ts\n" };
+    throw new Error(`Unexpected exec: ${key}`);
+  });
+}
+
+function failedPiUpdateExec(): ExecMock {
+  return vi.fn(async (command: string, args: string[]): Promise<ExecResult> => {
+    const key = `${command} ${args.join(" ")}`;
+    if (key === "pi update") return { code: 1, stdout: "", stderr: "network unavailable\n" };
+    throw new Error(`Unexpected exec: ${key}`);
+  });
+}
+
 function successfulUpdateExec(changedFiles = "extensions/ddotz-autopilot/index.ts\n"): ExecMock {
   let shortHeadCalls = 0;
   return vi.fn(async (command: string, args: string[]): Promise<ExecResult> => {
@@ -91,10 +108,20 @@ function successfulUpdateExec(changedFiles = "extensions/ddotz-autopilot/index.t
   });
 }
 
+function successfulPiAndLocalUpdateExec(changedFiles = "extensions/ddotz-autopilot/index.ts\n"): ExecMock {
+  const localUpdateExec = successfulUpdateExec(changedFiles);
+  return vi.fn(async (command: string, args: string[], options?: Record<string, unknown>): Promise<ExecResult> => {
+    const key = `${command} ${args.join(" ")}`;
+    if (key === "pi update") return { code: 0, stdout: "pi updated\n" };
+    if (key === "pi update --self") return { code: 0, stdout: "pi self updated\n" };
+    return localUpdateExec(command, args, options);
+  });
+}
+
 describe("ddotz-pi auto update", () => {
-  it("registers /update and fast-forwards a clean ddotz-pi checkout before reloading", async () => {
+  it("registers /update and runs canonical pi update before the local ddotz-pi checkout update", async () => {
     await useTempAgentDir();
-    const exec = successfulUpdateExec("package.json\npnpm-lock.yaml\nextensions/ddotz-autopilot/index.ts\n");
+    const exec = successfulPiAndLocalUpdateExec("package.json\npnpm-lock.yaml\nextensions/ddotz-autopilot/index.ts\n");
     const { commands } = setupAutopilot(exec);
     const waitForIdle = vi.fn().mockResolvedValue(undefined);
     const reload = vi.fn().mockResolvedValue(undefined);
@@ -105,6 +132,7 @@ describe("ddotz-pi auto update", () => {
     await commands.get("update")!.handler("", { cwd: "/repo", waitForIdle, reload, ui: { notify } });
 
     const execKeys = exec.mock.calls.map(([command, args]) => `${command} ${args.join(" ")}`);
+    expect(execKeys[0]).toBe("pi update");
     expect(execKeys).toContain("git pull --ff-only");
     expect(execKeys).toContain("pnpm install --frozen-lockfile");
     expect(execKeys).toContain("pnpm run check");
@@ -114,17 +142,55 @@ describe("ddotz-pi auto update", () => {
     expect(notify).toHaveBeenCalledWith(expect.stringContaining("ddotz-pi updated: abc1234 -> def5678"), "info");
   });
 
-  it("reports local-change update skips as neutral info, not warnings", async () => {
+  it("forwards explicit pi update arguments instead of rejecting them as ddotz-pi subcommands", async () => {
     await useTempAgentDir();
-    const exec = dirtyCheckoutExec();
+    const exec = successfulPiAndLocalUpdateExec();
     const { commands } = setupAutopilot(exec);
+    const waitForIdle = vi.fn().mockResolvedValue(undefined);
     const reload = vi.fn().mockResolvedValue(undefined);
     const notify = vi.fn();
 
-    await commands.get("update")!.handler("", { cwd: "/repo", waitForIdle: vi.fn(), reload, ui: { notify } });
+    await commands.get("update")!.handler("--self", { cwd: "/repo", waitForIdle, reload, ui: { notify } });
 
-    expect(reload).not.toHaveBeenCalled();
+    const execKeys = exec.mock.calls.map(([command, args]) => `${command} ${args.join(" ")}`);
+    expect(execKeys).toEqual(["pi update --self"]);
+    expect(waitForIdle).toHaveBeenCalledTimes(1);
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(notify).not.toHaveBeenCalledWith(expect.stringContaining("Usage:"), "error");
+  });
+
+  it("reports local-change update skips as neutral info after canonical pi update", async () => {
+    await useTempAgentDir();
+    const exec = successfulPiAndDirtyLocalUpdateExec();
+    const { commands } = setupAutopilot(exec);
+    const waitForIdle = vi.fn().mockResolvedValue(undefined);
+    const reload = vi.fn().mockResolvedValue(undefined);
+    const notify = vi.fn();
+
+    await commands.get("update")!.handler("", { cwd: "/repo", waitForIdle, reload, ui: { notify } });
+
+    const execKeys = exec.mock.calls.map(([command, args]) => `${command} ${args.join(" ")}`);
+    expect(execKeys[0]).toBe("pi update");
+    expect(waitForIdle).toHaveBeenCalledTimes(1);
+    expect(reload).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith("ddotz-pi update skipped: local changes are present; leaving checkout unchanged.", "info");
+  });
+
+  it("stops before local update and reload when canonical pi update fails", async () => {
+    await useTempAgentDir();
+    const exec = failedPiUpdateExec();
+    const { commands } = setupAutopilot(exec);
+    const waitForIdle = vi.fn().mockResolvedValue(undefined);
+    const reload = vi.fn().mockResolvedValue(undefined);
+    const notify = vi.fn();
+
+    await commands.get("update")!.handler("", { cwd: "/repo", waitForIdle, reload, ui: { notify } });
+
+    const execKeys = exec.mock.calls.map(([command, args]) => `${command} ${args.join(" ")}`);
+    expect(execKeys).toEqual(["pi update"]);
+    expect(waitForIdle).not.toHaveBeenCalled();
+    expect(reload).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith("Failed pi update: network unavailable — exit 1.", "error");
   });
 
   it("does not warn when auto-update skips because local changes are present", async () => {
