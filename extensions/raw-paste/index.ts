@@ -68,17 +68,18 @@ export class RawPasteInputState {
   }
 }
 
-class RawPasteEditor extends CustomEditor {
-  private readonly rawPasteState = new RawPasteInputState();
+export interface RawPasteCompatibleEditor {
+  handleInput(data: string): void;
+}
 
-  constructor(
-    tui: CustomEditorConstructorArgs[0],
-    theme: CustomEditorConstructorArgs[1],
-    keybindings: CustomEditorConstructorArgs[2],
-    private readonly onArm?: () => void,
-  ) {
-    super(tui, theme, keybindings);
-  }
+type RawPasteEditorFactory = (...args: CustomEditorConstructorArgs) => any;
+
+export class RawPasteEditorController {
+  private readonly rawPasteState = new RawPasteInputState();
+  private attachedEditor: RawPasteCompatibleEditor | null = null;
+  private originalHandleInput: ((data: string) => void) | null = null;
+
+  constructor(private readonly onArm?: () => void) {}
 
   armRawPaste(): void {
     this.rawPasteState.arm();
@@ -89,10 +90,26 @@ class RawPasteEditor extends CustomEditor {
     this.rawPasteState.disarm();
   }
 
+  attach<T extends RawPasteCompatibleEditor>(editor: T): T {
+    this.attachedEditor = editor;
+    this.originalHandleInput = editor.handleInput.bind(editor);
+    editor.handleInput = (data: string) => {
+      if (this.rawPasteState.isActive() && this.handleRawPasteInput(data)) {
+        return;
+      }
+      this.originalHandleInput?.(data);
+    };
+    return editor;
+  }
+
+  private forwardInput(data: string): void {
+    this.originalHandleInput?.(data);
+  }
+
   private flushRawPaste(content: string): void {
     const normalized = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     for (const char of normalized) {
-      super.handleInput(char);
+      this.forwardInput(char);
     }
   }
 
@@ -101,29 +118,34 @@ class RawPasteEditor extends CustomEditor {
     if (!decision.handled) return false;
 
     if (decision.passthroughPrefix) {
-      super.handleInput(decision.passthroughPrefix);
+      this.forwardInput(decision.passthroughPrefix);
     }
     if (decision.pasteContent) {
       this.flushRawPaste(decision.pasteContent);
     }
     if (decision.remaining) {
-      this.handleInput(decision.remaining);
+      this.attachedEditor?.handleInput(decision.remaining);
     }
 
     return true;
   }
+}
 
-  override handleInput(data: string): void {
-    if (this.rawPasteState.isActive() && this.handleRawPasteInput(data)) {
-      return;
-    }
-
-    super.handleInput(data);
-  }
+export function createRawPasteEditorFactory(
+  previousFactory: RawPasteEditorFactory | undefined,
+  onController: (controller: RawPasteEditorController) => void,
+  onArm?: () => void,
+): RawPasteEditorFactory {
+  return (tui, theme, keybindings) => {
+    const controller = new RawPasteEditorController(onArm);
+    onController(controller);
+    const editor = previousFactory ? previousFactory(tui, theme, keybindings) : new CustomEditor(tui, theme, keybindings);
+    return controller.attach(editor);
+  };
 }
 
 export default function rawPaste(pi: ExtensionAPI) {
-  let editor: RawPasteEditor | null = null;
+  let controller: RawPasteEditorController | null = null;
 
   const notifyArmed = (ctx: ExtensionContext): void => {
     if (!ctx.hasUI) return;
@@ -131,32 +153,32 @@ export default function rawPaste(pi: ExtensionAPI) {
   };
 
   const armRawPaste = (ctx: ExtensionContext): void => {
-    if (!editor) {
+    if (!controller) {
       if (ctx.hasUI) {
         ctx.ui.notify("Raw paste editor is not ready.", "warning");
       }
       return;
     }
 
-    editor.armRawPaste();
+    controller.armRawPaste();
   };
 
   const cancelRawPaste = (ctx: ExtensionContext): void => {
-    editor?.disarmRawPaste();
+    controller?.disarmRawPaste();
     if (ctx.hasUI) ctx.ui.notify("Raw paste cancelled.", "info");
   };
 
   pi.on("session_start", (_event, ctx) => {
     if (!ctx.hasUI) return;
 
-    ctx.ui.setEditorComponent((tui, theme, keybindings) => {
-      editor = new RawPasteEditor(tui, theme, keybindings, () => notifyArmed(ctx));
-      return editor;
-    });
+    const previousFactory = ctx.ui.getEditorComponent?.() as RawPasteEditorFactory | undefined;
+    ctx.ui.setEditorComponent(createRawPasteEditorFactory(previousFactory, (nextController) => {
+      controller = nextController;
+    }, () => notifyArmed(ctx)));
   });
 
   pi.on("session_shutdown", () => {
-    editor = null;
+    controller = null;
   });
 
   pi.registerCommand("paste", {

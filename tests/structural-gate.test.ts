@@ -502,7 +502,7 @@ describe("structural gate guard", () => {
     expect(gateResult.details).toMatchObject({ ok: false, reason: expect.stringContaining("Medium confidence") });
   });
 
-  it("allows medium confidence only when completion is blocked with a concrete blocker", async () => {
+  it("allows medium confidence when completion is explicitly blocked with a concrete blocker", async () => {
     const { handlers, tools } = setupAutopilot();
     await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "외부 계정 설정까지 확인해", systemPrompt: "base", systemPromptOptions: {} });
 
@@ -515,6 +515,31 @@ describe("structural gate guard", () => {
         verificationEvidence: "Local checks passed; credentialed external verification was not run.",
         loopGovernance: "Step transitions stayed within the current plan and the remaining work is blocked, not silently appended.",
         completionBoundary: "Blocked by secret/account approval boundary; cannot safely continue autonomously.",
+        confidence: "Medium",
+        readyToComplete: false,
+        outcome: "blocked",
+      },
+      undefined,
+      undefined,
+      { cwd: "/repo" },
+    );
+
+    expect(gateResult.details).toMatchObject({ ok: true });
+  });
+
+  it("still rejects readyToComplete=false when no blocked or deferred outcome is declared", async () => {
+    const { handlers, tools } = setupAutopilot();
+    await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "검증까지 마무리해", systemPrompt: "base", systemPromptOptions: {} });
+
+    const gateResult = await tools.get("structural_gate")!.execute(
+      "gate-false-no-outcome",
+      {
+        acceptanceFit: "Requested outcome was not satisfied.",
+        runtimeFit: "Runtime verification is incomplete.",
+        failureModes: "No concrete approval boundary or deferral was declared.",
+        verificationEvidence: "Only partial checks ran.",
+        loopGovernance: "Step transitions stayed within the current plan.",
+        completionBoundary: "Cannot complete yet.",
         confidence: "Medium",
         readyToComplete: false,
       },

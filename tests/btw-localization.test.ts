@@ -23,6 +23,14 @@ describe("local ddotz-pi BTW integration", () => {
     expect(content).not.toContain("Understood, continuing our side conversation.");
   });
 
+  it("keeps BTW side sessions read-only so guardrail enforcement stays in the main session", () => {
+    const content = readFileSync(join(process.cwd(), "extensions/btw.ts"), "utf8");
+
+    expect(content).toContain("export const BTW_SIDE_SESSION_TOOLS = [\"read\"] as const");
+    expect(content).toContain("읽기 전용");
+    expect(content).not.toContain("tools: [\"read\", \"bash\", \"edit\", \"write\"]");
+  });
+
   it("keeps the adopted MIT notice for the absorbed BTW source", () => {
     const notice = readFileSync(join(process.cwd(), "THIRD_PARTY_NOTICES.md"), "utf8");
 

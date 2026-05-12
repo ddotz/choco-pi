@@ -33,7 +33,7 @@ The autonomous PM/development-team base is always on. It is not a user-facing mo
 
 ## Work Modes
 
-Only `default` work mode is implemented. Planned modes are `coding`, `report`, `web-analysis`, and `adoption-analysis`. The agent must not claim planned modes are active. If the user explicitly asks to use one, ask whether to implement/switch it.
+Implemented built-in modes are `default`, `coding`, `report`, `web-analysis`, and `adoption-analysis`. `default` remains the persistent root generalist mode; specialized modes are applied as session-scoped overlays when the request benefits from them. The agent must not ask to switch modes when a safe temporary overlay can satisfy the request.
 
 Folder layout:
 
@@ -47,7 +47,7 @@ modes/
   adoption-analysis/MODE.md
 ```
 
-Each mode inherits `_base` and adds a focused overlay. For example, `default` remains general and may do coding, while `report` can later add evidence structure, source notes, and writing-specific output rules. Custom modes follow `modes/<mode-id>/MODE.md`; `/mode add` registers them and writes runtime files under `~/.pi/agent/ddotz-pi/modes/`.
+Each mode inherits `_base` and adds a focused overlay. `default` remains general and may apply coding/report/web/adoption expertise temporarily, while specialized modes add their own evidence, verification, and output guards without changing persistent mode. Custom modes follow `modes/<mode-id>/MODE.md`; `/mode add` registers them and writes runtime files under `~/.pi/agent/ddotz-pi/modes/`.
 
 ## Execution Intensity
 

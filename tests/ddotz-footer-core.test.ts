@@ -5,6 +5,7 @@ import {
   formatModelLabel,
   formatPath,
   formatRateLimits,
+  formatWorkModeLabel,
   parseClaudeHudCacheJson,
   parseClaudeStatuslineCache,
   selectCodexRateLimit,
@@ -35,14 +36,14 @@ const codexResponse = {
 };
 
 describe("ddotz footer core", () => {
-  it("formats branch version, mode, and run state at the end", () => {
+  it("formats branch version, effective mode, intensity, and run state at the end", () => {
     const lines = buildFooterLines({
       modelLabel: "GPT-5.5 Codex",
       branch: "main",
       cwd: "~/.pi/agent",
       thinkingLevel: "xhigh",
       appVersion: "0.1.2",
-      modeLabel: "default",
+      modeLabel: formatWorkModeLabel({ persistentMode: "default", effectiveMode: "report", executionIntensity: "standard", automaticMode: true }),
       rateLimitText: "5h:1% wk:18%",
       contextText: "0.8%",
       costText: "$0.01",
@@ -53,7 +54,7 @@ describe("ddotz footer core", () => {
 
     expect(lines).toEqual([
       "GPT-5.5 Codex | ⎇ main v0.1.2 | ~/.pi/agent | ◉ xhigh",
-      "  default | 5h:1% wk:18% | ctx 0.8% | $0.01 | tools:4 | todo 1/3 | Ready",
+      "  default->report/standard auto | 5h:1% wk:18% | ctx 0.8% | $0.01 | tools:4 | todo 1/3 | Ready",
     ]);
   });
 

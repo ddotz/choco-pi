@@ -86,7 +86,7 @@ function successfulUpdateExec(changedFiles = "extensions/ddotz-autopilot/index.t
     if (key === "git diff --name-only HEAD..@{u}") return { code: 0, stdout: changedFiles };
     if (key === "git pull --ff-only") return { code: 0, stdout: "Updating abc1234..def5678\n" };
     if (key === "pnpm install --frozen-lockfile") return { code: 0, stdout: "Lockfile is up to date\n" };
-    if (key === "pnpm run version:check") return { code: 0, stdout: "version sync ok\n" };
+    if (key === "pnpm run check") return { code: 0, stdout: "version/lint/typecheck/test ok\n" };
     throw new Error(`Unexpected exec: ${key}`);
   });
 }
@@ -107,7 +107,8 @@ describe("ddotz-pi auto update", () => {
     const execKeys = exec.mock.calls.map(([command, args]) => `${command} ${args.join(" ")}`);
     expect(execKeys).toContain("git pull --ff-only");
     expect(execKeys).toContain("pnpm install --frozen-lockfile");
-    expect(execKeys).toContain("pnpm run version:check");
+    expect(execKeys).toContain("pnpm run check");
+    expect(execKeys).not.toContain("pnpm run version:check");
     expect(waitForIdle).toHaveBeenCalledTimes(1);
     expect(reload).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith(expect.stringContaining("ddotz-pi updated: abc1234 -> def5678"), "info");

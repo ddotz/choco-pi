@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const DEFAULT_AUTO_UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const UPDATE_TIMEOUT_MS = 2 * 60 * 1000;
 const INSTALL_TIMEOUT_MS = 5 * 60 * 1000;
-const VERIFY_TIMEOUT_MS = 2 * 60 * 1000;
+const VERIFY_TIMEOUT_MS = 5 * 60 * 1000;
 
 export type DdotzUpdateStatus = "updated" | "current" | "skipped" | "failed";
 
@@ -274,8 +274,8 @@ export async function runDdotzPiUpdate(services: AutoUpdateServices, options: Ru
     dependencyInstall = "ran";
   }
 
-  const verifyResult = await execChecked(services, "pnpm", ["run", "version:check"], packageRoot, signal, VERIFY_TIMEOUT_MS);
-  if (!verifyResult.ok) return failed(trigger, `version check failed: ${verifyResult.reason}`, { upstream, ahead: counts.ahead, behind: counts.behind, oldRevision, changedFiles, dependencyInstall, verification: "ran" });
+  const verifyResult = await execChecked(services, "pnpm", ["run", "check"], packageRoot, signal, VERIFY_TIMEOUT_MS);
+  if (!verifyResult.ok) return failed(trigger, `quality gate failed: ${verifyResult.reason}`, { upstream, ahead: counts.ahead, behind: counts.behind, oldRevision, changedFiles, dependencyInstall, verification: "ran" });
 
   const newRevisionResult = await execChecked(services, "git", ["rev-parse", "--short", "HEAD"], packageRoot, signal);
   const newRevision = newRevisionResult.ok ? newRevisionResult.result.stdout.trim() : undefined;

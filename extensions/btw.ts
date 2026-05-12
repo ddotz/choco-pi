@@ -36,6 +36,7 @@ const BTW_RESET_TYPE = "btw-thread-reset";
 const BTW_MODEL_OVERRIDE_TYPE = "btw-model-override";
 const BTW_THINKING_OVERRIDE_TYPE = "btw-thinking-override";
 const BTW_FOCUS_SHORTCUTS = [Key.alt("/"), Key.ctrlAlt("w")] as const;
+export const BTW_SIDE_SESSION_TOOLS = ["read"] as const;
 
 function matchesBtwFocusShortcut(data: string): boolean {
   return BTW_FOCUS_SHORTCUTS.some((shortcut) => matchesKey(data, shortcut));
@@ -46,6 +47,7 @@ const BTW_SYSTEM_PROMPT = [
   "메인 세션 메시지가 제공되면 맥락 참고용으로만 사용하세요. 그 작업은 다른 에이전트가 처리 중입니다.",
   "메인 세션 메시지가 없으면 완전히 독립된 tangent thread로 간주하고 사용자의 말과 일반 지시만 따르세요.",
   "사용자의 부가 질문에 답하고, 아이디어를 정리하고, 다음 단계를 계획하는 데 집중하세요.",
+  "이 사이드 세션은 읽기 전용입니다. 파일 수정, 셸 실행, 배포, 외부 전송이 필요하면 직접 실행하지 말고 메인 세션에 주입할 요청문으로 정리하세요.",
   "사용자가 명시적으로 메인 세션에 주입할 내용을 준비하라고 하지 않는 한, 메인 세션의 미완료 작업을 이어받는 것처럼 행동하지 마세요.",
   "최종 사용자 답변은 반드시 한국어 존댓말로 작성하세요. 사용자가 다른 언어를 명시하면 그 언어를 따르되, 원래 사용자 요청 언어와 출력 형식을 유지하세요.",
   "답변은 ddotz-pi 스타일에 맞게 간결하고 직접적으로 작성하며, 과한 칭찬이나 제안형 마무리를 피하세요.",
@@ -1564,8 +1566,8 @@ export default function (pi: ExtensionAPI) {
       model: settings.model,
       modelRegistry: ctx.modelRegistry as AgentSession["modelRegistry"],
       thinkingLevel: settings.thinkingLevel,
-      // Match pi's default coding-agent toolset (read/bash/edit/write).
-      tools: ["read", "bash", "edit", "write"],
+      // Keep side sessions read-only so ddotz guardrail-enforced writes stay in the main session.
+      tools: [...BTW_SIDE_SESSION_TOOLS],
       resourceLoader: createBtwResourceLoader(ctx),
     });
 

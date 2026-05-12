@@ -134,7 +134,7 @@ export function formatModeResourcePolicy(policy: ModeResourcePolicy): string {
 
   return [
     "#### Mode-scoped resources",
-    `- Skills active by policy: ${policy.skills.join(", ") || "none"}`,
+    `- Preferred skills/resources (use when available; otherwise state fallback): ${policy.skills.join(", ") || "none"}`,
     "- Extension/plugin guidance:",
     ...policy.extensionGuidance.map((item) => `  - ${item}`),
     "- Tool/process priority:",

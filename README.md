@@ -6,7 +6,7 @@ Personal Pi package for a default-root all-purpose generalist workflow.
 
 ## Status
 
-- Current package version: `0.9.2`.
+- Current package version: `0.9.3`.
 - Implemented work modes: `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`.
 - Planned work modes: none.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.

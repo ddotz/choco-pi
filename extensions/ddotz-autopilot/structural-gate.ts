@@ -49,6 +49,7 @@ const StructuralGateParams = Type.Object({
   completionBoundary: Type.String({ description: "Why it is safe to stop now, or what concrete blocker remains." }),
   confidence: StringEnum(["High", "Medium", "Low"] as const, { description: "Confidence after the structural gate." }),
   readyToComplete: Type.Boolean({ description: "True only when the requested outcome is satisfied, verification passed, and no critical in-scope issue remains." }),
+  outcome: Type.Optional(StringEnum(["complete", "blocked", "deferred"] as const, { description: "Use complete for successful completion; use blocked or deferred when stopping without completion is the correct boundary." })),
 });
 
 const LoopTransitionParams = Type.Object({
@@ -139,6 +140,18 @@ function nonEmptyOrFinal(value: string): boolean {
   return value.trim() === "final" || nonEmpty(value);
 }
 
+function structuralOutcome(review: StructuralGateReview): "complete" | "blocked" | "deferred" {
+  return review.outcome ?? "complete";
+}
+
+function hasConcreteStopEvidence(review: StructuralGateReview, outcome: "blocked" | "deferred"): boolean {
+  const haystack = `${review.failureModes}\n${review.loopGovernance}\n${review.completionBoundary}`;
+  if (outcome === "blocked") {
+    return /blocked|approval|boundary|secret|credential|account|cannot|can't|unable|external|블로커|차단|승인|경계|비밀|계정|권한|외부|진행할 수|대기/i.test(haystack);
+  }
+  return /deferred|optional|new[- ]?scope|follow[- ]?up|out of scope|보류|선택|별도\s*범위|새\s*범위|후속/i.test(haystack);
+}
+
 export function recordLoopTransitionReview(state: StructuralGateState, review: LoopTransitionReview): { ok: boolean; reason?: string } {
   if (!state.current) startStructuralGateTurn(state, "");
   const missing = [
@@ -205,6 +218,28 @@ export function recordStructuralGateReview(state: StructuralGateState, review: S
     turn.passed = false;
     turn.rejectionReason = reason;
     return { ok: false, reason };
+  }
+
+  const outcome = structuralOutcome(review);
+  if (outcome !== "complete") {
+    if (review.readyToComplete) {
+      const reason = `${outcome} outcome cannot use readyToComplete=true`;
+      turn.passed = false;
+      turn.rejectionReason = reason;
+      return { ok: false, reason };
+    }
+
+    if (!hasConcreteStopEvidence(review, outcome)) {
+      const reason = `${outcome} outcome requires concrete stop evidence in failureModes, loopGovernance, or completionBoundary`;
+      turn.passed = false;
+      turn.rejectionReason = reason;
+      return { ok: false, reason };
+    }
+
+    turn.passed = true;
+    turn.rejectionReason = undefined;
+    clearRepairState(turn);
+    return { ok: true };
   }
 
   if (!review.readyToComplete) {
@@ -363,7 +398,7 @@ export function createStructuralGateTool(state: StructuralGateState): ToolDefini
       "For non-trivial problem-solving/development turns, call structural_gate before final completion reporting.",
       "If structural_gate cannot pass, continue fixing/verifying instead of claiming completion.",
       "structural_gate.loopGovernance must state that step/todo transitions stayed within the current plan and that any new work after the current todo used new steering/new loop or was deferred.",
-      "If structural_gate confidence would be Medium, do not complete. Reinforce verification to reach High, or set readyToComplete=false with a concrete blocker.",
+      "If structural_gate confidence would be Medium, do not complete. Reinforce verification to reach High, or use outcome=blocked/deferred with readyToComplete=false and concrete stop evidence when stopping is the correct boundary.",
     ],
     parameters: StructuralGateParams,
     renderShell: "self",

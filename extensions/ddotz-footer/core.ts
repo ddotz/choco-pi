@@ -80,6 +80,13 @@ export function reduceRunState(snapshot: RunStateSnapshot, transition: RunStateT
   }
 }
 
+export interface WorkModeLabelInput {
+  persistentMode?: string | null;
+  effectiveMode?: string | null;
+  executionIntensity?: string | null;
+  automaticMode?: boolean | null;
+}
+
 export interface FooterLineInput {
   modelLabel: string;
   branch?: string | null;
@@ -134,6 +141,21 @@ export function formatModelLabel(model?: MinimalModel | null): string {
   if (kind === "anthropic" && /^claude/i.test(base)) return base;
   if (kind === "gemini" && /^gemini/i.test(base)) return base;
   return base;
+}
+
+function cleanLabel(value: string | null | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed || undefined;
+}
+
+export function formatWorkModeLabel(input: WorkModeLabelInput): string {
+  const persistent = cleanLabel(input.persistentMode) ?? "default";
+  const effective = cleanLabel(input.effectiveMode);
+  const intensity = cleanLabel(input.executionIntensity);
+  const mode = effective && effective !== persistent ? `${persistent}->${effective}` : persistent;
+  const intensitySuffix = intensity ? `/${intensity}` : "";
+  const automaticSuffix = input.automaticMode ? " auto" : "";
+  return `${mode}${intensitySuffix}${automaticSuffix}`;
 }
 
 export function formatPath(cwd: string, home = process.env.HOME || process.env.USERPROFILE || ""): string {

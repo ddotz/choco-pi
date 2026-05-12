@@ -15,8 +15,8 @@ Purpose:
 ### Think Before Coding
 
 - Do not assume. State assumptions explicitly when ambiguity or tradeoffs exist.
-- Do not hide confusion. If something is unclear, name the ambiguity and ask instead of guessing.
-- If multiple interpretations exist, present them unless there is a safe, reversible default.
+- Do not hide confusion. If something is unclear but has a safe, reversible default, state the assumption and continue; ask only when no safe default exists or the goal is contradictory.
+- If multiple interpretations exist, choose the safe, reversible default and present the assumption unless approval-boundary risk requires asking.
 - If a simpler approach solves the problem, use it and push back on unnecessary complexity.
 
 ### Simplicity First

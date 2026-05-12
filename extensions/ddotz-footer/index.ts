@@ -4,13 +4,15 @@ import { truncateToWidth } from "@mariozechner/pi-tui";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   createRunStateSnapshot,
   detectProviderKind,
   formatModelLabel,
   formatPath,
   formatRateLimits,
+  formatWorkModeLabel,
   parseClaudeHudCacheJson,
   parseClaudeStatuslineCache,
   reduceRunState,
@@ -34,7 +36,7 @@ const GIT_BRANCH_FALLBACK_TTL_MS = 1000;
 const GIT_BRANCH_FALLBACK_TIMEOUT_MS = 250;
 const CODEX_FAST_MODE_STATE_PATH = join(homedir(), ".pi", "agent", "codex-fast-mode.json");
 const DDOTZ_STATE_PATH = join(homedir(), ".pi", "agent", "ddotz-pi", "state.json");
-const DDOTZ_REPO_DIR = join(homedir(), "code", "ddotz-pi");
+const DDOTZ_REPO_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const DDOTZ_PACKAGE_JSON_PATH = join(DDOTZ_REPO_DIR, "package.json");
 
 function readDdotzVersion(): string | undefined {
@@ -47,11 +49,24 @@ function readDdotzVersion(): string | undefined {
   }
 }
 
-function readDdotzModeLabel(): string {
+function readDdotzModeLabel(sessionId?: string): string {
   try {
     if (!existsSync(DDOTZ_STATE_PATH)) return "default";
-    const parsed = JSON.parse(readFileSync(DDOTZ_STATE_PATH, "utf8")) as { runtime?: { workMode?: unknown } };
-    return typeof parsed.runtime?.workMode === "string" ? parsed.runtime.workMode : "default";
+    const parsed = JSON.parse(readFileSync(DDOTZ_STATE_PATH, "utf8")) as {
+      runtime?: { workMode?: unknown; executionIntensity?: unknown };
+      sessions?: Record<string, { effectiveWorkMode?: unknown; executionIntensity?: unknown; automaticMode?: unknown }>;
+    };
+    const session = sessionId ? parsed.sessions?.[normalizeSessionId(sessionId)] : undefined;
+    return formatWorkModeLabel({
+      persistentMode: typeof parsed.runtime?.workMode === "string" ? parsed.runtime.workMode : "default",
+      effectiveMode: typeof session?.effectiveWorkMode === "string" ? session.effectiveWorkMode : undefined,
+      executionIntensity: typeof session?.executionIntensity === "string"
+        ? session.executionIntensity
+        : typeof parsed.runtime?.executionIntensity === "string"
+          ? parsed.runtime.executionIntensity
+          : undefined,
+      automaticMode: typeof session?.automaticMode === "boolean" ? session.automaticMode : false,
+    });
   } catch {
     return "default";
   }
@@ -434,7 +449,7 @@ function collectFooterData(
     todoLabel: todo.label,
     todoError: todo.error,
     appVersion: readDdotzVersion(),
-    modeLabel: readDdotzModeLabel(),
+    modeLabel: readDdotzModeLabel(ctx.sessionManager.getSessionId()),
     runStateLabel: runState.label,
   };
 }
