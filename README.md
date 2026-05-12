@@ -6,7 +6,7 @@ Personal Pi package for a default-root all-purpose generalist workflow.
 
 ## Status
 
-- Current package version: `0.9.3`.
+- Current package version: `0.9.4`.
 - Implemented work modes: `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`.
 - Planned work modes: none.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
@@ -614,7 +614,7 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 - Prefer isolated git worktrees for parallel/multi-session work. Todo and ledger state are session-scoped by default; use project-shared todos only when explicitly needed.
 - `web-analysis` retrieval/review policy and message-end quality guardrail are active only while that mode is active.
 - `adoption-analysis` does not replace default adoption capability; it adds mode-scoped decision, adoption-depth, fit/risk, scope, tracking, and confidence quality guardrails only while active.
-- `report` adds mode-scoped evidence ledgers, confidence double-check/triple-check rules, Kami-derived layout guidance, and im-not-ai-derived Korean polishing only while active.
+- `report` adds mode-scoped evidence ledgers, confidence double-check/triple-check rules, a concrete `kami` skill plus artifact-only Kami-derived layout workflow, and im-not-ai-derived Korean polishing only while active.
 - `coding` adds mode-scoped TDD-first execution, systematic debugging, simplicity/surgical-diff discipline, tight verification loops, and coding completion quality guardrails only while active.
 - The `source_registry` tool is the Pi-native LLM path for autonomous source tracking; use `watch` when a source is relevant but not safe or ready to adopt.
 - Commit and push autonomously after verification when the working tree contains intentional in-scope changes and a remote is configured; normal `git push` is routine source synchronization, not deployment.

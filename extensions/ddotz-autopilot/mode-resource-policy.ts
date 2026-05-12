@@ -63,7 +63,8 @@ const REPORT_POLICY: ModeResourcePolicy = {
   mode: "report",
   skills: ["insane-search", "kami"],
   extensionGuidance: [
-    "Use Kami-derived layout constraints for report artifacts; do not vendor upstream templates wholesale.",
+    "Use the kami skill when available for report artifacts and design specs; otherwise apply local Kami-derived constraints and state the fallback when layout fidelity matters.",
+    "Use Kami-derived layout only for artifacts or design specs; omit visual styling discussion for plain chat/status answers.",
     "Use im-not-ai-derived Korean polishing rules as report-mode policy; do not depend on Claude-only agents or commands.",
     "Keep report-mode source, layout, and polishing guardrails isolated from default mode.",
   ],
@@ -74,6 +75,8 @@ const REPORT_POLICY: ModeResourcePolicy = {
     "formula-based calculation before numeric estimation",
     "logic review before polishing",
     "Kami layout and im-not-ai polishing after evidence is stable",
+    "MD source and evidence sidecar before DOCX/PDF conversion",
+    "artifact QA before returning generated report files",
   ],
   processPriorities: [
     "factual confidence before narrative polish",

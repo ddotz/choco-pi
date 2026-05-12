@@ -25,8 +25,9 @@ const REPORT_GARDENING_PROCESS = [
   "6. Partition the report into parts and sections, then run section-only drafting and review in C-level Korean report style: concise, decision-oriented, low-adjective, data-first, and direct. Keep each natural paragraph under 300 Korean characters unless preserving a direct quote or legal/technical excerpt requires otherwise.",
   "7. Run a logic gardening pass inside each section: map claim → evidence → inference → implication, then check conflicts, stale sources, single-source dependence, incentives, missing base rates, unsupported causal jumps, and formula-bound calculations.",
   "8. Run the cross-section pass, then the whole-report pass, before final layout or polish. Numeric consistency is strict: reconcile tables, totals, percentages, dates, and formula outputs across sections.",
-  "9. Apply Kami-derived layout constraints for final artifacts: warm parchment surface, ink-blue single accent, restrained serif-led hierarchy, compact executive summary, evidence notes, clear section breaks, and appendix/reference separation.",
-  "10. Apply im-not-ai-derived polishing as a final pass: meaning-invariant edits only, span-grounded changes, preserve numbers/proper nouns/direct quotes, maintain professional report register, warn above 30% rewrite rate, and stop/rollback above 50% rewrite rate.",
+  "9. For artifact or design spec outputs, load/use the kami skill when available and apply Kami-derived layout constraints after evidence is stable. For plain chat/status answers, omit visual styling discussion.",
+  "10. For generated report files, keep an MD source plus appendix or evidence sidecar, then run DOCX/PDF/HTML conversion only when requested and perform artifact QA before returning files.",
+  "11. Apply im-not-ai-derived polishing as a final pass: meaning-invariant edits only, span-grounded changes, preserve numbers/proper nouns/direct quotes, maintain professional report register, warn above 30% rewrite rate, and stop/rollback above 50% rewrite rate.",
 ] as const;
 
 const REQUIRED_REPORT_OUTPUT_CONTRACT = [
@@ -35,6 +36,7 @@ const REQUIRED_REPORT_OUTPUT_CONTRACT = [
   "- Evidence ledger: enough provenance for every key claim; fold noisy detail when the final channel benefits from brevity.",
   "- Main report: facts, analysis, recommendations, and open risks separated clearly.",
   "- Critical review: conflicts, weak evidence, assumptions, and what would change the conclusion.",
+  "- File artifacts: when a report file is requested, preserve the MD source, keep evidence in an appendix or evidence sidecar, and report artifact QA evidence.",
   "- Confidence: High only when the evidence ledger, double-check/triple-check rules, logic review, and polishing guard all pass.",
 ] as const;
 

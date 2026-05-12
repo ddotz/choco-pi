@@ -43,9 +43,10 @@ Purpose:
 5. Run logic review: claim → evidence → inference → implication.
 6. Check conflicts, stale data, missing base rates, single-source dependence, incentives, unsupported causal jumps, and strict numeric consistency.
 7. Draft the report in C-level Korean style.
-8. Apply Kami-derived layout constraints.
-9. Apply im-not-ai-derived polishing while preserving meaning.
-10. Final QA: evidence ledger, paragraph length, citation integrity, critical review, formula-based calculations, and confidence boundary.
+8. For an artifact or design spec, load/use the `kami` skill when available and apply Kami-derived layout constraints after evidence is stable; omit visual styling discussion for plain chat/status answers.
+9. For file artifacts, keep an MD source plus appendix or `<report>.evidence.md` evidence sidecar before DOCX/PDF/HTML conversion.
+10. Apply im-not-ai-derived polishing while preserving meaning.
+11. Final QA: evidence ledger, paragraph length, citation integrity, critical review, formula-based calculations, artifact QA when a file is generated, and confidence boundary.
 
 ## Writing style
 
@@ -57,9 +58,10 @@ Purpose:
 
 ## Kami-derived layout policy
 
-- Use a warm parchment surface, ink-blue single accent, restrained serif-led hierarchy, compact executive summary, clear section breaks, evidence notes, and appendix/reference separation.
-- Treat Kami as a design constraint source, not a dependency that must be vendored wholesale.
+- Use a warm parchment surface, ink-blue single accent, restrained serif-led hierarchy, compact executive summary, clear section breaks, evidence notes, and appendix/reference separation only for artifacts or design specs.
+- Treat Kami as a design constraint source, not a dependency that must be vendored wholesale; if the `kami` skill is unavailable, state the local-constraint fallback only when layout fidelity matters.
 - Do not use Kami's Chinese Tsanger font as the Korean default because of commercial licensing risk; use Korean-safe system or project-approved fonts.
+- For plain chat reports or status answers, preserve report structure but do not discuss parchment, fonts, or visual styling.
 
 ## im-not-ai-derived polishing policy
 
@@ -75,4 +77,5 @@ Purpose:
 - Evidence ledger or evidence notes: enough provenance for key claims.
 - Main report: facts, analysis, recommendations, and open risks separated clearly.
 - Critical review: conflicts, weak evidence, assumptions, and what would change the conclusion.
+- File artifacts: preserve the MD source, evidence appendix or evidence sidecar, and artifact QA notes when a report file is generated.
 - Confidence: High only when evidence, double-check/triple-check rules, logic review, and polishing guard all pass.

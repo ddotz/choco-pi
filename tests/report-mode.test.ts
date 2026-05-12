@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildModeResourcePolicy } from "../extensions/ddotz-autopilot/mode-resource-policy";
 import { buildAutopilotSystemPrompt } from "../extensions/ddotz-autopilot/policy";
@@ -47,6 +49,10 @@ describe("report mode isolation", () => {
       "Kami-derived layout",
       "im-not-ai-derived polishing",
       "meaning-invariant",
+      "artifact or design spec",
+      "MD source",
+      "evidence sidecar",
+      "artifact QA",
     ]);
   });
 
@@ -62,10 +68,13 @@ describe("report mode isolation", () => {
     const policy = buildModeResourcePolicy("report");
     expect(policy.mode).toBe("report");
     expect(policy.skills).toEqual(["insane-search", "kami"]);
-    expect(policy.extensionGuidance).toContain("Use Kami-derived layout constraints for report artifacts; do not vendor upstream templates wholesale.");
+    expect(policy.extensionGuidance).toContain("Use the kami skill when available for report artifacts and design specs; otherwise apply local Kami-derived constraints and state the fallback when layout fidelity matters.");
+    expect(policy.extensionGuidance).toContain("Use Kami-derived layout only for artifacts or design specs; omit visual styling discussion for plain chat/status answers.");
     expect(policy.extensionGuidance).toContain("Use im-not-ai-derived Korean polishing rules as report-mode policy; do not depend on Claude-only agents or commands.");
     expect(policy.toolPriority).toContain("evidence ledger before synthesis");
     expect(policy.toolPriority).toContain("formula-based calculation before numeric estimation");
+    expect(policy.toolPriority).toContain("MD source and evidence sidecar before DOCX/PDF conversion");
+    expect(policy.toolPriority).toContain("artifact QA before returning generated report files");
     expect(policy.processPriorities).toContain("factual confidence before narrative polish");
     expect(policy.processPriorities).toContain("section-only drafting before cross-section review before whole-report critique");
   });
@@ -81,6 +90,22 @@ describe("report mode isolation", () => {
       "review and improve each section in isolation before checking other sections",
       "cross-check consistency, logical structure, sentence flow, and numeric consistency across sections",
       "Formula-bound numbers must be calculated from the stated formula, not estimated",
+    ]);
+  });
+
+  it("ships a concrete Kami skill for report artifact layout instead of only naming the resource", () => {
+    const skillPath = join(process.cwd(), "skills", "kami", "SKILL.md");
+    expect(existsSync(skillPath)).toBe(true);
+
+    const skill = readFileSync(skillPath, "utf8");
+    expectContainsAll(skill, [
+      "name: kami",
+      "Use when producing report artifacts",
+      "warm parchment",
+      "ink-blue",
+      "Korean-safe",
+      "<report>.evidence.md",
+      "artifact QA",
     ]);
   });
 });
