@@ -5,7 +5,6 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   createRunStateSnapshot,
   detectProviderKind,
@@ -16,7 +15,6 @@ import {
   parseClaudeHudCacheJson,
   parseClaudeStatuslineCache,
   reduceRunState,
-  resolveFooterBranch,
   selectCodexRateLimit,
   summarizeTodosJson,
   type CodexRateLimitResponse,
@@ -36,16 +34,29 @@ const GIT_BRANCH_FALLBACK_TTL_MS = 1000;
 const GIT_BRANCH_FALLBACK_TIMEOUT_MS = 250;
 const CODEX_FAST_MODE_STATE_PATH = join(homedir(), ".pi", "agent", "codex-fast-mode.json");
 const DDOTZ_STATE_PATH = join(homedir(), ".pi", "agent", "ddotz-pi", "state.json");
-const DDOTZ_REPO_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const DDOTZ_PACKAGE_JSON_PATH = join(DDOTZ_REPO_DIR, "package.json");
 
-function readDdotzVersion(): string | undefined {
-  try {
-    if (!existsSync(DDOTZ_PACKAGE_JSON_PATH)) return undefined;
-    const parsed = JSON.parse(readFileSync(DDOTZ_PACKAGE_JSON_PATH, "utf8")) as { version?: unknown };
-    return typeof parsed.version === "string" ? parsed.version : undefined;
-  } catch {
-    return undefined;
+export interface FooterProjectMetadata {
+  branch: string | null;
+  version: string | undefined;
+}
+
+export function readProjectPackageVersion(cwd: string): string | undefined {
+  let current = resolve(cwd);
+
+  while (true) {
+    const packageJsonPath = join(current, "package.json");
+    try {
+      if (existsSync(packageJsonPath)) {
+        const parsed = JSON.parse(readFileSync(packageJsonPath, "utf8")) as { version?: unknown };
+        return typeof parsed.version === "string" ? parsed.version : undefined;
+      }
+    } catch {
+      return undefined;
+    }
+
+    const parent = dirname(current);
+    if (parent === current) return undefined;
+    current = parent;
   }
 }
 
@@ -81,8 +92,8 @@ function readCodexFastModeEnabled(): boolean {
   }
 }
 
-export function readGitBranchFallback(cwd: string): string | null {
-  const result = spawnSync("git", ["-C", cwd, "rev-parse", "--abbrev-ref", "HEAD"], {
+function readGitBranchCommand(cwd: string, args: string[]): string | null {
+  const result = spawnSync("git", ["-C", cwd, ...args], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
     timeout: GIT_BRANCH_FALLBACK_TIMEOUT_MS,
@@ -90,6 +101,17 @@ export function readGitBranchFallback(cwd: string): string | null {
   if (result.status !== 0) return null;
   const branch = typeof result.stdout === "string" ? result.stdout.trim() : "";
   return branch && branch !== "HEAD" ? branch : null;
+}
+
+export function readGitBranchFallback(cwd: string): string | null {
+  return readGitBranchCommand(cwd, ["symbolic-ref", "--short", "HEAD"]) ?? readGitBranchCommand(cwd, ["rev-parse", "--abbrev-ref", "HEAD"]);
+}
+
+export function readFooterProjectMetadata(cwd: string): FooterProjectMetadata {
+  return {
+    branch: readGitBranchFallback(cwd),
+    version: readProjectPackageVersion(cwd),
+  };
 }
 
 class GitBranchFallbackCache {
@@ -414,7 +436,7 @@ function renderStyledFooterLines(data: FooterRenderData, theme: Theme, width: nu
 
 function collectFooterData(
   ctx: ExtensionContext,
-  branch: string | null,
+  projectMetadata: FooterProjectMetadata,
   thinkingLevel: string,
   codexCache: CodexRateLimitCache,
   requestRender: () => void,
@@ -437,7 +459,7 @@ function collectFooterData(
   return {
     modelLabel: formatModelLabel(model),
     providerKind,
-    branch,
+    branch: projectMetadata.branch,
     cwd: formatPath(cwd),
     thinkingLevel,
     rateLimitText: formatRateLimits(rateLimitSnapshot),
@@ -448,7 +470,7 @@ function collectFooterData(
     toolCount: sessionStats.toolCount,
     todoLabel: todo.label,
     todoError: todo.error,
-    appVersion: readDdotzVersion(),
+    appVersion: projectMetadata.version,
     modeLabel: readDdotzModeLabel(ctx.sessionManager.getSessionId()),
     runStateLabel: runState.label,
   };
@@ -483,14 +505,12 @@ export default function ddotzFooterExtension(pi: ExtensionAPI) {
   const installFooter = (ctx: ExtensionContext): void => {
     if (!ctx.hasUI) return;
 
-    ctx.ui.setFooter((tui, theme, footerData) => {
+    ctx.ui.setFooter((tui, theme) => {
       const requestRender = () => tui.requestRender();
       renderCallbacks.add(requestRender);
-      const unsubscribeBranch = footerData.onBranchChange(requestRender);
 
       return {
         dispose() {
-          unsubscribeBranch();
           renderCallbacks.delete(requestRender);
         },
         invalidate() {},
@@ -499,10 +519,11 @@ export default function ddotzFooterExtension(pi: ExtensionAPI) {
           const model = ctx.model as MinimalModel | undefined;
           const thinkingLabel = codexFastModeEnabled && detectProviderKind(model) === "codex" ? `${baseThinkingLevel} fast` : baseThinkingLevel;
           const cwd = ctx.sessionManager.getCwd() || ctx.cwd;
-          const footerBranch = footerData.getGitBranch();
-          const cwdBranch = footerBranch ? null : gitBranchFallbackCache.get(cwd);
-          const packageBranch = footerBranch || cwdBranch ? null : gitBranchFallbackCache.get(DDOTZ_REPO_DIR);
-          const data = collectFooterData(ctx, resolveFooterBranch(footerBranch, cwdBranch, packageBranch), thinkingLabel, codexCache, requestRenderAll, runState);
+          const projectMetadata = {
+            branch: gitBranchFallbackCache.get(cwd),
+            version: readProjectPackageVersion(cwd),
+          };
+          const data = collectFooterData(ctx, projectMetadata, thinkingLabel, codexCache, requestRenderAll, runState);
           return renderStyledFooterLines(data, theme, width);
         },
       };
