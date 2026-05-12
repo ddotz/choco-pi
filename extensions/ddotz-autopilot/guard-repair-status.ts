@@ -20,7 +20,7 @@ export function repairAttemptKey(message: AssistantMessage, text: string, issues
 
 export function queueRepairForAttempt(repairState: GuardRepairState | undefined, key: string, prompt: string): string | undefined {
   if (!repairState) return prompt;
-  if (repairState.repairQueued && repairState.lastRepairKey === key) return undefined;
+  if (repairState.repairQueued) return undefined;
   repairState.repairQueued = true;
   repairState.lastRepairKey = key;
   return prompt;

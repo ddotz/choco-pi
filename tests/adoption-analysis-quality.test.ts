@@ -213,7 +213,7 @@ describe("adoption-analysis quality guardrails", () => {
     expect(repairCalls).toHaveLength(1);
   });
 
-  it("queues another adoption-analysis repair follow-up for a later failed repair attempt", async () => {
+  it("caps adoption-analysis repair follow-ups within one repair cycle", async () => {
     await useTempAgentDir();
     const handlers: Record<string, Array<(event: never, ctx: never) => unknown>> = {};
     type RegisteredCommand = { handler: (args: string, ctx: { ui: { notify: ReturnType<typeof vi.fn> } }) => Promise<void> };
@@ -257,7 +257,7 @@ describe("adoption-analysis quality guardrails", () => {
     for (const handler of handlers.message_end ?? []) await handler(laterFailedRepair, { cwd: "/repo" } as never);
 
     const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "ddotz.adoption_analysis_quality.repair");
-    expect(repairCalls).toHaveLength(2);
-    expect(repairCalls[1][0].content).toContain("missing-risk-review");
+    expect(repairCalls).toHaveLength(1);
+    expect(repairCalls[0][0].content).toContain("missing-adoption-depth");
   });
 });

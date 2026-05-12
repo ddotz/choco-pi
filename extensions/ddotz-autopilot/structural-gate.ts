@@ -356,6 +356,7 @@ export function guardAssistantMessage(state: StructuralGateState, message: Assis
 
   const key = repairAttemptKey(message, text, [reason]);
   const followUp = queueRepairForAttempt(turn, key, turn.passed ? continuationPromptText(reason) : repairPromptText(reason, text));
+  if (!followUp) return {};
 
   return { message: replacement, followUp };
 }

@@ -107,6 +107,22 @@ describe("coding quality guardrails", () => {
     expect(result.issues).toContain("missing-red-root-fix-green");
   });
 
+  it("does not treat no-console-error verification as a bug-fix completion by itself", () => {
+    const answer = [
+      "## Result",
+      "주가 대시보드 UI 구현 완료했습니다.",
+      "## Verification",
+      "- pnpm run lint && pnpm run test — passed",
+      "- gstack 브라우저 확인: console --clear 후 reload/load 기준 콘솔 오류 없음(no console errors).",
+      "## Confidence",
+      "High",
+    ].join("\n");
+
+    const result = evaluateCodingQuality("coding", answer);
+    expect(result.passed).toBe(true);
+    expect(result.issues).not.toContain("missing-red-root-fix-green");
+  });
+
   it("passes bug-fix completion reports with RED Root cause Fix GREEN chain", () => {
     const answer = [
       "## Result",
@@ -189,7 +205,7 @@ describe("coding quality guardrails", () => {
     expect(repairCalls).toHaveLength(1);
   });
 
-  it("queues another coding repair follow-up for a later failed repair attempt", async () => {
+  it("caps coding repair follow-ups within one repair cycle even when failed repair attempts differ", async () => {
     await useTempAgentDir();
     const handlers: Record<string, Array<(event: never, ctx: never) => unknown>> = {};
     type RegisteredCommand = { handler: (args: string, ctx: { ui: { notify: ReturnType<typeof vi.fn> } }) => Promise<void> };
@@ -233,7 +249,7 @@ describe("coding quality guardrails", () => {
     for (const handler of handlers.message_end ?? []) await handler(laterFailedRepair, { cwd: "/repo" } as never);
 
     const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "ddotz.coding_quality.repair");
-    expect(repairCalls).toHaveLength(2);
-    expect(repairCalls[1][0].content).toContain("missing-confidence");
+    expect(repairCalls).toHaveLength(1);
+    expect(repairCalls[0][0].content).toContain("missing-confidence");
   });
 });

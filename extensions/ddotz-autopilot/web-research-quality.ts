@@ -111,6 +111,7 @@ export function guardWebResearchQualityMessage(
 
   const key = repairAttemptKey(message, text, quality.issues);
   const followUp = queueRepairForAttempt(repairState, key, repairPrompt(quality));
+  if (!followUp) return {};
 
   return {
     message: {

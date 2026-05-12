@@ -86,7 +86,7 @@ describe("structural gate guard", () => {
     );
   });
 
-  it("queues another structural repair follow-up for a later failed repair attempt", async () => {
+  it("caps structural repair follow-ups within one repair cycle", async () => {
     const { handlers, sendMessage } = setupAutopilot();
     await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "버그 고치고 테스트까지 해줘", systemPrompt: "base", systemPromptOptions: {} });
 
@@ -97,8 +97,8 @@ describe("structural gate guard", () => {
     await emitFirst(handlers, "message_end", { type: "message_end", message: laterFailedRepair });
 
     const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "ddotz.structural_gate.repair");
-    expect(repairCalls).toHaveLength(2);
-    expect(repairCalls[1][0].content).toContain("structural_gate tool was not called");
+    expect(repairCalls).toHaveLength(1);
+    expect(repairCalls[0][0].content).toContain("structural_gate tool was not called");
   });
 
   it("rejects structural_gate reviews that omit loop governance evidence", async () => {

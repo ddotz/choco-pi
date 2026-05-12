@@ -68,7 +68,8 @@ function appearsToBeCodingCompletion(text: string): boolean {
 }
 
 function appearsToBeBugFixCompletion(text: string): boolean {
-  return /버그|\bbug\b|bug[- ]?fix|fixed\s+(?:the\s+)?bug|regression|회귀|오류|에러|고쳤|Root cause|RED|GREEN/i.test(text);
+  return /버그|\bbug\b|bug[- ]?fix|fixed\s+(?:the\s+)?bug|regression|회귀|고쳤|Root cause|RED|GREEN/i.test(text)
+    || /(오류|에러).{0,24}(수정|고쳤|해결|fix|fixed)|(수정|고쳤|해결|fix|fixed).{0,24}(오류|에러)/i.test(text);
 }
 
 function hasRedRootFixGreen(text: string): boolean {
@@ -135,6 +136,7 @@ export function guardCodingQualityMessage(
 
   const key = repairAttemptKey(message, text, quality.issues);
   const followUp = queueRepairForAttempt(repairState, key, repairPrompt(quality));
+  if (!followUp) return {};
 
   return {
     message: {
