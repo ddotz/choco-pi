@@ -7,7 +7,7 @@ description: Use when the user asks to build, fix, research, review, run, comple
 
 ## Prime Directive
 
-Drive work through the ddotz-pi root all-purpose generalist base. `default` is the canonical mode that best preserves the project philosophy: treat each user order as one managed project, execute the practical work, verify, and use implemented specialized overlays when useful. Structural gates remain non-negotiable. `default`, `web-analysis`, `adoption-analysis`, `report`, and `coding` are implemented work modes; no built-in mode is currently planned-only.
+Drive work through the ddotz-pi root all-purpose generalist base. `default` is the canonical mode that best preserves the project philosophy: treat each user order as one managed project, execute the practical work, verify, and use implemented specialized overlays when useful. Structural gates remain non-negotiable. `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`, and `design` are implemented work modes; no built-in mode is currently planned-only.
 
 ## Default Behavior
 
@@ -46,6 +46,7 @@ Use `/mode` as the canonical work-mode command. Run `/mode` with no arguments to
 - **adoption-analysis**: implemented mode-scoped external source/package/repo adoption review with explicit adoption depth, fit/risk review, scope, tracking decision, and message-end quality guardrails. It does not replace default adoption capability. Use the `source_registry` tool for autonomous tracking and `watch` for relevant sources that are not ready to adopt.
 - **report**: implemented evidence-led report-writing mode with source confidence gating, section-first drafting, Kami-derived layout guidance, and im-not-ai-derived Korean polishing.
 - **coding**: implemented TDD-first engineering mode with systematic debugging, surgical changes, tight verification loops, and coding completion quality guardrails.
+- **design**: implemented product/UI design mode for UX critique, visual systems, design briefs, and browser-backed design QA.
 - In `default`, autopilot may apply an implemented mode as a temporary session-scoped effective overlay for the current turn without persistently changing `/mode`.
 - Mode isolation is mandatory for every work mode, including future planned and custom modes.
 - New mode policies, skills, plugin/extension guidance, processes, priorities, tools, and guardrails must apply only while that mode is active.

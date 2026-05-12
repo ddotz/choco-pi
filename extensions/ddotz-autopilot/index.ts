@@ -64,6 +64,8 @@ import {
 } from "./auto-update";
 import { guardCodingQualityMessage, type CodingRepairState } from "./coding-quality";
 import { runGuardPipeline } from "./guard-orchestrator";
+import { discoverImNotAiSkillPath } from "./im-not-ai-dependency";
+import { discoverKamiSkillPath } from "./kami-dependency";
 import { guardReportQualityMessage, type ReportRepairState } from "./report-quality";
 import { registerRuntimeReload } from "./runtime-reload";
 import { resolveEffectiveWorkMode, sessionIdFromContext, sessionScopedKey } from "./session-scope";
@@ -521,6 +523,8 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   const reportRepairStates = new Map<string, ReportRepairState>();
 
   pi.on("resources_discover", async (_event, ctx) => discoverSuperpowersSkillPath(pi, ctx));
+  pi.on("resources_discover", async () => discoverKamiSkillPath());
+  pi.on("resources_discover", async (_event, ctx) => discoverImNotAiSkillPath(pi, ctx));
 
   pi.on("tool_call", async (event, ctx) => {
     const decision = classifyApprovalBoundaryToolCall(event.toolName, event.input);

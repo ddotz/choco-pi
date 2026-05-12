@@ -29,13 +29,19 @@ const BUILT_IN_MODES: Array<Omit<WorkModeDefinition, "createdAt" | "folder" | "i
   },
   {
     id: "coding",
-    description: "Implemented mode for TDD-first implementation, systematic debugging, surgical changes, tight verification, and coding completion quality guards.",
+    description: "Implemented TDD-first engineering mode with debugging, surgical diffs, tight verification, and completion guards.",
     status: "implemented",
     custom: false,
   },
   {
     id: "report",
-    description: "Implemented mode for evidence-led report writing, source confidence gating, Kami-derived layout, and im-not-ai-derived Korean polishing.",
+    description: "Implemented evidence-led report mode with source gates, Kami layout, and im-not-ai Korean polishing.",
+    status: "implemented",
+    custom: false,
+  },
+  {
+    id: "design",
+    description: "Implemented product/UI design mode for UX critique, visual systems, and browser-backed QA.",
     status: "implemented",
     custom: false,
   },

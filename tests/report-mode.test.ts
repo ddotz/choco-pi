@@ -67,10 +67,10 @@ describe("report mode isolation", () => {
 
     const policy = buildModeResourcePolicy("report");
     expect(policy.mode).toBe("report");
-    expect(policy.skills).toEqual(["insane-search", "kami"]);
+    expect(policy.skills).toEqual(["insane-search", "kami", "humanize-korean"]);
     expect(policy.extensionGuidance).toContain("Use the kami skill when available for report artifacts and design specs; otherwise apply local Kami-derived constraints and state the fallback when layout fidelity matters.");
     expect(policy.extensionGuidance).toContain("Use Kami-derived layout only for artifacts or design specs; omit visual styling discussion for plain chat/status answers.");
-    expect(policy.extensionGuidance).toContain("Use im-not-ai-derived Korean polishing rules as report-mode policy; do not depend on Claude-only agents or commands.");
+    expect(policy.extensionGuidance).toContain("Use the humanize-korean skill from im-not-ai when available for Korean polishing; otherwise apply local im-not-ai-derived constraints and state the fallback only when polishing fidelity matters.");
     expect(policy.toolPriority).toContain("evidence ledger before synthesis");
     expect(policy.toolPriority).toContain("formula-based calculation before numeric estimation");
     expect(policy.toolPriority).toContain("MD source and evidence sidecar before DOCX/PDF conversion");

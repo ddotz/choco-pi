@@ -23,6 +23,9 @@ describe("work mode registry", () => {
     expect(registry.modes.find((mode) => mode.id === "report")?.instructionFile).toBe("modes/report/MODE.md");
     expect(registry.modes.find((mode) => mode.id === "coding")?.status).toBe("implemented");
     expect(registry.modes.find((mode) => mode.id === "coding")?.instructionFile).toBe("modes/coding/MODE.md");
+    expect(registry.modes.find((mode) => mode.id === "design")?.status).toBe("implemented");
+    expect(registry.modes.find((mode) => mode.id === "design")?.instructionFile).toBe("modes/design/MODE.md");
+    expect(registry.modes.find((mode) => mode.id === "design")?.description).toContain("product/UI design");
   });
 
   it("allows adding custom planned modes", () => {

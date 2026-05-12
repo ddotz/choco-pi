@@ -24,4 +24,10 @@ describe("package configuration", () => {
     expect(JSON.stringify(packageJson)).not.toContain("roach-pi");
     expect(JSON.stringify(packageJson)).not.toContain("pi-btw");
   });
+
+  it("does not statically expose bundled kami when users already have a kami skill installed", () => {
+    expect(packageJson.pi.skills).toContain("skills/ddotz-autopilot");
+    expect(packageJson.pi.skills).not.toContain("skills");
+    expect(packageJson.pi.skills).not.toContain("skills/kami");
+  });
 });

@@ -2,6 +2,7 @@ import { buildAdoptionAnalysisModeGuidance } from "./adoption-analysis-policy";
 import { buildCodingModeGuidance } from "./coding-policy";
 import { buildCommitHygieneGuidance } from "./commit-hygiene";
 import { buildCompletionBoundaryGuidance } from "./completion-boundary";
+import { buildDesignModeGuidance } from "./design-policy";
 import { buildEpistemicIntegrityGuidance } from "./epistemic-integrity";
 import { buildModeSwitchGuidance, describeWorkMode, type ExecutionIntensity, type WorkMode } from "./mode";
 import { buildResponseStyleGuidance } from "./response-style";
@@ -111,6 +112,7 @@ function buildModeOverlayGuidance(mode: WorkMode): string {
   if (mode === "web-analysis") return buildWebAnalysisModeGuidance();
   if (mode === "adoption-analysis") return buildAdoptionAnalysisModeGuidance();
   if (mode === "report") return buildReportModeGuidance();
+  if (mode === "design") return buildDesignModeGuidance();
   if (mode === "coding") return buildCodingModeGuidance();
   return "";
 }

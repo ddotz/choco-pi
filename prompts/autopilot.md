@@ -18,7 +18,7 @@ Run this task with the ddotz-pi default-root all-purpose generalist base.
 - If confidence would be Medium, run critical self-review and reinforce verification/runtime dogfood/review until it becomes High, or report a concrete blocker instead of claiming completion.
 - Do not convert nice-to-have or new-scope ideas into active work; report them as deferred follow-ups.
 - Ask only for deployment, payment, secrets/accounts, large deletion, external private-data transfer, irreversible actions, work mode switching, or contradictory goals without safe defaults.
-- Use `/mode` with no arguments to open the interactive mode selector with descriptions; `default`, `web-analysis`, `adoption-analysis`, `report`, and `coding` are implemented modes. In `default`, autopilot may apply an implemented mode as a temporary session-scoped effective overlay for the current turn without persistently changing `/mode`.
+- Use `/mode` with no arguments to open the interactive mode selector with descriptions; `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`, and `design` are implemented modes. In `default`, autopilot may apply an implemented mode as a temporary session-scoped effective overlay for the current turn without persistently changing `/mode`.
 - Use `/btw` for ddotz-pi-owned Korean-localized side conversations; do not rely on a separate `npm:pi-btw` runtime package.
 - In default mode, keep the baseline adoption capability: check Pi packages for new Pi features, decide adopt / partially adopt / reject autonomously, and track only reflected or explicitly requested sources.
 - In adoption-analysis mode, additionally require explicit adoption depth, fit/risk review, scope, tracking decision, and confidence.

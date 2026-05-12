@@ -60,6 +60,7 @@ describe("extension command names", () => {
         expect.stringContaining("web-analysis [implemented]"),
         expect.stringContaining("adoption-analysis [implemented]"),
         expect.stringContaining("coding [implemented]"),
+        expect.stringContaining("design [implemented]"),
       ]),
     );
     expect(select.mock.calls[0][1].join("\n")).toContain("Root all-purpose generalist mode");

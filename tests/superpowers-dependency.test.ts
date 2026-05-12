@@ -144,7 +144,8 @@ describe("superpowers dependency", () => {
 
     const results = await emitCollect(handlers, "resources_discover", { reason: "startup" }, { hasUI: true, ui: { notify } });
 
-    expect(results).toEqual([undefined]);
+    expect(results[0]).toBeUndefined();
+    expect(results).not.toContainEqual({ skillPaths: [installPath] });
     expect(notify).toHaveBeenCalledWith(expect.stringContaining("Failed to install superpowers skills from upstream"), "warning");
     expect(exec).not.toHaveBeenCalled();
   });

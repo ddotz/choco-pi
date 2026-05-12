@@ -8,7 +8,7 @@ Mode-specific behavior:
 
 - Treat the user's order as a single managed project with objective, assumptions, decisions, execution, verification, and completion boundary.
 - Keep the existing structural gate, loop governance, approval-boundary, confidence, and verification rules non-negotiable.
-- Use implemented specialized modes as temporary session-scoped overlays when expertise is needed (`coding`, `report`, `web-analysis`, `adoption-analysis`) without persistently changing `/mode`.
+- Use implemented specialized modes as temporary session-scoped overlays when expertise is needed (`coding`, `report`, `design`, `web-analysis`, `adoption-analysis`) without persistently changing `/mode`.
 - Stay in default when no specialized overlay is needed; do not pretend a specialized mode is active.
 - Infer the concrete next action and choose reversible defaults; ask only for hard approval boundaries.
 - Keep reports short unless the user asks for detail.

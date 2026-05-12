@@ -61,11 +61,11 @@ const ADOPTION_ANALYSIS_POLICY: ModeResourcePolicy = {
 
 const REPORT_POLICY: ModeResourcePolicy = {
   mode: "report",
-  skills: ["insane-search", "kami"],
+  skills: ["insane-search", "kami", "humanize-korean"],
   extensionGuidance: [
     "Use the kami skill when available for report artifacts and design specs; otherwise apply local Kami-derived constraints and state the fallback when layout fidelity matters.",
     "Use Kami-derived layout only for artifacts or design specs; omit visual styling discussion for plain chat/status answers.",
-    "Use im-not-ai-derived Korean polishing rules as report-mode policy; do not depend on Claude-only agents or commands.",
+    "Use the humanize-korean skill from im-not-ai when available for Korean polishing; otherwise apply local im-not-ai-derived constraints and state the fallback only when polishing fidelity matters.",
     "Keep report-mode source, layout, and polishing guardrails isolated from default mode.",
   ],
   toolPriority: [
@@ -85,6 +85,30 @@ const REPORT_POLICY: ModeResourcePolicy = {
     "section-only drafting before cross-section review before whole-report critique",
     "C-level concise report style before decorative writing",
     "mode isolation before reusable report helpers",
+  ],
+};
+
+const DESIGN_POLICY: ModeResourcePolicy = {
+  mode: "design",
+  skills: ["frontend-ui-ux", "taste-skill", "web-design-guidelines", "gstack"],
+  extensionGuidance: [
+    "Use design mode guidance only while design mode is active; do not leak aesthetic defaults into default mode.",
+    "Use gstack QA when browser, UI, screenshot, responsive, or deployed-flow verification is relevant.",
+    "Use existing project design systems and DESIGN.md first; only introduce new visual direction when the user asks or the project lacks one.",
+  ],
+  toolPriority: [
+    "design brief before pixels or code",
+    "existing design system scan before new aesthetic choices",
+    "specific visual direction before implementation",
+    "accessibility and responsive states before polish",
+    "gstack QA before Confidence: High for UI/browser behavior",
+  ],
+  processPriorities: [
+    "specific visual direction before generic modern/clean defaults",
+    "user journey and information hierarchy before decoration",
+    "brand constraints before component styling",
+    "observable design QA before completion claims",
+    "mode isolation before reusable design defaults",
   ],
 };
 
@@ -126,6 +150,7 @@ export function buildModeResourcePolicy(mode: WorkMode): ModeResourcePolicy {
   if (mode === "web-analysis") return clonePolicy(WEB_ANALYSIS_POLICY);
   if (mode === "adoption-analysis") return clonePolicy(ADOPTION_ANALYSIS_POLICY);
   if (mode === "report") return clonePolicy(REPORT_POLICY);
+  if (mode === "design") return clonePolicy(DESIGN_POLICY);
   if (mode === "coding") return clonePolicy(CODING_POLICY);
   return { ...clonePolicy({ ...EMPTY_POLICY, mode }) };
 }

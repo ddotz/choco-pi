@@ -99,6 +99,23 @@ describe("auto mode overlay", () => {
     expect(notify).toHaveBeenCalledWith("mode: default", "info");
   });
 
+  it("applies a design effective mode for design/UI/UX turns without changing persistent mode", async () => {
+    await useTempAgentDir();
+    const { handlers, commands } = setupAutopilot();
+    const beforeHandlers = handlers.get("before_agent_start")!;
+    const before = beforeHandlers[beforeHandlers.length - 1]!;
+
+    const result = await before({ systemPrompt: "base", prompt: "대시보드 UI/UX 디자인 방향 잡아줘" }, ctx("session-design")) as { systemPrompt: string };
+
+    expect(result.systemPrompt).toContain("Persistent work mode: default");
+    expect(result.systemPrompt).toContain("Effective work mode for this turn: design");
+    expect(result.systemPrompt).toContain("Design Mode");
+
+    const notify = vi.fn();
+    await commands.get("mode")!.handler("status" as never, { ...ctx("session-design"), ui: { notify } });
+    expect(notify).toHaveBeenCalledWith("mode: default", "info");
+  });
+
   it("keeps local implementation analysis in default instead of web-analysis", async () => {
     await useTempAgentDir();
     const { handlers } = setupAutopilot();
