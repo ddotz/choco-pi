@@ -98,7 +98,7 @@
 
 #### P1-2. Footer가 현재 runtime 상태를 정확히 보여주지 못합니다
 
-Footer version은 `~/code/choco-pi/package.json`에서 읽습니다. 현재 설치 경로는 `~/.pi/agent/git/github.com/choco/choco-pi`이며 `~/code/choco-pi/package.json`은 없었습니다. 따라서 footer version이 비거나 틀릴 수 있습니다.
+Footer version은 `~/code/choco-pi/package.json`에서 읽습니다. 현재 설치 경로는 `~/.pi/agent/git/github.com/ddotz/choco-pi`이며 `~/code/choco-pi/package.json`은 없었습니다. 따라서 footer version이 비거나 틀릴 수 있습니다.
 
 또한 footer mode label은 `state.runtime.workMode`만 읽습니다. 현재 세션처럼 persistent `default` 위에 effective `report` overlay가 적용된 경우 footer는 effective mode를 보여주지 않습니다. Autopilot이 `ctx.ui.setStatus("mode", ...)`로 더 풍부한 status를 설정해도 custom footer가 extension statuses를 렌더링하지 않아 사용자가 보기 어렵습니다.
 

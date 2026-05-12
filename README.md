@@ -20,13 +20,13 @@ For a new machine or a clean Pi agent directory, install `choco-pi` as a Pi pack
 Git install, after the target revision is pushed:
 
 ```bash
-pi install git:github.com/choco/choco-pi
+pi install git:github.com/ddotz/choco-pi
 ```
 
 Local checkout install for unreleased or local changes:
 
 ```bash
-git clone https://github.com/choco/choco-pi.git /absolute/path/to/choco-pi
+git clone https://github.com/ddotz/choco-pi.git /absolute/path/to/choco-pi
 cd /absolute/path/to/choco-pi
 pnpm install --frozen-lockfile
 pnpm run check
