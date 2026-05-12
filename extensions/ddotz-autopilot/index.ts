@@ -63,6 +63,7 @@ import {
   type AutoUpdateState,
 } from "./auto-update";
 import { guardCodingQualityMessage, type CodingRepairState } from "./coding-quality";
+import { guardDesignQualityMessage, type DesignRepairState } from "./design-quality";
 import { runGuardPipeline } from "./guard-orchestrator";
 import { discoverImNotAiSkillPath } from "./im-not-ai-dependency";
 import { discoverKamiSkillPath } from "./kami-dependency";
@@ -110,6 +111,7 @@ const WEB_REPAIR_PROMPT_MARKER = "내부 web-analysis 품질 보강이 필요합
 const ADOPTION_REPAIR_PROMPT_MARKER = "내부 adoption-analysis 품질 보강이 필요합니다.";
 const CODING_REPAIR_PROMPT_MARKER = "내부 coding 품질 보강이 필요합니다.";
 const REPORT_REPAIR_PROMPT_MARKER = "내부 report 품질 보강이 필요합니다.";
+const DESIGN_REPAIR_PROMPT_MARKER = "내부 design 품질 보강이 필요합니다.";
 
 function repairStateFor<T extends { repairQueued: boolean }>(states: Map<string, T>, sessionId: string): T {
   const existing = states.get(sessionId);
@@ -521,6 +523,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
   const adoptionRepairStates = new Map<string, AdoptionAnalysisRepairState>();
   const codingRepairStates = new Map<string, CodingRepairState>();
   const reportRepairStates = new Map<string, ReportRepairState>();
+  const designRepairStates = new Map<string, DesignRepairState>();
 
   pi.on("resources_discover", async (_event, ctx) => discoverSuperpowersSkillPath(pi, ctx));
   pi.on("resources_discover", async () => discoverKamiSkillPath());
@@ -575,6 +578,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     adoptionRepairStates.delete(sessionId);
     codingRepairStates.delete(sessionId);
     reportRepairStates.delete(sessionId);
+    designRepairStates.delete(sessionId);
     if (ctx.hasUI) ctx.ui.setStatus("mode", undefined);
   });
 
@@ -587,6 +591,7 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
     if (!prompt.includes(ADOPTION_REPAIR_PROMPT_MARKER)) repairStateFor(adoptionRepairStates, sessionId).repairQueued = false;
     if (!prompt.includes(CODING_REPAIR_PROMPT_MARKER)) repairStateFor(codingRepairStates, sessionId).repairQueued = false;
     if (!prompt.includes(REPORT_REPAIR_PROMPT_MARKER)) repairStateFor(reportRepairStates, sessionId).repairQueued = false;
+    if (!prompt.includes(DESIGN_REPAIR_PROMPT_MARKER)) repairStateFor(designRepairStates, sessionId).repairQueued = false;
     const suggestedWorkMode = inferPlannedWorkMode(prompt);
     const modeDecision = resolveEffectiveWorkMode({
       persistentMode: state.runtime.workMode,
@@ -660,6 +665,10 @@ export default function ddotzAutopilot(pi: ExtensionAPI) {
       {
         customType: "ddotz.report_quality.repair",
         run: () => guardReportQualityMessage(effectiveWorkMode, assistantMessage, repairStateFor(reportRepairStates, sessionId)),
+      },
+      {
+        customType: "ddotz.design_quality.repair",
+        run: () => guardDesignQualityMessage(effectiveWorkMode, assistantMessage, repairStateFor(designRepairStates, sessionId)),
       },
     ]);
 
