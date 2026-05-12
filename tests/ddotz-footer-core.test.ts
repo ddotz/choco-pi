@@ -36,7 +36,7 @@ const codexResponse = {
 };
 
 describe("ddotz footer core", () => {
-  it("formats branch version, effective mode, intensity, and run state at the end", () => {
+  it("formats branch version, effective mode, intensity, and run state on the first line", () => {
     const lines = buildFooterLines({
       modelLabel: "GPT-5.5 Codex",
       branch: "main",
@@ -53,8 +53,8 @@ describe("ddotz footer core", () => {
     });
 
     expect(lines).toEqual([
-      "GPT-5.5 Codex | ⎇ main v0.1.2 | ~/.pi/agent | ◉ xhigh",
-      "  default->report/standard auto | 5h:1% wk:18% | ctx 0.8% | $0.01 | tools:4 | todo 1/3 | Ready",
+      "GPT-5.5 Codex | ⎇ main v0.1.2 | ~/.pi/agent | ◉ xhigh | Ready",
+      "  default->report/standard auto | 5h:1% wk:18% | ctx 0.8% | $0.01 | tools:4 | todo 1/3",
     ]);
   });
 

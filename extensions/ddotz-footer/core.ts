@@ -283,7 +283,7 @@ export function buildFooterLines(input: FooterLineInput): [string, string] {
   const branch = input.branch ? `⎇ ${input.branch}` : "⎇ -";
   const version = input.appVersion ? ` v${input.appVersion}` : "";
   const mode = input.modeLabel ?? "-";
-  const line1 = `${input.modelLabel} | ${branch}${version} | ${input.cwd} | ◉ ${input.thinkingLevel}`;
-  const line2 = `  ${mode} | ${input.rateLimitText} | ctx ${input.contextText} | ${input.costText} | tools:${input.toolCount} | todo ${input.todoLabel} | ${input.runStateLabel}`;
+  const line1 = `${input.modelLabel} | ${branch}${version} | ${input.cwd} | ◉ ${input.thinkingLevel} | ${input.runStateLabel}`;
+  const line2 = `  ${mode} | ${input.rateLimitText} | ctx ${input.contextText} | ${input.costText} | tools:${input.toolCount} | todo ${input.todoLabel}`;
   return [line1, line2];
 }

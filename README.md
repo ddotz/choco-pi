@@ -6,7 +6,7 @@ Personal Pi package for a default-root all-purpose generalist workflow.
 
 ## Status
 
-- Current package version: `0.9.5`.
+- Current package version: `0.9.6`.
 - Implemented work modes: `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`.
 - Planned work modes: none.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
@@ -632,7 +632,7 @@ Custom modes use the same shape: `modes/<mode-id>/MODE.md`. Runtime-created cust
 - Do not end replies with suggestion-led opt-in phrasing such as `원하면 ~해드릴게요`.
 - Todo tool calls render silently while the session-scoped todo widget updates.
 - Read previews stay header-only while collapsed and expand on demand.
-- Footer shows `⎇ <project-branch> v<project-version>` from the active session cwd; it does not fall back to the ddotz-pi package branch/version when working in another folder. Line 2 starts with the current mode and ends with Codex-style run state (`Ready`, `Starting`, `Thinking`, `Working`) after the todo count.
+- Footer line 1 shows `⎇ <project-branch> v<project-version>` from the active session cwd and ends with Codex-style run state (`Ready`, `Starting`, `Thinking`, `Working`); it does not fall back to the ddotz-pi package branch/version when working in another folder. Line 2 starts with the current mode and keeps rate/context/cost/tool/todo details.
 - Footer usage values (`5h`, `wk`, `ctx`) highlight only numeric values in cyan.
 - Confidence labels are `High`, `Medium`, and `Low`; terminal/UI rendering should use white text on green/yellow/red backgrounds.
 - Final Markdown should use plain labels such as `Confidence: High`, not HTML badges.

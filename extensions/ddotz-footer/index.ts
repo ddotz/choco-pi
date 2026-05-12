@@ -420,16 +420,16 @@ function renderStyledFooterLines(data: FooterRenderData, theme: Theme, width: nu
   const branch = theme.fg("muted", data.branch ? `⎇ ${data.branch}${version}` : `⎇ -${version}`);
   const cwd = theme.fg("muted", data.cwd);
   const thinking = theme.fg("accent", `◉ ${data.thinkingLevel}`);
+  const runState = colorRunState(theme, data.runStateLabel);
 
-  const line1 = model + separator + branch + separator + cwd + separator + thinking;
+  const line1 = model + separator + branch + separator + cwd + separator + thinking + separator + runState;
 
   const rate = colorRate(theme, data.rateLimitSnapshot, data.rateLimitText);
   const context = colorContext(theme, data.contextPercent, data.contextText);
   const cost = theme.fg("muted", data.costText);
   const tools = theme.fg("muted", `tools:${data.toolCount}`);
   const todo = data.todoError ? theme.fg("warning", `todo ${data.todoLabel}`) : theme.fg("muted", `todo ${data.todoLabel}`);
-  const runState = colorRunState(theme, data.runStateLabel);
-  const line2 = theme.fg("dim", `  ${data.modeLabel}`) + separator + rate + separator + context + separator + cost + separator + tools + separator + todo + separator + runState;
+  const line2 = theme.fg("dim", `  ${data.modeLabel}`) + separator + rate + separator + context + separator + cost + separator + tools + separator + todo;
 
   return [truncateToWidth(line1, width), truncateToWidth(line2, width)];
 }
