@@ -33,7 +33,7 @@ describe("self-improvement scope policy", () => {
 
     expect(gitRoot).toBe(root);
     expect(scope.kind).toBe("project");
-    expect(scope.projectRoot).toBe(root);
+    expect(scope).not.toHaveProperty("projectRoot");
     expect(scope.projectLabel).toBe(root.split("/").at(-1));
     expect(scope.projectId).toMatch(/^[a-f0-9]{16}$/);
     expect(scope.capture).toBe(true);

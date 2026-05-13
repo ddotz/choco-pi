@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -15,6 +15,8 @@ const tempDirs: string[] = [];
 
 afterEach(async () => {
   delete process.env.PI_CODING_AGENT_DIR;
+  delete process.env.CHOCO_PI_IMPROVEMENT_MODE;
+  delete process.env.CHOCO_PI_IMPROVEMENT_PROFILE;
   if (tempAgentDir) await rm(tempAgentDir, { recursive: true, force: true });
   await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
   tempAgentDir = undefined;
@@ -61,16 +63,25 @@ describe("dogfood commands and hook capture", () => {
     const { handlers, commands } = setupAutopilot();
     const notify = vi.fn();
     const prompt = "비밀 토큰 sk-test-123은 저장하지 말고 테스트를 고쳐줘";
+    const testCommand = "pnpm run test -- --token sk-test-123";
 
     expect(commands.has("dogfood")).toBe(true);
 
     const projectDir = await makeGitProject();
 
     await emitAll(handlers, "before_agent_start", { type: "before_agent_start", prompt, systemPrompt: "base", systemPromptOptions: {} }, projectDir);
-    await emitAll(handlers, "tool_call", { type: "tool_call", toolCallId: "bash-1", toolName: "bash", input: { command: "pnpm run test" } }, projectDir);
-    await emitAll(handlers, "tool_result", { type: "tool_result", toolCallId: "bash-1", toolName: "bash", input: { command: "pnpm run test" }, isError: false, content: [{ type: "text", text: "Tests passed" }], details: {} }, projectDir);
+    await emitAll(handlers, "tool_call", { type: "tool_call", toolCallId: "bash-1", toolName: "bash", input: { command: testCommand } }, projectDir);
+    await emitAll(handlers, "tool_result", { type: "tool_result", toolCallId: "bash-1", toolName: "bash", input: { command: testCommand }, isError: false, content: [{ type: "text", text: "Tests passed" }], details: {} }, projectDir);
     await emitAll(handlers, "tool_result", { type: "tool_result", toolCallId: "gate-1", toolName: "structural_gate", input: {}, isError: false, content: [{ type: "text", text: "Structural gate passed." }], details: { ok: true } }, projectDir);
     await emitAll(handlers, "message_end", { type: "message_end", message: { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "완료했습니다." }], provider: "test", model: "test-model" } }, projectDir);
+
+    const caseDir = join(tempAgentDir!, "choco-pi", "dogfood", "cases");
+    const [caseFile] = await readdir(caseDir);
+    const storedCase = await readFile(join(caseDir, caseFile), "utf8");
+    expect(storedCase).not.toContain(projectDir);
+    expect(storedCase).not.toContain("sk-test-123");
+    expect(storedCase).not.toContain("\"projectRoot\"");
+    expect(JSON.parse(storedCase).verification.passedCommands).toEqual(["test"]);
 
     await commands.get("dogfood")!.handler("weekly", { cwd: "/Users/hyuns/Code/example", ui: { notify } });
 
@@ -80,6 +91,19 @@ describe("dogfood commands and hook capture", () => {
     expect(output).toContain("clean hit rate: 100.0%");
     expect(output).not.toContain("sk-test-123");
     expect(output).not.toContain(prompt);
+  });
+
+  it("does not write dogfood events when improvement mode is off", async () => {
+    await useTempAgentDir();
+    process.env.CHOCO_PI_IMPROVEMENT_MODE = "off";
+    const { handlers } = setupAutopilot();
+    const projectDir = await makeGitProject();
+
+    await emitAll(handlers, "before_agent_start", { type: "before_agent_start", prompt: "저장하지 말아야 하는 질문", systemPrompt: "base", systemPromptOptions: {} }, projectDir);
+    await emitAll(handlers, "message_end", { type: "message_end", message: { role: "assistant", stopReason: "stop", content: [], provider: "test", model: "test" } }, projectDir);
+
+    await expect(readFile(join(tempAgentDir!, "choco-pi", "dogfood", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(tempAgentDir!, "choco-pi", "dogfood", "salt"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("does not auto-capture outside git projects", async () => {

@@ -633,7 +633,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
     await startDogfoodCase(dogfoodCases, createDogfoodStore(dogfoodRootPath()), {
       prompt,
       cwd,
-      salt: await dogfoodSalt(),
+      salt: scope.capture ? await dogfoodSalt() : "",
       workMode: effectiveWorkMode,
       executionIntensity,
       scope,

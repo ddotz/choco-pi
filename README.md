@@ -219,13 +219,30 @@ Memory is durable and explicit. `/memory save` stores only durable facts; tempor
 
 The source registry tracks only adopted or explicitly tracked external sources. GitHub sources are checked weekly with `git ls-remote`; changed sources are surfaced in the autopilot prompt for autonomous adopt/partial-adopt/reject decisions.
 
-### 7. Dogfooding quality system
+### 7. Dogfooding quality system and self-improvement loop
 
-`choco-pi` records privacy-preserving cross-project quality cases under `~/.pi/agent/choco-pi/dogfood/`. It does not store raw prompt text by default. Each case stores a salted prompt hash, safe project label, work mode, task type, tool counts, verification signals, structural gate signals, and a deterministic `clean / assisted / miss / review` outcome.
+`choco-pi` records privacy-preserving cross-project quality cases under `~/.pi/agent/choco-pi/dogfood/`. It does not store raw prompt text by default. Each case stores a salted prompt hash, safe project label, work mode, task type, tool counts, verification signals, structural gate signals, scope metadata, sanitized flow signals, and a deterministic `clean / assisted / miss / review` outcome.
+
+This dogfood layer is the first implemented slice of the self-improvement loop:
+
+1. **Observe safely**: capture only eligible cases, with Git-root project scope and non-Git default-off behavior.
+2. **Score deterministically**: classify outcomes from observable evidence such as verification commands, structural gates, loop transitions, and repair events.
+3. **Mine repeated flows**: aggregate repeated assisted/miss patterns and top sanitized tool/command flow signatures in weekly reports.
+4. **Gate improvement**: allow auto-improvement only after minimum sample and repeated-pattern thresholds pass.
+5. **Quarantine future generation**: generated skills or policy changes must remain draft-only until deterministic eval, structural gate, canary, and human-visible review paths exist.
+
+Self-improvement capture is controlled by environment variables:
+
+| Variable | Values | Behavior |
+| --- | --- | --- |
+| `CHOCO_PI_IMPROVEMENT_MODE` | `off`, `readonly`, `manual`, `auto` | `auto` stores eligible dogfood cases. `off`, `readonly`, and `manual` do not auto-store cases. `manual` is reserved for explicit future capture flows. |
+| `CHOCO_PI_IMPROVEMENT_PROFILE` | `personal`, `scratch` | Opts into non-project scopes. Without this, `~/`, Downloads, `/tmp`, missing paths, and other non-Git directories resolve to capture off. |
+
+Project identity is derived from the Git root, not the current subdirectory. The stored project id and root hash are hashed; the raw Git root path is not stored. Reports use a safe project label. Flow mining stores tool names and command classes such as `test`, `lint`, `typecheck`, `git`, `web-fetch`, and `other`; it does not store raw commands, command arguments, tool output, raw prompts, or private paths.
 
 Use `/dogfood status` to see the current week sample count, `/dogfood weekly` to generate a deterministic weekly report, `/dogfood report` to show the latest report, `/dogfood queue` to inspect ambiguous cases, and `/dogfood explain <id>` to explain a case without raw prompt text.
 
-Auto-improvement requires at least 25 eligible weekly cases and at least 3 repeated assisted/miss cases for the same pattern. The MVP does not run hidden background LLM judging or store raw prompt/tool output.
+Auto-improvement requires at least 25 eligible weekly cases and at least 3 repeated assisted/miss cases for the same pattern. The current loop does not run hidden background LLM judging, does not create active skills automatically, and does not store raw prompt/tool output.
 
 ### 8. Todo subsystem
 
@@ -471,13 +488,30 @@ Memory는 명시적으로 저장하는 durable state입니다. `/memory save`는
 
 Source registry는 실제로 채택했거나 사용자가 명시적으로 추적 요청한 외부 source만 기록합니다. 신규 Pi 기능 요청은 먼저 https://pi.dev/packages 에서 유사 패키지를 확인하고, 높은 유사도의 패키지가 있으면 source/license/security를 검토한 뒤 fork/clone 기반으로 커스터마이징합니다. GitHub source는 주 1회 `git ls-remote`로 확인하고, 변경된 source는 autopilot prompt에 포함되어 adopt / partially adopt / reject 판단을 유도합니다.
 
-### 7. Dogfooding quality system
+### 7. Dogfooding quality system and self-improvement loop
 
-`choco-pi`는 cross-project 품질 case를 `~/.pi/agent/choco-pi/dogfood/` 아래에 privacy-preserving 형태로 기록합니다. 기본적으로 raw prompt text는 저장하지 않습니다. 각 case는 salted prompt hash, 안전한 project label, work mode, task type, tool count, verification signal, structural gate signal, deterministic `clean / assisted / miss / review` outcome을 저장합니다.
+`choco-pi`는 cross-project 품질 case를 `~/.pi/agent/choco-pi/dogfood/` 아래에 privacy-preserving 형태로 기록합니다. 기본적으로 raw prompt text는 저장하지 않습니다. 각 case는 salted prompt hash, 안전한 project label, work mode, task type, tool count, verification signal, structural gate signal, scope metadata, sanitized flow signal, deterministic `clean / assisted / miss / review` outcome을 저장합니다.
+
+이 dogfood layer가 자기 개선 루프의 첫 구현 단위입니다.
+
+1. **안전한 관찰**: Git root 기반 project scope에서만 eligible case를 자동 기록하고, non-Git 위치는 기본 capture off로 둡니다.
+2. **결정적 채점**: verification command, structural gate, loop transition, repair event 같은 관찰 가능한 증거로 `clean / assisted / miss / review`를 분류합니다.
+3. **반복 flow 발굴**: 주간 report에서 반복 assisted/miss pattern과 sanitized tool/command flow signature를 집계합니다.
+4. **개선 gate**: 최소 sample 수와 반복 pattern 기준을 통과해야만 auto-improvement가 허용됩니다.
+5. **향후 생성물 격리**: 자동 생성 skill이나 policy 변경은 deterministic eval, structural gate, canary, 사람이 볼 수 있는 review 경로가 생길 때까지 draft/quarantine 상태여야 합니다.
+
+자기 개선 capture는 아래 환경 변수로 제어합니다.
+
+| Variable | Values | Behavior |
+| --- | --- | --- |
+| `CHOCO_PI_IMPROVEMENT_MODE` | `off`, `readonly`, `manual`, `auto` | `auto`만 eligible dogfood case를 저장합니다. `off`, `readonly`, `manual`은 자동 저장하지 않습니다. `manual`은 향후 명시 capture flow용으로 예약되어 있습니다. |
+| `CHOCO_PI_IMPROVEMENT_PROFILE` | `personal`, `scratch` | project가 아닌 scope를 명시 opt-in합니다. 이 값이 없으면 `~/`, Downloads, `/tmp`, 존재하지 않는 경로, 기타 non-Git directory는 capture off입니다. |
+
+Project identity는 현재 subdirectory가 아니라 Git root에서 계산합니다. 저장되는 project id와 root hash는 hash이고, raw Git root path는 저장하지 않습니다. report에는 안전한 project label만 사용합니다. Flow mining은 `test`, `lint`, `typecheck`, `git`, `web-fetch`, `other` 같은 command class와 tool name만 저장합니다. raw command, command argument, tool output, raw prompt, private path는 저장하지 않습니다.
 
 `/dogfood status`는 현재 주 sample count를 보여주고, `/dogfood weekly`는 deterministic weekly report를 생성하며, `/dogfood report`는 최신 report를 표시합니다. `/dogfood queue`는 애매한 case 수를 보여주고, `/dogfood explain <id>`는 raw prompt text 없이 case 판정 이유를 설명합니다.
 
-자동 개선은 주간 eligible case 25개 이상, 같은 assisted/miss pattern 3회 이상일 때만 허용됩니다. MVP는 hidden background LLM judging을 실행하지 않고 raw prompt/tool output도 저장하지 않습니다.
+자동 개선은 주간 eligible case 25개 이상, 같은 assisted/miss pattern 3회 이상일 때만 허용됩니다. 현재 루프는 hidden background LLM judging을 실행하지 않고, active skill을 자동 생성하지 않으며, raw prompt/tool output도 저장하지 않습니다.
 
 ### 8. Todo subsystem
 

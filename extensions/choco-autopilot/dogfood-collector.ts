@@ -26,7 +26,6 @@ export async function startDogfoodCase(state: ActiveDogfoodCaseState, store: Dog
   const now = input.now ?? new Date();
   if (!input.scope.capture) {
     state.current = undefined;
-    await appendDogfoodEvent(store, { type: "case_skipped", at: now.toISOString(), reason: input.scope.reason, scope: input.scope.kind, memoryMode: input.scope.memoryMode });
     return;
   }
   const classified = classifyPromptForDogfood(input.prompt);
@@ -72,9 +71,10 @@ export function recordDogfoodToolResult(state: ActiveDogfoodCaseState, event: { 
     if (commandClass) current.flow.commandSequence = [...current.flow.commandSequence, commandClass].slice(-40);
     const command = verificationCommandFromInput(event.input);
     if (command) {
+      const sanitizedCommand = commandClass ?? "verification";
       current.verification.required = true;
-      if (event.isError) current.verification.failedCommands.push(command);
-      else current.verification.passedCommands.push(command);
+      if (event.isError) current.verification.failedCommands.push(sanitizedCommand);
+      else current.verification.passedCommands.push(sanitizedCommand);
       current.verification.passed = current.verification.passedCommands.length > 0 && current.verification.failedCommands.length === 0;
       if (current.verification.failedCommands.length > 0 && current.verification.passedCommands.length > 0) current.verification.passed = true;
     }

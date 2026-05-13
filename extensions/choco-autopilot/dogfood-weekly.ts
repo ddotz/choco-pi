@@ -74,12 +74,14 @@ function pct(value: number): string {
 }
 
 export function formatDogfoodWeeklyReport(report: DogfoodWeeklyReport): string {
-  const patternLines = report.repeatedPatterns.length === 0
+  const repeatedPatterns = report.repeatedPatterns ?? [];
+  const topFlows = report.topFlows ?? [];
+  const patternLines = repeatedPatterns.length === 0
     ? ["- repeated patterns: none"]
-    : report.repeatedPatterns.map((item) => `- ${item.key}: ${item.count} ${item.outcome} case(s)`);
-  const flowLines = report.topFlows.length === 0
+    : repeatedPatterns.map((item) => `- ${item.key}: ${item.count} ${item.outcome} case(s)`);
+  const flowLines = topFlows.length === 0
     ? ["- top flows: none"]
-    : ["- top flows:", ...report.topFlows.map((item) => `  - ${item.signature}: ${item.count} case(s)`)];
+    : ["- top flows:", ...topFlows.map((item) => `  - ${item.signature}: ${item.count} case(s)`)];
 
   return [
     `Dogfood weekly report ${report.week}`,

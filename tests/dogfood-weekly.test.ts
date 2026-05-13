@@ -35,6 +35,13 @@ describe("dogfood weekly report", () => {
     expect(report.autoImprovementReason).toContain("25 eligible cases");
   });
 
+  it("formats legacy weekly reports without flow metadata", () => {
+    const report = buildDogfoodWeeklyReport("2026-W20", [], new Date("2026-05-11T00:00:00Z")) as Partial<ReturnType<typeof buildDogfoodWeeklyReport>>;
+    delete report.topFlows;
+
+    expect(formatDogfoodWeeklyReport(report as ReturnType<typeof buildDogfoodWeeklyReport>)).toContain("top flows: none");
+  });
+
   it("handles legacy cases without flow metadata", () => {
     const legacy = { ...dogCase("legacy", "clean") } as Partial<DogfoodCase>;
     delete legacy.flow;

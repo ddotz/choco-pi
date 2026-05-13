@@ -46,7 +46,7 @@ export async function resolveDogfoodScope(input: {
   cwd: string;
   mode?: DogfoodMemoryMode;
   profile?: DogfoodProfile;
-}): Promise<DogfoodScopeSignals & { projectRoot?: string }> {
+}): Promise<DogfoodScopeSignals> {
   const mode = input.mode ?? parseDogfoodMemoryMode(process.env.CHOCO_PI_IMPROVEMENT_MODE);
   if (mode === "off") return { kind: "off", memoryMode: mode, capture: false, reason: "memory mode is off" };
 
@@ -75,7 +75,6 @@ export async function resolveDogfoodScope(input: {
     kind: "project",
     memoryMode: mode,
     projectId: shortHash(gitRoot),
-    projectRoot: gitRoot,
     projectRootHash: shortHash(gitRoot),
     projectLabel: basename(gitRoot) || "project",
     capture: captureAllowedForScope({ mode, kind: "project" }),
