@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { realpath, stat } from "node:fs/promises";
+import { homedir } from "node:os";
 import { basename, dirname, resolve } from "node:path";
 import type { DogfoodMemoryMode, DogfoodScopeKind, DogfoodScopeSignals } from "./dogfood-types";
 
@@ -39,7 +40,15 @@ export async function findGitRoot(cwd: string): Promise<string | undefined> {
 }
 
 export function captureAllowedForScope(input: { mode: DogfoodMemoryMode; kind: DogfoodScopeKind }): boolean {
-  return input.mode === "auto" && input.kind !== "off";
+  return input.mode === "auto" && input.kind !== "off" && input.kind !== "global";
+}
+
+async function isHomeDirectory(cwd: string): Promise<boolean> {
+  try {
+    return await realpath(resolve(cwd || process.cwd())) === await realpath(homedir());
+  } catch {
+    return false;
+  }
 }
 
 export async function resolveDogfoodScope(input: {
@@ -47,7 +56,8 @@ export async function resolveDogfoodScope(input: {
   mode?: DogfoodMemoryMode;
   profile?: DogfoodProfile;
 }): Promise<DogfoodScopeSignals> {
-  const mode = input.mode ?? parseDogfoodMemoryMode(process.env.CHOCO_PI_IMPROVEMENT_MODE);
+  const homeScope = await isHomeDirectory(input.cwd);
+  const mode = input.mode ?? (homeScope ? "readonly" : parseDogfoodMemoryMode(process.env.CHOCO_PI_IMPROVEMENT_MODE));
   if (mode === "off") return { kind: "off", memoryMode: mode, capture: false, reason: "memory mode is off" };
 
   if (input.profile === "personal" || input.profile === "scratch") {
@@ -58,6 +68,17 @@ export async function resolveDogfoodScope(input: {
       projectLabel: input.profile,
       capture: captureAllowedForScope({ mode, kind: input.profile }),
       reason: input.profile === "personal" ? "explicit personal profile" : "explicit scratch profile",
+    };
+  }
+
+  if (homeScope) {
+    return {
+      kind: "global",
+      memoryMode: "readonly",
+      projectId: "global",
+      projectLabel: "global",
+      capture: false,
+      reason: "home directory uses global readonly memory",
     };
   }
 

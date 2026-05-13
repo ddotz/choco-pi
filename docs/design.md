@@ -31,7 +31,7 @@ The primary target is the user's current Pi environment under `~/.pi/agent`. `~/
 
 The dogfood layer is the first slice of the self-improvement loop. It captures only sanitized metadata needed to score clean/assisted/miss/review outcomes and mine recurring flows.
 
-Capture is controlled by `CHOCO_PI_IMPROVEMENT_MODE=off|readonly|manual|auto`. Automatic case storage happens only in `auto` mode and only when the scope resolves to a Git-root project or an explicit `personal`/`scratch` profile. `~/`, Downloads, `/tmp`, and other non-Git folders resolve to capture off by default.
+Capture is controlled by `CHOCO_PI_IMPROVEMENT_MODE=off|readonly|manual|auto`. Automatic case storage happens only in `auto` mode and only when the scope resolves to a Git-root project or an explicit `personal`/`scratch` profile. `~/` resolves to global readonly memory recall by default: global memories are loaded into the prompt, while memory saves and dogfood capture stay off. Downloads, `/tmp`, and other non-Git folders resolve to capture off by default.
 
 Stored flow data is limited to tool names and command classes such as `test`, `lint`, `typecheck`, `git`, and `web-fetch`. Raw prompts, raw command strings, raw tool output, and private paths are not stored for flow mining.
 

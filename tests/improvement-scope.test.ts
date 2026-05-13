@@ -1,5 +1,5 @@
 import { mkdtemp, mkdir, realpath, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { captureAllowedForScope, findGitRoot, parseDogfoodMemoryMode, resolveDogfoodScope } from "../extensions/choco-autopilot/improvement-scope";
@@ -37,6 +37,19 @@ describe("self-improvement scope policy", () => {
     expect(scope.projectLabel).toBe(root.split("/").at(-1));
     expect(scope.projectId).toMatch(/^[a-f0-9]{16}$/);
     expect(scope.capture).toBe(true);
+  });
+
+  it("defaults the home directory to global readonly memory recall without capture", async () => {
+    const scope = await resolveDogfoodScope({ cwd: homedir() });
+
+    expect(scope).toMatchObject({
+      kind: "global",
+      memoryMode: "readonly",
+      projectId: "global",
+      projectLabel: "global",
+      capture: false,
+      reason: "home directory uses global readonly memory",
+    });
   });
 
   it("turns capture off outside git repos unless an explicit profile is selected", async () => {

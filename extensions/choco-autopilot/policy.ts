@@ -39,6 +39,7 @@ export interface AutopilotPromptOptions {
   ledgerSummary?: string;
   dueSourceSummary?: string;
   suggestedWorkMode?: WorkMode;
+  globalMemorySummary?: string;
 }
 
 const DEEP_PATTERNS = [
@@ -135,6 +136,9 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
   const sourceSummary = options.dueSourceSummary?.trim()
     ? `\n\n## External Source Tracking\n${options.dueSourceSummary.trim()}\n${adoptionPolicy}`
     : `\n\n## External Source Tracking\nDo not track links for simple analysis. Track only sources explicitly adopted into choco-pi, or sources the user explicitly asks to track. For adopted sources, check weekly for updates, decide whether to adopt, partially adopt, or reject the change, and proceed autonomously when it fits choco-pi.\n${adoptionPolicy}`;
+  const memoryRecall = options.globalMemorySummary?.trim()
+    ? `\n\n## Global Memory Recall\nScope: readonly. Use these global memories as recall context in ~/; do not save or update memory from this scope.\n${options.globalMemorySummary.trim()}`
+    : "";
   const effectiveWorkMode = options.effectiveWorkMode ?? options.workMode;
   const modeOverlay = buildModeOverlayGuidance(effectiveWorkMode);
   const effectiveModeNote = effectiveWorkMode === options.workMode
@@ -210,6 +214,7 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "### Memory policy",
     "Store durable user preferences, project rules, repeated mistakes, successful verification commands, and important decisions.",
     "Do not store one-off chatter, temporary logs, oversized raw output, or stale intermediate failures.",
+    memoryRecall,
     "",
     "### External search policy",
     "Use the external insane-search skill for blocked web access, WAF-protected sites, Korean platforms, X/Twitter, Reddit, YouTube, GitHub, Naver, Coupang, LinkedIn, Medium, Substack, Stack Overflow, and similar sources.",

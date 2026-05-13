@@ -264,6 +264,17 @@ function splitCommandArgs(args: string): string[] {
   return args.trim().split(/\s+/).filter(Boolean);
 }
 
+function configuredImprovementProfile() {
+  const value = process.env.CHOCO_PI_IMPROVEMENT_PROFILE;
+  return value === "personal" || value === "scratch" ? value : undefined;
+}
+
+function configuredImprovementMode() {
+  return process.env.CHOCO_PI_IMPROVEMENT_MODE
+    ? parseDogfoodMemoryMode(process.env.CHOCO_PI_IMPROVEMENT_MODE)
+    : undefined;
+}
+
 type SourceRegistryAction = "list" | "add" | "watch" | "adopt" | "reject" | "due" | "changed" | "check";
 
 interface SourceRegistryToolParams {
@@ -622,13 +633,10 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
     const due = summarizeDueSources(state.sourceRegistry);
     const dueSourceSummary = [changed, due].filter((line) => !line.startsWith("No ")).join("\n\n");
 
-    const improvementProfile = process.env.CHOCO_PI_IMPROVEMENT_PROFILE === "personal" || process.env.CHOCO_PI_IMPROVEMENT_PROFILE === "scratch"
-      ? process.env.CHOCO_PI_IMPROVEMENT_PROFILE
-      : undefined;
     const scope = await resolveDogfoodScope({
       cwd,
-      mode: parseDogfoodMemoryMode(process.env.CHOCO_PI_IMPROVEMENT_MODE),
-      profile: improvementProfile,
+      mode: configuredImprovementMode(),
+      profile: configuredImprovementProfile(),
     });
 
     await startDogfoodCase(dogfoodCases, createDogfoodStore(dogfoodRootPath()), {
@@ -649,6 +657,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
         ledgerSummary,
         dueSourceSummary: dueSourceSummary || undefined,
         suggestedWorkMode,
+        globalMemorySummary: scope.kind === "global" && scope.memoryMode === "readonly" ? formatMemories(state.memories) : undefined,
       })}`,
     };
   });
@@ -1003,6 +1012,15 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
       }
 
       const text = trimmed.startsWith("save ") ? trimmed.slice(5).trim() : trimmed;
+      const scope = await resolveDogfoodScope({
+        cwd: ctx.cwd,
+        mode: configuredImprovementMode(),
+        profile: configuredImprovementProfile(),
+      });
+      if (scope.kind === "global" && scope.memoryMode === "readonly") {
+        ctx.ui.notify("Skipped memory: ~/ uses readonly global memory recall; save from a project or explicit profile scope.", "warning");
+        return;
+      }
       const candidate = classifyMemoryCandidate(text);
       const memory = createStoredMemory(candidate);
       if (!memory) {

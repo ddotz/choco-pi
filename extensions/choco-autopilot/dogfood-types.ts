@@ -1,7 +1,7 @@
 export type DogfoodOutcome = "clean" | "assisted" | "miss" | "review";
 export type DogfoodConfidence = "High" | "Medium" | "Low";
 export type DogfoodMemoryMode = "off" | "readonly" | "manual" | "auto";
-export type DogfoodScopeKind = "project" | "personal" | "scratch" | "off";
+export type DogfoodScopeKind = "project" | "personal" | "scratch" | "global" | "off";
 
 export interface DogfoodVerificationSignals {
   required: boolean;

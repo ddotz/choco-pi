@@ -6,7 +6,7 @@ Personal Pi package for a default-root all-purpose generalist workflow.
 
 ## Status
 
-- Current package version: `0.10.4`.
+- Current package version: `0.10.5`.
 - Implemented work modes: `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`, `design`.
 - Planned work modes: none.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
@@ -226,7 +226,7 @@ The source registry tracks only adopted or explicitly tracked external sources. 
 
 This dogfood layer is the first implemented slice of the self-improvement loop:
 
-1. **Observe safely**: capture only eligible cases, with Git-root project scope and non-Git default-off behavior.
+1. **Observe safely**: capture only eligible cases, with Git-root project scope, `~/` global-readonly recall, and non-Git default-off behavior elsewhere.
 2. **Score deterministically**: classify outcomes from observable evidence such as verification commands, structural gates, loop transitions, and repair events.
 3. **Mine repeated flows**: aggregate repeated assisted/miss patterns and top sanitized tool/command flow signatures in weekly reports.
 4. **Gate improvement**: allow auto-improvement only after minimum sample and repeated-pattern thresholds pass.
@@ -237,9 +237,9 @@ Self-improvement capture is controlled by environment variables:
 | Variable | Values | Behavior |
 | --- | --- | --- |
 | `CHOCO_PI_IMPROVEMENT_MODE` | `off`, `readonly`, `manual`, `auto` | `auto` stores eligible dogfood cases. `off`, `readonly`, and `manual` do not auto-store cases. `manual` is reserved for explicit future capture flows. |
-| `CHOCO_PI_IMPROVEMENT_PROFILE` | `personal`, `scratch` | Opts into non-project scopes. Without this, `~/`, Downloads, `/tmp`, missing paths, and other non-Git directories resolve to capture off. |
+| `CHOCO_PI_IMPROVEMENT_PROFILE` | `personal`, `scratch` | Opts into non-project capture scopes. Without this, `~/` resolves to global readonly recall, while Downloads, `/tmp`, missing paths, and other non-Git directories resolve to capture off. |
 
-Project identity is derived from the Git root, not the current subdirectory. The stored project id and root hash are hashed; the raw Git root path is not stored. Reports use a safe project label. Flow mining stores tool names and command classes such as `test`, `lint`, `typecheck`, `git`, `web-fetch`, and `other`; it does not store raw commands, command arguments, tool output, raw prompts, or private paths.
+`~/` is a special global-memory read scope: stored global memories are injected into the prompt as readonly recall, but memory saves and dogfood capture are blocked there by default. Project identity is derived from the Git root, not the current subdirectory. The stored project id and root hash are hashed; the raw Git root path is not stored. Reports use a safe project label. Flow mining stores tool names and command classes such as `test`, `lint`, `typecheck`, `git`, `web-fetch`, and `other`; it does not store raw commands, command arguments, tool output, raw prompts, or private paths.
 
 Use `/dogfood status` to see the current week sample count, `/dogfood weekly` to generate a deterministic weekly report, `/dogfood report` to show the latest report, `/dogfood queue` to inspect ambiguous cases, and `/dogfood explain <id>` to explain a case without raw prompt text.
 
@@ -495,7 +495,7 @@ Source registry는 실제로 채택했거나 사용자가 명시적으로 추적
 
 이 dogfood layer가 자기 개선 루프의 첫 구현 단위입니다.
 
-1. **안전한 관찰**: Git root 기반 project scope에서만 eligible case를 자동 기록하고, non-Git 위치는 기본 capture off로 둡니다.
+1. **안전한 관찰**: Git root 기반 project scope에서만 eligible case를 자동 기록하고, `~/`는 global readonly recall로 두며, 나머지 non-Git 위치는 기본 capture off로 둡니다.
 2. **결정적 채점**: verification command, structural gate, loop transition, repair event 같은 관찰 가능한 증거로 `clean / assisted / miss / review`를 분류합니다.
 3. **반복 flow 발굴**: 주간 report에서 반복 assisted/miss pattern과 sanitized tool/command flow signature를 집계합니다.
 4. **개선 gate**: 최소 sample 수와 반복 pattern 기준을 통과해야만 auto-improvement가 허용됩니다.
@@ -506,9 +506,9 @@ Source registry는 실제로 채택했거나 사용자가 명시적으로 추적
 | Variable | Values | Behavior |
 | --- | --- | --- |
 | `CHOCO_PI_IMPROVEMENT_MODE` | `off`, `readonly`, `manual`, `auto` | `auto`만 eligible dogfood case를 저장합니다. `off`, `readonly`, `manual`은 자동 저장하지 않습니다. `manual`은 향후 명시 capture flow용으로 예약되어 있습니다. |
-| `CHOCO_PI_IMPROVEMENT_PROFILE` | `personal`, `scratch` | project가 아닌 scope를 명시 opt-in합니다. 이 값이 없으면 `~/`, Downloads, `/tmp`, 존재하지 않는 경로, 기타 non-Git directory는 capture off입니다. |
+| `CHOCO_PI_IMPROVEMENT_PROFILE` | `personal`, `scratch` | project가 아닌 capture scope를 명시 opt-in합니다. 이 값이 없으면 `~/`는 global readonly recall이고, Downloads, `/tmp`, 존재하지 않는 경로, 기타 non-Git directory는 capture off입니다. |
 
-Project identity는 현재 subdirectory가 아니라 Git root에서 계산합니다. 저장되는 project id와 root hash는 hash이고, raw Git root path는 저장하지 않습니다. report에는 안전한 project label만 사용합니다. Flow mining은 `test`, `lint`, `typecheck`, `git`, `web-fetch`, `other` 같은 command class와 tool name만 저장합니다. raw command, command argument, tool output, raw prompt, private path는 저장하지 않습니다.
+`~/`는 전역 메모리 읽기 전용 scope입니다. 저장된 global memory는 readonly recall로 prompt에 주입되지만, 해당 위치에서는 memory save와 dogfood capture가 기본 차단됩니다. Project identity는 현재 subdirectory가 아니라 Git root에서 계산합니다. 저장되는 project id와 root hash는 hash이고, raw Git root path는 저장하지 않습니다. report에는 안전한 project label만 사용합니다. Flow mining은 `test`, `lint`, `typecheck`, `git`, `web-fetch`, `other` 같은 command class와 tool name만 저장합니다. raw command, command argument, tool output, raw prompt, private path는 저장하지 않습니다.
 
 `/dogfood status`는 현재 주 sample count를 보여주고, `/dogfood weekly`는 deterministic weekly report를 생성하며, `/dogfood report`는 최신 report를 표시합니다. `/dogfood queue`는 애매한 case 수를 보여주고, `/dogfood explain <id>`는 raw prompt text 없이 case 판정 이유를 설명합니다.
 

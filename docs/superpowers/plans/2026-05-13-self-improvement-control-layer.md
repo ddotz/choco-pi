@@ -503,7 +503,8 @@ Add concise notes:
 ## Self-improvement capture policy
 
 - Default capture is project-scoped and Git-root based.
-- `~/`, Downloads, `/tmp`, and non-Git folders resolve to capture off unless an explicit profile is selected.
+- `~/` resolves to global readonly memory recall by default: global memories load into the prompt, while memory saves and dogfood capture stay off.
+- Downloads, `/tmp`, and other non-Git folders resolve to capture off unless an explicit profile is selected.
 - `CHOCO_PI_IMPROVEMENT_MODE=off|readonly|manual|auto` controls automatic capture.
 - `readonly` and `manual` do not automatically store dogfood cases.
 - Stored flow data is sanitized tool names and command classes, not raw commands or prompt text.
