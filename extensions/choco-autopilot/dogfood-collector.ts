@@ -13,6 +13,32 @@ export function createActiveDogfoodCaseState(): ActiveDogfoodCaseState {
   return {};
 }
 
+function uniqueAppend(values: string[], value: string): string[] {
+  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9._/-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+  if (!normalized || values.includes(normalized)) return values;
+  return [...values, normalized];
+}
+
+export function steeringSignalsFromPrompt(prompt: string): string[] {
+  const signals: string[] = [];
+  if (/\b(again|continue|retry|missed|wrong|still)\b|다시|계속|누락|빠졌|틀렸|아직|남았/i.test(prompt)) signals.push("follow-up-correction");
+  if (/\b(not that|instead)\b|아니야|아닙니다|그게\s*아니|대신\s+다시/i.test(prompt)) signals.push("negative-correction");
+  return Array.from(new Set(signals));
+}
+
+export function recordDogfoodRepairQueued(state: ActiveDogfoodCaseState, reason = "internal-repair"): void {
+  const current = state.current;
+  if (!current) return;
+  current.gates.repairQueued = true;
+  current.flow.toolSequence = [...current.flow.toolSequence, `repair:${reason}`].slice(-40);
+}
+
+export function recordDogfoodUserSteeringSignal(state: ActiveDogfoodCaseState, signal: string): void {
+  const current = state.current;
+  if (!current) return;
+  current.userSteeringSignals = uniqueAppend(current.userSteeringSignals, signal).slice(-20);
+}
+
 export async function startDogfoodCase(state: ActiveDogfoodCaseState, store: DogfoodStore, input: {
   prompt: string;
   cwd: string;
@@ -46,7 +72,7 @@ export async function startDogfoodCase(state: ActiveDogfoodCaseState, store: Dog
     flow: { toolSequence: [], commandSequence: [] },
     verification: { required: false, passed: false, failedCommands: [], passedCommands: [] },
     gates: { structuralRequired: false, structuralPassed: false, loopTransitions: 0, repairQueued: false },
-    userSteeringSignals: [],
+    userSteeringSignals: steeringSignalsFromPrompt(input.prompt),
     outcome: "review",
     outcomeConfidence: "Low",
     ruleReasons: [],

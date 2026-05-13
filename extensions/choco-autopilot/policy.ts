@@ -35,6 +35,7 @@ export interface ApprovalDecision {
 export interface AutopilotPromptOptions {
   workMode: WorkMode;
   effectiveWorkMode?: WorkMode;
+  modeSequence?: WorkMode[];
   executionIntensity: ExecutionIntensity;
   cwd: string;
   ledgerSummary?: string;
@@ -119,6 +120,22 @@ function buildModeOverlayGuidance(mode: WorkMode): string {
   return "";
 }
 
+function uniqueModeSequence(sequence: WorkMode[], fallback: WorkMode): WorkMode[] {
+  const unique = Array.from(new Set(sequence.filter((mode) => mode !== "default")));
+  return unique.length ? unique : [fallback];
+}
+
+function buildSequentialModeGuidance(sequence: WorkMode[]): string {
+  if (sequence.length <= 1) return "";
+  return [
+    "### Sequential mode plan",
+    `Effective work mode sequence for this turn: ${sequence.join(" -> ")}`,
+    "Run these mode stages in order inside the same managed project. Do not persistently switch `/mode` unless the user explicitly asks.",
+    ...sequence.map((mode, index) => `- Stage ${index + 1}: ${mode}`),
+    "Final user-facing output should follow the last stage's output contract, while earlier stages provide evidence and inputs for later stages.",
+  ].join("\n");
+}
+
 function buildModeIsolationGuidance(): string {
   return [
     "### Mode isolation",
@@ -141,7 +158,11 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     ? `\n\n## Global Memory Recall\nScope: readonly. Use these global memories as recall context in ~/; do not save or update memory from this scope.\n${options.globalMemorySummary.trim()}`
     : "";
   const effectiveWorkMode = options.effectiveWorkMode ?? options.workMode;
-  const modeOverlay = buildModeOverlayGuidance(effectiveWorkMode);
+  const modeSequence = uniqueModeSequence(options.modeSequence ?? [effectiveWorkMode], effectiveWorkMode);
+  const sequentialModeGuidance = buildSequentialModeGuidance(modeSequence);
+  const modeOverlays = modeSequence
+    .map((mode) => buildModeOverlayGuidance(mode))
+    .filter(Boolean);
   const effectiveModeNote = effectiveWorkMode === options.workMode
     ? "Effective mode matches the persistent mode for this turn."
     : "Effective mode is a temporary, session-scoped overlay for this turn; do not persist it unless explicitly requested.";
@@ -152,6 +173,7 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "Base philosophy: default is the root all-purpose generalist mode; it treats each user order as one managed project, delegates to implemented specialized overlays when useful, and keeps structural gates intact.",
     `Persistent work mode: ${options.workMode}`,
     `Effective work mode for this turn: ${effectiveWorkMode}`,
+    ...(modeSequence.length > 1 ? [`Effective work mode sequence for this turn: ${modeSequence.join(" -> ")}`] : []),
     `Work mode: ${effectiveWorkMode}`,
     effectiveModeNote,
     `Execution intensity: ${options.executionIntensity}`,
@@ -160,7 +182,8 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "### Work mode directive",
     describeWorkMode(effectiveWorkMode),
     buildModeSwitchGuidance(options.suggestedWorkMode, effectiveWorkMode),
-    ...(modeOverlay ? ["", modeOverlay] : []),
+    ...(sequentialModeGuidance ? ["", sequentialModeGuidance] : []),
+    ...modeOverlays.flatMap((overlay) => ["", overlay]),
     "",
     "### Operating priority",
     "1. Follow the user's latest instruction as the highest task-level authority.",

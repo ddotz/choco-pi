@@ -82,6 +82,27 @@ describe("auto mode overlay", () => {
     expect(notify).toHaveBeenCalledWith("mode: default", "info");
   });
 
+  it("applies sequential web-analysis then report routing for research-backed report turns", async () => {
+    await useTempAgentDir();
+    const { handlers, commands } = setupAutopilot();
+    const beforeHandlers = handlers.get("before_agent_start")!;
+    const before = beforeHandlers[beforeHandlers.length - 1]!;
+
+    const result = await before({ systemPrompt: "base", prompt: "자료 조사해서 보고서 작성해줘" }, ctx("session-sequential-report")) as { systemPrompt: string };
+
+    expect(result.systemPrompt).toContain("Persistent work mode: default");
+    expect(result.systemPrompt).toContain("Effective work mode for this turn: report");
+    expect(result.systemPrompt).toContain("Effective work mode sequence for this turn: web-analysis -> report");
+    expect(result.systemPrompt).toContain("Stage 1: web-analysis");
+    expect(result.systemPrompt).toContain("Stage 2: report");
+    expect(result.systemPrompt).toContain("Web Analysis Mode");
+    expect(result.systemPrompt).toContain("Report Mode");
+
+    const notify = vi.fn();
+    await commands.get("mode")!.handler("status" as never, { ...ctx("session-sequential-report"), ui: { notify } });
+    expect(notify).toHaveBeenCalledWith("mode: default", "info");
+  });
+
   it("applies a coding effective mode for implementation turns without changing persistent mode", async () => {
     await useTempAgentDir();
     const { handlers, commands } = setupAutopilot();

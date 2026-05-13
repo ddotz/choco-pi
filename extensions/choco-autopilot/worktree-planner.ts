@@ -186,6 +186,21 @@ function buildConflicts(items: ParallelWorkItem[], key: "files" | "domains", typ
     }));
 }
 
+function unknownWritableItems(items: ParallelWorkItem[]): ParallelWorkItem[] {
+  return items.filter((item) => item.write && item.files.length === 0 && item.domains.length === 0);
+}
+
+function buildUnknownWritableConflict(items: ParallelWorkItem[]): ParallelWorkConflict[] {
+  const unknownItems = unknownWritableItems(items);
+  if (unknownItems.length <= 1) return [];
+  return [{
+    type: "domain",
+    scope: "unknown-writable-scope",
+    itemIds: unknownItems.map((item) => item.id),
+    resolution: "same-lane-serial",
+  }];
+}
+
 function mergeLaneDraft(target: ParallelWorkLane, source: ParallelWorkLane): ParallelWorkLane {
   return {
     ...target,
@@ -269,6 +284,7 @@ export function planParallelWorkAreas(input: ParallelWorkAreaPlanInput): Paralle
   const conflicts = [
     ...buildConflicts(items, "files", "file"),
     ...buildConflicts(items, "domains", "domain"),
+    ...buildUnknownWritableConflict(items),
   ];
   const disjoint = new DisjointSet();
   for (const item of items) disjoint.add(item.id);
@@ -285,6 +301,8 @@ export function planParallelWorkAreas(input: ParallelWorkAreaPlanInput): Paralle
 
   const rawLanes = [...byRoot.values()].map((laneItems, index): ParallelWorkLane => {
     const itemIds = laneItems.map((item) => item.id);
+    const hasUnknownWritableScope = laneItems.some((item) => item.write && item.files.length === 0 && item.domains.length === 0);
+    const serial = itemIds.length > 1 || hasUnknownWritableScope;
     return {
       id: `lane-${index + 1}`,
       itemIds,
@@ -292,12 +310,14 @@ export function planParallelWorkAreas(input: ParallelWorkAreaPlanInput): Paralle
       files: uniqueStrings(laneItems.flatMap((item) => item.files)).sort(),
       domains: uniqueStrings(laneItems.flatMap((item) => item.domains)).sort(),
       writable: laneItems.some((item) => item.write),
-      serial: itemIds.length > 1,
+      serial,
       executionStrategy: "serial",
       blockedByLaneIds: [],
-      rationale: itemIds.length > 1
-        ? "shared writable file/domain scope is serialized in one owner lane"
-        : "independent writable scope can run in parallel",
+      rationale: hasUnknownWritableScope
+        ? "unknown writable scope is serialized until files or domains are declared"
+        : itemIds.length > 1
+          ? "shared writable file/domain scope is serialized in one owner lane"
+          : "independent writable scope can run in parallel",
     };
   });
 

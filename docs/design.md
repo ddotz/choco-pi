@@ -41,7 +41,7 @@ The autonomous PM/development-team base is always on. It is not a user-facing mo
 
 ## Work Modes
 
-Implemented built-in modes are `default`, `coding`, `report`, `web-analysis`, and `adoption-analysis`. `default` remains the persistent root generalist mode; specialized modes are applied as session-scoped overlays when the request benefits from them. The agent must not ask to switch modes when a safe temporary overlay can satisfy the request.
+Implemented built-in modes are `default`, `coding`, `report`, `design`, `web-analysis`, and `adoption-analysis`. `default` remains the persistent root generalist mode; specialized modes are applied as session-scoped overlays when the request benefits from them. The agent must not ask to switch modes when a safe temporary overlay can satisfy the request.
 
 Folder layout:
 
@@ -51,11 +51,12 @@ modes/
   default/MODE.md
   coding/MODE.md
   report/MODE.md
+  design/MODE.md
   web-analysis/MODE.md
   adoption-analysis/MODE.md
 ```
 
-Each mode inherits `_base` and adds a focused overlay. `default` remains general and may apply coding/report/web/adoption expertise temporarily, while specialized modes add their own evidence, verification, and output guards without changing persistent mode. Custom modes follow `modes/<mode-id>/MODE.md`; `/mode add` registers them and writes runtime files under `~/.pi/agent/choco-pi/modes/`.
+Each mode inherits `_base` and adds a focused overlay. `default` remains general and may apply coding/report/design/web/adoption expertise temporarily, while specialized modes add their own evidence, verification, and output guards without changing persistent mode. The product/UI design overlay lives at `modes/design/MODE.md`. Custom modes follow `modes/<mode-id>/MODE.md`; `/mode add` registers them and writes runtime files under `~/.pi/agent/choco-pi/modes/`.
 
 ## Execution Intensity
 

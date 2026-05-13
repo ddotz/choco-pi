@@ -73,6 +73,31 @@ describe("session worktree planner", () => {
     expect(plan.conflicts).toEqual([]);
   });
 
+  it("serializes writable items with unknown file/domain scope instead of marking them parallel-safe", () => {
+    const plan = planParallelWorkAreas({
+      items: [
+        { id: "agent-a", description: "Implement unknown runtime changes" },
+        { id: "agent-b", description: "Implement another unknown writable change" },
+        { id: "reviewer", description: "Read-only review", write: false },
+      ],
+    });
+
+    const unknownLane = plan.lanes.find((lane) => lane.itemIds.includes("agent-a"));
+    const reviewerLane = plan.lanes.find((lane) => lane.itemIds.includes("reviewer"));
+
+    expect(unknownLane?.itemIds).toEqual(expect.arrayContaining(["agent-a", "agent-b"]));
+    expect(unknownLane?.serial).toBe(true);
+    expect(unknownLane?.executionStrategy).toBe("serial");
+    expect(unknownLane?.rationale).toContain("unknown writable scope");
+    expect(reviewerLane?.executionStrategy).toBe("spawn-agent");
+    expect(plan.conflicts).toContainEqual({
+      type: "domain",
+      scope: "unknown-writable-scope",
+      itemIds: ["agent-a", "agent-b"],
+      resolution: "same-lane-serial",
+    });
+  });
+
   it("defaults to a hybrid strategy with worktrees for writable lanes and spawn agents for read-only lanes", () => {
     const plan = planParallelWorkAreas({
       items: [

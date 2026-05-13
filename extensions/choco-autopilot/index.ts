@@ -14,7 +14,14 @@ import {
   type VerificationStatus,
   summarizeLedger,
 } from "./context-ledger";
-import { createActiveDogfoodCaseState, finishDogfoodCase, recordDogfoodToolCall, recordDogfoodToolResult, startDogfoodCase } from "./dogfood-collector";
+import {
+  createActiveDogfoodCaseState,
+  finishDogfoodCase,
+  recordDogfoodRepairQueued,
+  recordDogfoodToolCall,
+  recordDogfoodToolResult,
+  startDogfoodCase,
+} from "./dogfood-collector";
 import { isoWeekId } from "./dogfood-privacy";
 import { cleanupDogfoodCaseRetention, createDogfoodStore, listDogfoodCases, readDogfoodQueue, readDogfoodWeeklyReport, writeDogfoodWeeklyReport } from "./dogfood-store";
 import { buildDogfoodWeeklyReport, formatDogfoodWeeklyReport } from "./dogfood-weekly";
@@ -24,6 +31,7 @@ import {
   DEFAULT_EXECUTION_INTENSITY,
   DEFAULT_WORK_MODE,
   inferPlannedWorkMode,
+  inferPlannedWorkModes,
   isWorkModeImplemented,
   parseExecutionIntensity,
   parseWorkMode,
@@ -94,6 +102,7 @@ import {
 
 interface SessionRuntimeState {
   effectiveWorkMode: WorkMode;
+  effectiveModeSequence?: WorkMode[];
   suggestedWorkMode?: WorkMode;
   automaticMode: boolean;
   executionIntensity: ExecutionIntensity;
@@ -609,10 +618,12 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
     if (!prompt.includes(CODING_REPAIR_PROMPT_MARKER)) repairStateFor(codingRepairStates, sessionId).repairQueued = false;
     if (!prompt.includes(REPORT_REPAIR_PROMPT_MARKER)) repairStateFor(reportRepairStates, sessionId).repairQueued = false;
     if (!prompt.includes(DESIGN_REPAIR_PROMPT_MARKER)) repairStateFor(designRepairStates, sessionId).repairQueued = false;
-    const suggestedWorkMode = inferPlannedWorkMode(prompt);
+    const suggestedWorkModes = inferPlannedWorkModes(prompt);
+    const suggestedWorkMode = suggestedWorkModes.at(-1) ?? inferPlannedWorkMode(prompt);
     const modeDecision = resolveEffectiveWorkMode({
       persistentMode: state.runtime.workMode,
       suggestedMode: suggestedWorkMode,
+      suggestedModes: suggestedWorkModes,
     });
     const workMode = state.runtime.workMode;
     const effectiveWorkMode = modeDecision.effectiveMode;
@@ -622,6 +633,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
     );
     state.sessions[sessionId] = {
       effectiveWorkMode,
+      effectiveModeSequence: modeDecision.modeSequence,
       suggestedWorkMode,
       automaticMode: modeDecision.automatic,
       executionIntensity,
@@ -654,6 +666,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
       systemPrompt: `${event.systemPrompt}\n\n${buildAutopilotSystemPrompt({
         workMode,
         effectiveWorkMode,
+        modeSequence: modeDecision.modeSequence,
         executionIntensity,
         cwd,
         ledgerSummary,
@@ -698,6 +711,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
     ]);
 
     for (const repair of guardResult.repairs) {
+      recordDogfoodRepairQueued(dogfoodCases, repair.customType);
       pi.sendMessage(
         {
           customType: repair.customType,

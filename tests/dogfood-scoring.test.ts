@@ -1,4 +1,9 @@
 import { describe, expect, it } from "vitest";
+import {
+  createActiveDogfoodCaseState,
+  recordDogfoodRepairQueued,
+  recordDogfoodUserSteeringSignal,
+} from "../extensions/choco-autopilot/dogfood-collector";
 import { repeatedDogfoodPatterns, scoreDogfoodCase } from "../extensions/choco-autopilot/dogfood-scoring";
 import type { DogfoodCase } from "../extensions/choco-autopilot/dogfood-types";
 import { commandClassFromInput } from "../extensions/choco-autopilot/verification-command";
@@ -53,6 +58,21 @@ describe("dogfood scoring", () => {
     }));
     expect(scored.outcome).toBe("assisted");
     expect(scored.repeatedPatternKey).toBe("coding:repair-or-recovery");
+  });
+
+  it("records repair and user-steering signals through the dogfood collector path", () => {
+    const state = createActiveDogfoodCaseState();
+    state.current = baseCase({
+      gates: { structuralRequired: true, structuralPassed: true, loopTransitions: 1, repairQueued: false },
+      userSteeringSignals: [],
+    });
+
+    recordDogfoodRepairQueued(state, "mode-quality-guard");
+    recordDogfoodUserSteeringSignal(state, "follow-up-correction");
+
+    expect(state.current.gates.repairQueued).toBe(true);
+    expect(state.current.userSteeringSignals).toEqual(["follow-up-correction"]);
+    expect(scoreDogfoodCase(state.current).outcome).toBe("assisted");
   });
 
   it("scores failed verification or failed required gate as miss", () => {

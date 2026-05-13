@@ -75,6 +75,7 @@ describe("design mode", () => {
 
   it("keeps the design mode documentation aligned with artifact tracks and Korean typography", () => {
     const modeDoc = readFileSync(new URL("../modes/design/MODE.md", import.meta.url), "utf8");
+    const designDoc = readFileSync(new URL("../docs/design.md", import.meta.url), "utf8");
 
     expect(modeDoc).toContain("Artifact-track routing");
     expect(modeDoc).toContain("Mobile web");
@@ -83,5 +84,7 @@ describe("design mode", () => {
     expect(modeDoc).toContain("word-break: keep-all");
     expect(modeDoc).toContain("text-wrap: balance");
     expect(modeDoc).toContain("Pretendard");
+    expect(designDoc).toContain("design");
+    expect(designDoc).toContain("modes/design/MODE.md");
   });
 });
