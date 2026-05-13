@@ -114,6 +114,7 @@ It also registers user commands:
 
 - `/mode`: status/list/set/add/remove work modes.
 - `/intensity`: status/set execution intensity.
+- `/effort`: show/set thinking effort with `low`, `medium`, `high`, `xhigh`, `max`, or `auto`.
 - `/source`: track, watch, adopt/reject, and check external sources.
 - `/memory`: list/save durable memory.
 - `/ledger`: show/reset the context ledger.
@@ -396,7 +397,7 @@ state schema version `4`는 다음을 저장합니다.
 - `resources_discover`: 외부 `obra/superpowers` skill repository를 원본 그대로 보장하고 skill path로 제공합니다.
 - `session_shutdown`: status indicator를 제거합니다.
 
-등록 명령은 `/mode`, `/intensity`, `/source`, `/memory`, `/ledger`, `/update`, `/reload-runtime`입니다.
+등록 명령은 `/mode`, `/intensity`, `/effort`, `/source`, `/memory`, `/ledger`, `/update`, `/reload-runtime`입니다.
 
 ### 3. Hook 구조
 
@@ -614,6 +615,7 @@ pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test
 - `/mode` — open the interactive work-mode selector with each mode description.
 - `/mode [status|list|set <mode>|add <id> <description>|remove <id>]` — manage work modes. `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`, and `design` are implemented modes.
 - `/intensity [micro|standard|deep|status]` — show or set process weight.
+- `/effort [low|medium|high|xhigh|max|auto]` — show or set the current thinking effort; `max` resolves to the highest supported level and `auto` resets to Pi's default medium effort.
 - `/source [list|add|watch|adopt|reject|due|changed|check]` — track adopted, watched, or explicitly tracked external sources.
 - `/btw`, `/btw:new`, `/btw:tangent`, `/btw:inject`, `/btw:summarize`, `/btw:clear`, `/btw:model`, `/btw:thinking` — run Korean-localized side conversations in a focused overlay without installing `npm:pi-btw` separately.
 - `/memory [list|save <text>]` — list/save durable memories.

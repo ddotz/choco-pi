@@ -5,7 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import chocoAutopilot from "../extensions/choco-autopilot/index";
 
 interface RegisteredCommand {
-  handler: (args: string, ctx: { ui: { notify: ReturnType<typeof vi.fn>; select?: ReturnType<typeof vi.fn> } }) => Promise<void>;
+  handler: (args: string, ctx: { ui: { notify: ReturnType<typeof vi.fn>; select?: ReturnType<typeof vi.fn> }; model?: unknown }) => Promise<void>;
+  getArgumentCompletions?: (prefix: string) => Array<{ value: string; label: string }> | null;
 }
 
 let tempAgentDir: string | undefined;
@@ -21,7 +22,7 @@ async function useTempAgentDir(): Promise<void> {
   process.env.PI_CODING_AGENT_DIR = tempAgentDir;
 }
 
-function registeredCommands(): Map<string, RegisteredCommand> {
+function registeredCommands(overrides: Record<string, unknown> = {}): Map<string, RegisteredCommand> {
   const commands = new Map<string, RegisteredCommand>();
   chocoAutopilot({
     on: vi.fn(),
@@ -32,6 +33,9 @@ function registeredCommands(): Map<string, RegisteredCommand> {
     sendUserMessage: vi.fn(),
     exec: vi.fn(),
     getFlag: vi.fn(),
+    getThinkingLevel: vi.fn(() => "medium"),
+    setThinkingLevel: vi.fn(),
+    ...overrides,
   } as never);
   return commands;
 }
@@ -40,7 +44,7 @@ describe("extension command names", () => {
   it("registers personal commands without the choco prefix", () => {
     const commands = registeredCommands();
 
-    expect([...commands.keys()]).toEqual(expect.arrayContaining(["mode", "intensity", "source", "memory", "ledger"]));
+    expect([...commands.keys()]).toEqual(expect.arrayContaining(["mode", "intensity", "effort", "source", "memory", "ledger"]));
     expect([...commands.keys()].filter((name) => name.startsWith("choco-"))).toEqual([]);
   });
 
@@ -106,6 +110,50 @@ describe("extension command names", () => {
     expect(notify).toHaveBeenCalledWith("mode: default", "info");
     expect(notify).toHaveBeenLastCalledWith(expect.stringContaining("mode: default"), "info");
     expect(notify.mock.calls.flat().join("\n")).not.toContain("planned but not implemented");
+  });
+
+  it("sets thinking effort with Claude-style explicit and alias values", async () => {
+    let thinkingLevel = "medium";
+    const setThinkingLevel = vi.fn((level: string) => {
+      thinkingLevel = level;
+    });
+    const commands = registeredCommands({
+      getThinkingLevel: vi.fn(() => thinkingLevel),
+      setThinkingLevel,
+    });
+    const notify = vi.fn();
+    const model = { id: "gpt-5.5", reasoning: true, thinkingLevelMap: { xhigh: "high" } };
+
+    await commands.get("effort")!.handler("high", { ui: { notify }, model });
+    await commands.get("effort")!.handler("max", { ui: { notify }, model });
+    await commands.get("effort")!.handler("auto", { ui: { notify }, model });
+
+    expect(setThinkingLevel).toHaveBeenNthCalledWith(1, "high");
+    expect(setThinkingLevel).toHaveBeenNthCalledWith(2, "xhigh");
+    expect(setThinkingLevel).toHaveBeenNthCalledWith(3, "medium");
+    expect(notify).toHaveBeenCalledWith("effort: medium -> high", "info");
+    expect(notify).toHaveBeenCalledWith("effort: high -> xhigh", "info");
+    expect(notify).toHaveBeenCalledWith("effort: xhigh -> medium (auto)", "info");
+  });
+
+  it("rejects unsupported effort values and exposes argument completions", async () => {
+    const setThinkingLevel = vi.fn();
+    const commands = registeredCommands({ setThinkingLevel });
+    const notify = vi.fn();
+    const model = { id: "standard-reasoning", reasoning: true };
+
+    await commands.get("effort")!.handler("xhigh", { ui: { notify }, model });
+
+    expect(setThinkingLevel).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("Unsupported effort 'xhigh'"), "error");
+    expect(commands.get("effort")!.getArgumentCompletions!("")).toEqual([
+      { value: "low", label: "low" },
+      { value: "medium", label: "medium" },
+      { value: "high", label: "high" },
+      { value: "xhigh", label: "xhigh" },
+      { value: "max", label: "max" },
+      { value: "auto", label: "auto" },
+    ]);
   });
 
   it("supports watch decisions in the source command", async () => {

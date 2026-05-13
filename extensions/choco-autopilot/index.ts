@@ -76,6 +76,7 @@ import { resolveEffectiveWorkMode, sessionIdFromContext, sessionScopedKey } from
 import { installStructuralGate } from "./structural-gate";
 import { discoverSuperpowersSkillPath } from "./superpowers-dependency";
 import { CHOCO_PI_VERSION } from "./version";
+import { registerEffortCommand } from "./effort";
 import { verificationCommandFromInput } from "./verification-command";
 import { guardWebResearchQualityMessage, type WebResearchRepairState } from "./web-research-quality";
 import {
@@ -900,6 +901,8 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
       await setExecutionIntensity(intensity, ctx);
     },
   });
+
+  registerEffortCommand(pi);
 
   pi.registerCommand("source", {
     description: "Track, watch, adopt, reject, and check external repos/links for weekly update checks",
