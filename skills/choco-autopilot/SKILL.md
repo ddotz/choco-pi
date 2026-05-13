@@ -45,6 +45,10 @@ Drive work through the choco-pi root all-purpose generalist base. `default` is t
 
 Git commit and normal git push are autonomous routine source synchronization, not deployment. Commit and push after verification when the working tree contains intentional in-scope changes and a remote is configured.
 
+## Advanced PRD Routing
+
+When the user asks for PRD, 기획서, 제품기획, product requirements, product spec, roadmap/spec docs, or asks to strengthen an existing PRD, use the `prd-architect` skill. Treat it as an advanced-user workflow: analyze context first, proceed with explicit assumptions, ask critical questions only, and avoid beginner interview or AskUserQuestion-first flows.
+
 ## Work Modes
 
 Use `/mode` as the canonical work-mode command. Run `/mode` with no arguments to open an interactive selector that shows each mode description.

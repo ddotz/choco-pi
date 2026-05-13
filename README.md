@@ -6,7 +6,7 @@ Personal Pi package for a default-root all-purpose generalist workflow.
 
 ## Status
 
-- Current package version: `0.11.0`.
+- Current package version: `0.12.0`.
 - Implemented work modes: `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`, `design`.
 - Planned work modes: none.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
@@ -233,7 +233,23 @@ Memory is durable and explicit. `/memory save` stores only durable facts; tempor
 
 The source registry tracks only adopted or explicitly tracked external sources. GitHub sources are checked weekly with `git ls-remote`; changed sources are surfaced in the autopilot prompt for autonomous adopt/partial-adopt/reject decisions.
 
-### 7. Dogfooding quality system and self-improvement loop
+### 7. Advanced PRD architect
+
+`skills/prd-architect` provides senior-level PRD and product-requirements work. It is triggered by PRD, 기획서, 제품기획, product requirements, and product spec requests.
+
+The skill deliberately avoids beginner interview flows. It analyzes existing context first, proceeds with explicit assumptions, asks critical questions only, and produces deep PRD document sets that can seed dynamic SDD:
+
+```text
+01_PRD.md
+02_SYSTEM_MODEL.md
+03_DELIVERY_PLAN.md
+04_AGENT_SPEC.md
+README.md
+```
+
+The design adapts idea-level patterns from `fivetaku/show-me-the-prd` — coherent multi-document PRD output, gap analysis, research-backed decisions, and domain-specific document sets — while rejecting Claude-only plugin mechanics, AskUserQuestion-first flow, and beginner-friendly simplification.
+
+### 8. Dogfooding quality system and self-improvement loop
 
 `choco-pi` records privacy-preserving cross-project quality cases under `~/.pi/agent/choco-pi/dogfood/`. It does not store raw prompt text by default. Each case stores a salted prompt hash, safe project label, work mode, task type, tool counts, verification signals, structural gate signals, scope metadata, sanitized flow signals, and a deterministic `clean / assisted / miss / review` outcome.
 
@@ -258,7 +274,7 @@ Use `/dogfood status` to see the current week sample count, `/dogfood weekly` to
 
 Auto-improvement requires at least 25 eligible weekly cases and at least 3 repeated assisted/miss cases for the same pattern. The current loop does not run hidden background LLM judging, does not create active skills automatically, and does not store raw prompt/tool output.
 
-### 8. Todo subsystem
+### 9. Todo subsystem
 
 `extensions/todo-widget.ts` registers the `todo` tool and `/todos` UI. Todos are session-local by default so multiple Pi sessions in the same cwd do not overwrite each other:
 
@@ -283,7 +299,7 @@ Persistence rules:
 
 The tool renderer is intentionally empty so tool calls stay visually quiet while the widget reflects todo state.
 
-### 9. Footer subsystem
+### 10. Footer subsystem
 
 `extensions/choco-footer/` replaces Pi's footer with a two-line footer:
 
@@ -305,7 +321,7 @@ Data sources:
 
 The footer caches expensive probes and truncates each line to the terminal width.
 
-### 10. Focus view / focus rendering
+### 11. Focus view / focus rendering
 
 `extensions/focus-rendering/index.ts` implements the focused tool-output view. It patches Pi's `ToolExecutionComponent` prototype at runtime because the built-in renderer owns tool block layout.
 
@@ -322,7 +338,7 @@ Responsibilities:
 
 This is a UI-only layer: it does not mutate tool results or session content. It changes how results are rendered in the TUI so the agent can keep context-rich tool output available while the user sees a compact, focused view.
 
-### 11. Search, paste, and editor helpers
+### 12. Search, paste, and editor helpers
 
 `extensions/fff-search/` replaces built-in `find` and `grep` tools with FFF-backed search and can replace `@`-mention autocomplete in the editor. It stores FFF frecency/history/config under:
 
@@ -338,13 +354,13 @@ This is a UI-only layer: it does not mutate tool results or session content. It 
 
 `pi-lsp-client` is loaded as a package dependency and supplies LSP diagnostics/navigation tools.
 
-### 12. Runtime reload
+### 13. Runtime reload
 
 `runtime-reload.ts` provides `/reload-runtime` and the LLM-callable `reload_runtime` tool. Preferred behavior is direct `ctx.reload()`. When direct reload is unavailable from a tool context, it self-submits `/reload-runtime --continue` through tmux and writes a resume marker. After reload, `session_start(reason: "reload")` claims the marker and sends `continue` as a follow-up message.
 
 This keeps extension changes, skills, prompts, and themes reloadable without starting a new conversation session.
 
-### 13. Verification architecture
+### 14. Verification architecture
 
 The default quality gate is:
 
@@ -515,7 +531,23 @@ Memory는 명시적으로 저장하는 durable state입니다. `/memory save`는
 
 Source registry는 실제로 채택했거나 사용자가 명시적으로 추적 요청한 외부 source만 기록합니다. 신규 Pi 기능 요청은 먼저 https://pi.dev/packages 에서 유사 패키지를 확인하고, 높은 유사도의 패키지가 있으면 source/license/security를 검토한 뒤 fork/clone 기반으로 커스터마이징합니다. GitHub source는 주 1회 `git ls-remote`로 확인하고, 변경된 source는 autopilot prompt에 포함되어 adopt / partially adopt / reject 판단을 유도합니다.
 
-### 7. Dogfooding quality system and self-improvement loop
+### 7. Advanced PRD architect
+
+`skills/prd-architect`는 고급 사용자용 PRD/product requirements 작업을 담당합니다. PRD, 기획서, 제품기획, product requirements, product spec 요청에서 활성화됩니다.
+
+이 skill은 초보자용 인터뷰 흐름을 의도적으로 피합니다. 먼저 기존 맥락을 분석하고, 명시적 assumption으로 자동 진행하며, critical 질문만 묻고, dynamic SDD로 바로 넘길 수 있는 deep PRD 문서 세트를 생성합니다.
+
+```text
+01_PRD.md
+02_SYSTEM_MODEL.md
+03_DELIVERY_PLAN.md
+04_AGENT_SPEC.md
+README.md
+```
+
+설계는 `fivetaku/show-me-the-prd`에서 multi-document PRD, gap analysis, research-backed decision, domain-specific document set 아이디어만 채택하고, Claude-only plugin 구조, AskUserQuestion-first 흐름, 초보자용 단순화는 거절합니다.
+
+### 8. Dogfooding quality system and self-improvement loop
 
 `choco-pi`는 cross-project 품질 case를 `~/.pi/agent/choco-pi/dogfood/` 아래에 privacy-preserving 형태로 기록합니다. 기본적으로 raw prompt text는 저장하지 않습니다. 각 case는 salted prompt hash, 안전한 project label, work mode, task type, tool count, verification signal, structural gate signal, scope metadata, sanitized flow signal, deterministic `clean / assisted / miss / review` outcome을 저장합니다.
 
@@ -540,7 +572,7 @@ Source registry는 실제로 채택했거나 사용자가 명시적으로 추적
 
 자동 개선은 주간 eligible case 25개 이상, 같은 assisted/miss pattern 3회 이상일 때만 허용됩니다. 현재 루프는 hidden background LLM judging을 실행하지 않고, active skill을 자동 생성하지 않으며, raw prompt/tool output도 저장하지 않습니다.
 
-### 8. Todo subsystem
+### 9. Todo subsystem
 
 `extensions/todo-widget.ts`는 `todo` tool과 `/todos` UI를 등록합니다. todo 파일은 기본적으로 Pi 세션별로 저장되어 같은 cwd의 멀티세션이 서로 덮어쓰지 않습니다.
 
@@ -565,7 +597,7 @@ Source registry는 실제로 채택했거나 사용자가 명시적으로 추적
 
 렌더러는 비워 두어 tool call block은 조용히 숨기고 widget만 갱신합니다.
 
-### 9. Footer subsystem
+### 10. Footer subsystem
 
 `extensions/choco-footer/`는 Pi footer를 2줄 footer로 교체합니다.
 
@@ -587,7 +619,7 @@ Source registry는 실제로 채택했거나 사용자가 명시적으로 추적
 
 비싼 probe는 cache하고, 각 line은 terminal width에 맞춰 truncate합니다.
 
-### 10. Focus view / focus rendering
+### 11. Focus view / focus rendering
 
 `extensions/focus-rendering/index.ts`가 focused tool-output view를 구현합니다. Pi의 built-in renderer가 tool block layout을 소유하므로 runtime에서 `ToolExecutionComponent` prototype을 patch합니다.
 
@@ -604,7 +636,7 @@ Source registry는 실제로 채택했거나 사용자가 명시적으로 추적
 
 이 계층은 UI-only입니다. tool result나 session content를 바꾸지 않고, TUI에서 보이는 방식만 compact/focused하게 바꿉니다.
 
-### 11. Search, paste, editor helper
+### 12. Search, paste, editor helper
 
 `extensions/fff-search/`는 built-in `find`/`grep`을 FFF 기반으로 대체하고 editor `@`-mention autocomplete도 대체할 수 있습니다. FFF frecency/history/config는 아래에 저장됩니다.
 
@@ -620,13 +652,13 @@ Source registry는 실제로 채택했거나 사용자가 명시적으로 추적
 
 `pi-lsp-client`는 package dependency로 로드되어 LSP diagnostics/navigation tool을 제공합니다.
 
-### 12. Runtime reload
+### 13. Runtime reload
 
 `runtime-reload.ts`는 `/reload-runtime`과 LLM-callable `reload_runtime` tool을 제공합니다. 가능한 경우 `ctx.reload()`를 직접 호출합니다. tool context에서 직접 reload가 어려우면 tmux로 `/reload-runtime --continue`를 self-submit하고 resume marker를 씁니다. reload 이후 `session_start(reason: "reload")`가 marker를 claim하고 `continue` follow-up message를 보냅니다.
 
 이 구조 덕분에 새 conversation session을 만들지 않고 extension, skill, prompt, theme 변경을 반영할 수 있습니다.
 
-### 13. Verification architecture
+### 14. Verification architecture
 
 기본 품질 게이트는 다음입니다.
 
