@@ -3,6 +3,7 @@ import { buildCodingModeGuidance } from "./coding-policy";
 import { buildCommitHygieneGuidance } from "./commit-hygiene";
 import { buildCompletionBoundaryGuidance } from "./completion-boundary";
 import { buildDesignModeGuidance } from "./design-policy";
+import { buildDynamicSddGuidance } from "./dynamic-sdd-policy";
 import { buildEpistemicIntegrityGuidance } from "./epistemic-integrity";
 import { buildModeSwitchGuidance, describeWorkMode, type ExecutionIntensity, type WorkMode } from "./mode";
 import { buildResponseStyleGuidance } from "./response-style";
@@ -183,6 +184,8 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     buildNewFeaturePackageReuseGuidance(),
     "",
     buildWorktreeGuidance(),
+    "",
+    buildDynamicSddGuidance(),
     "",
     buildTechnicalDebtCleanupGuidance(),
     "",

@@ -64,6 +64,11 @@ describe("choco autonomous PM policy", () => {
     expect(prompt).toContain("After verification passes on a major task");
     expect(prompt).toContain("re-run verification after cleanup");
     expect(prompt).toContain("Do not turn cleanup into new features");
+    expect(prompt).toContain("Dynamic SDD layer");
+    expect(prompt).toContain("spec_gate");
+    expect(prompt).toContain("Working Spec");
+    expect(prompt).toContain("Spec Delta");
+    expect(prompt).toContain("SDD does not replace TDD");
     expect(prompt).toContain("Structural execution gate");
     expect(prompt).toContain("non-negotiable");
     expect(prompt).toContain("must not be skipped or softened when context is long");

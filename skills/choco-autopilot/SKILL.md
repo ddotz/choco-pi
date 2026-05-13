@@ -24,6 +24,14 @@ Drive work through the choco-pi root all-purpose generalist base. `default` is t
 - If new work appears after the current todo, do not append it silently. Start from a new plan, create/update todos for that scope without clearing or removing active todos, and continue only after new steering/follow-up starts the new loop; otherwise defer it explicitly.
 - After newly discovered dependent work is implemented and verified, return to the preserved parent todo instead of treating it as done or discarded.
 
+## Dynamic SDD Layer
+
+- For non-trivial feature, behavior, mode, runtime, or multi-file work, start from a Working Spec before implementation.
+- Use the `spec_gate` tool when available to record objective, scope, acceptance criteria, test strategy, risks, Spec Deltas, and snapshots.
+- Handle every Spec Delta explicitly as in-scope, deferred, new-steering, new-loop, or approval-boundary; do not silently append scope.
+- SDD does not replace TDD: the Working Spec defines what to build, and TDD/verification proves behavior.
+- In `coding` mode, apply this before the RED/GREEN loop and report final acceptance against the latest accepted Working Spec.
+
 ## Ask Only For
 
 - Production deployment or package publishing

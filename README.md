@@ -6,7 +6,7 @@ Personal Pi package for a default-root all-purpose generalist workflow.
 
 ## Status
 
-- Current package version: `0.10.5`.
+- Current package version: `0.11.0`.
 - Implemented work modes: `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`, `design`.
 - Planned work modes: none.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
@@ -154,6 +154,19 @@ The guard system is explicit and fail-closed where practical.
 - irreversible local or infrastructure operations.
 
 This guard runs in the `tool_call` hook and returns `{ block: true }` with a reason when a hard approval boundary is hit.
+
+#### Dynamic SDD guard
+
+`dynamic-sdd.ts` registers the `spec_gate` tool. It keeps a per-turn Working Spec, records Spec Deltas discovered during execution, and stores boundary snapshots for review.
+
+Use it for non-trivial feature, behavior, mode, runtime, or multi-file work:
+
+- `start`: capture objective, scope, acceptance criteria, test strategy, and risks.
+- `delta`: record new facts or constraints with explicit handling (`in-scope`, `deferred`, `new-steering`, `new-loop`, or `approval-boundary`).
+- `snapshot`: capture the accepted spec at a boundary.
+- `list` / `clear`: inspect or reset the turn-local spec state.
+
+Dynamic SDD does not replace TDD. The Working Spec defines what should be built; tests and verification prove the behavior. Deferred/new-loop/new-steering/approval-boundary deltas do not mutate the accepted active scope.
 
 #### Structural gate guard
 
@@ -432,6 +445,19 @@ Guard는 명시적이고, 가능한 곳에서는 fail-closed로 동작합니다.
 - 되돌리기 어려운 local/infrastructure operation.
 
 이 guard는 `tool_call` hook에서 `{ block: true }`를 반환해 실행을 막습니다.
+
+#### Dynamic SDD guard
+
+`dynamic-sdd.ts`는 `spec_gate` tool을 등록합니다. 이 tool은 turn 단위 Working Spec, 작업 중 발견된 Spec Delta, 경계 snapshot을 기록합니다.
+
+non-trivial feature, behavior, mode, runtime, multi-file 작업에서 사용합니다.
+
+- `start`: objective, scope, acceptance criteria, test strategy, risks를 기록합니다.
+- `delta`: 새 사실이나 제약을 `in-scope`, `deferred`, `new-steering`, `new-loop`, `approval-boundary` 중 하나로 명시 처리합니다.
+- `snapshot`: 경계 시점의 accepted spec을 캡처합니다.
+- `list` / `clear`: 현재 turn의 spec state를 확인하거나 초기화합니다.
+
+Dynamic SDD는 TDD를 대체하지 않습니다. Working Spec은 무엇을 만들지 정의하고, 테스트와 검증은 동작을 증명합니다. `deferred`, `new-loop`, `new-steering`, `approval-boundary` delta는 accepted active scope를 변경하지 않습니다.
 
 #### Structural gate guard
 

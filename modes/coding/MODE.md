@@ -46,9 +46,17 @@ Purpose:
 - `Refactor X` means verify before and after.
 - Multi-step work needs a brief plan with a verification check per step.
 
+### Dynamic SDD before TDD
+
+- For non-trivial coding work, start from a Working Spec before editing: objective, scope, acceptance criteria, test strategy, and risks.
+- Use `spec_gate` when available to record the Working Spec, Spec Deltas, and snapshots.
+- Record discovered requirements or constraints as Spec Deltas; in-scope deltas may update the accepted spec, while deferred/new-loop/new-steering/approval-boundary deltas must not mutate the active scope.
+- SDD does not replace TDD. The Working Spec defines the target; RED/GREEN verification proves behavior.
+- Do not rewrite the spec to make a failing test pass. Fix the code or route the change through loop governance.
+
 ## Required coding loop
 
-1. Define assumptions, scope, success criteria, and files likely to change.
+1. Define assumptions, Working Spec/scope, success criteria, and files likely to change.
 2. Write or identify a failing test / failing symptom / baseline verification before implementation.
 3. Run it and record RED, or explain why a test cannot be created and what observable symptom substitutes for it.
 4. Implement the smallest surgical change.

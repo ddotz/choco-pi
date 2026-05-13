@@ -66,6 +66,7 @@ import {
 } from "./auto-update";
 import { guardCodingQualityMessage, type CodingRepairState } from "./coding-quality";
 import { guardDesignQualityMessage, type DesignRepairState } from "./design-quality";
+import { installDynamicSdd } from "./dynamic-sdd";
 import { runGuardPipeline } from "./guard-orchestrator";
 import { discoverImNotAiSkillPath } from "./im-not-ai-dependency";
 import { discoverKamiSkillPath } from "./kami-dependency";
@@ -530,6 +531,7 @@ async function updateLedgerForToolResult(
 
 export default function chocoAutopilot(pi: ExtensionAPI) {
   installStructuralGate(pi);
+  installDynamicSdd(pi);
   registerRuntimeReload(pi);
   registerSourceRegistryTool(pi);
   registerParallelWorkPlanTool(pi);
