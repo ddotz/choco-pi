@@ -47,7 +47,13 @@ Git commit and normal git push are autonomous routine source synchronization, no
 
 ## Advanced PRD Routing
 
-When the user asks for PRD, 기획서, 제품기획, product requirements, product spec, roadmap/spec docs, or asks to strengthen an existing PRD, use the `prd-architect` skill. Treat it as an advanced-user workflow: analyze context first, proceed with explicit assumptions, ask critical questions only, and avoid beginner interview or AskUserQuestion-first flows.
+PRD Architect does not replace brainstorming. Use brainstorming for a fuzzy idea that still needs exploration, then use `prd-architect` to converge into requirements.
+
+- fuzzy idea: run exploration/brainstorming first, then PRD.
+- clear direction: use `prd-architect` directly, proceed with assumptions, and ask critical questions only.
+- existing PRD: use `prd-architect` directly for critique, gap analysis, and strengthening.
+
+When the user asks for PRD, 기획서, 제품기획, product requirements, product spec, roadmap/spec docs, or asks to strengthen an existing PRD, use the `prd-architect` skill at the appropriate point in that flow. Avoid beginner interview or AskUserQuestion-first flows.
 
 ## Work Modes
 

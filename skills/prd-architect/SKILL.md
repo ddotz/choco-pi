@@ -15,6 +15,22 @@ Purpose: produce senior-level product requirements and execution-ready planning 
 - **Advanced-user default**: use precise product, technical, business, data, and risk vocabulary. Explain tradeoffs clearly, but do not dumb down terminology.
 - **Autonomous PM mode**: choose reversible defaults, document them, and keep going until the PRD set is complete or a real blocker is identified.
 
+## Flow position
+
+PRD Architect does not replace brainstorming. Brainstorming is the exploration/divergence phase; PRD Architect is the convergence/specification phase.
+
+Use this routing:
+
+- **Fuzzy idea → brainstorming first**: if the request is only a vague product idea, explore direction, users, alternatives, and boundaries before producing PRD artifacts.
+- **Clear direction + PRD request → prd-architect directly**: if the user already asks for PRD/기획서/product requirements with enough direction, proceed with assumptions and critical questions only.
+- **Existing PRD/spec critique or strengthening → prd-architect directly**: analyze the existing material, run gap analysis, and deepen it without restarting a beginner interview.
+
+The intended downstream handoff is:
+
+```text
+Brainstorming → PRD Architect → PRD → spec_gate start → implementation plan → TDD
+```
+
 ## Inputs to inspect before drafting
 
 1. User prompt and attached notes.
@@ -46,6 +62,7 @@ Use retrieval-first research for current claims. Prefer primary/official sources
 
 5. **Dynamic SDD handoff**
    - When implementation will follow, make the PRD suitable for `spec_gate start`: objective, scope, acceptance criteria, test/verification strategy, and risks must be extractable.
+   - Include a compact `spec_gate start` handoff block in `README.md` or `04_AGENT_SPEC.md` so implementation can start without another planning interview.
    - Treat discovered changes as PRD deltas. Do not silently mutate scope; mark as in-scope, deferred, new-loop, new-steering, or approval-boundary.
 
 ## Deep document set contract

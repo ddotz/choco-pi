@@ -6,7 +6,7 @@ Personal Pi package for a default-root all-purpose generalist workflow.
 
 ## Status
 
-- Current package version: `0.12.0`.
+- Current package version: `0.12.1`.
 - Implemented work modes: `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`, `design`.
 - Planned work modes: none.
 - Execution intensity is separate from work mode: `micro`, `standard`, `deep`.
@@ -236,6 +236,15 @@ The source registry tracks only adopted or explicitly tracked external sources. 
 ### 7. Advanced PRD architect
 
 `skills/prd-architect` provides senior-level PRD and product-requirements work. It is triggered by PRD, 기획서, 제품기획, product requirements, and product spec requests.
+
+PRD Architect does not replace brainstorming. It sits after exploration: a fuzzy idea should be explored through brainstorming first, while a clear direction or existing PRD can go directly into `prd-architect`.
+
+```text
+Fuzzy idea → brainstorming first → prd-architect
+clear direction → prd-architect directly
+existing PRD → prd-architect directly
+PRD → spec_gate start → implementation plan → TDD
+```
 
 The skill deliberately avoids beginner interview flows. It analyzes existing context first, proceeds with explicit assumptions, asks critical questions only, and produces deep PRD document sets that can seed dynamic SDD:
 
@@ -534,6 +543,15 @@ Source registry는 실제로 채택했거나 사용자가 명시적으로 추적
 ### 7. Advanced PRD architect
 
 `skills/prd-architect`는 고급 사용자용 PRD/product requirements 작업을 담당합니다. PRD, 기획서, 제품기획, product requirements, product spec 요청에서 활성화됩니다.
+
+PRD Architect does not replace brainstorming. 이 skill은 탐색 이후의 수렴 단계입니다. fuzzy idea는 brainstorming first로 방향을 잡고, clear direction 또는 existing PRD는 `prd-architect`로 바로 구체화합니다.
+
+```text
+Fuzzy idea → brainstorming first → prd-architect
+clear direction → prd-architect directly
+existing PRD → prd-architect directly
+PRD → spec_gate start → implementation plan → TDD
+```
 
 이 skill은 초보자용 인터뷰 흐름을 의도적으로 피합니다. 먼저 기존 맥락을 분석하고, 명시적 assumption으로 자동 진행하며, critical 질문만 묻고, dynamic SDD로 바로 넘길 수 있는 deep PRD 문서 세트를 생성합니다.
 
