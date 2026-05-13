@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import chocoAutopilot from "../extensions/choco-autopilot/index";
+import { registerEffortCommand } from "../extensions/choco-autopilot/effort";
 
 interface RegisteredCommand {
   handler: (args: string, ctx: { ui: { notify: ReturnType<typeof vi.fn>; select?: ReturnType<typeof vi.fn> }; model?: unknown }) => Promise<void>;
@@ -150,10 +151,37 @@ describe("extension command names", () => {
       { value: "low", label: "low" },
       { value: "medium", label: "medium" },
       { value: "high", label: "high" },
-      { value: "xhigh", label: "xhigh" },
-      { value: "max", label: "max" },
       { value: "auto", label: "auto" },
     ]);
+  });
+
+  it("lists effort completions from the active model without synthetic max", async () => {
+    const eventHandlers = new Map<string, Array<(event: unknown, ctx: { model?: unknown }) => void>>();
+    const commands = new Map<string, RegisteredCommand>();
+    registerEffortCommand({
+      on: (name: string, handler: (event: unknown, ctx: { model?: unknown }) => void) => {
+        eventHandlers.set(name, [...(eventHandlers.get(name) ?? []), handler]);
+      },
+      registerCommand: (name: string, definition: RegisteredCommand) => {
+        commands.set(name, definition);
+      },
+      getThinkingLevel: vi.fn(() => "medium"),
+      setThinkingLevel: vi.fn(),
+    } as never);
+
+    const gptModel = { id: "gpt-5.5", reasoning: true, thinkingLevelMap: { xhigh: "high" } };
+    eventHandlers.get("session_start")?.forEach((handler) => handler({}, { model: gptModel }));
+
+    const completions = commands.get("effort")!.getArgumentCompletions!("");
+
+    expect(completions).toEqual([
+      { value: "low", label: "low" },
+      { value: "medium", label: "medium" },
+      { value: "high", label: "high" },
+      { value: "xhigh", label: "xhigh" },
+      { value: "auto", label: "auto" },
+    ]);
+    expect(completions?.map((item) => item.value)).not.toContain("max");
   });
 
   it("supports watch decisions in the source command", async () => {

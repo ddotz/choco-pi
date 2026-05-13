@@ -114,7 +114,7 @@ It also registers user commands:
 
 - `/mode`: status/list/set/add/remove work modes.
 - `/intensity`: status/set execution intensity.
-- `/effort`: show/set thinking effort with `low`, `medium`, `high`, `xhigh`, `max`, or `auto`.
+- `/effort`: show/set the active model's supported thinking effort levels, plus `auto`.
 - `/source`: track, watch, adopt/reject, and check external sources.
 - `/memory`: list/save durable memory.
 - `/ledger`: show/reset the context ledger.
@@ -615,7 +615,7 @@ pnpm run version:check && pnpm run lint && pnpm run typecheck && pnpm run test
 - `/mode` — open the interactive work-mode selector with each mode description.
 - `/mode [status|list|set <mode>|add <id> <description>|remove <id>]` — manage work modes. `default`, `web-analysis`, `adoption-analysis`, `report`, `coding`, and `design` are implemented modes.
 - `/intensity [micro|standard|deep|status]` — show or set process weight.
-- `/effort [low|medium|high|xhigh|max|auto]` — show or set the current thinking effort; `max` resolves to the highest supported level and `auto` resets to Pi's default medium effort.
+- `/effort [<available-level>|auto]` — show or set the current model's supported thinking effort levels dynamically; unsupported provider-specific levels are omitted from completions.
 - `/source [list|add|watch|adopt|reject|due|changed|check]` — track adopted, watched, or explicitly tracked external sources.
 - `/btw`, `/btw:new`, `/btw:tangent`, `/btw:inject`, `/btw:summarize`, `/btw:clear`, `/btw:model`, `/btw:thinking` — run Korean-localized side conversations in a focused overlay without installing `npm:pi-btw` separately.
 - `/memory [list|save <text>]` — list/save durable memories.

@@ -1,4 +1,4 @@
-import { getSupportedThinkingLevels, type ModelThinkingLevel } from "@mariozechner/pi-ai";
+import { getSupportedThinkingLevels, type Model, type ModelThinkingLevel } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 
 const EXPLICIT_EFFORT_LEVELS = ["low", "medium", "high", "xhigh"] as const;
@@ -8,7 +8,7 @@ const DEFAULT_AUTO_EFFORT = "medium" satisfies ModelThinkingLevel;
 
 export type EffortCommandValue = (typeof EFFORT_COMMAND_VALUES)[number];
 
-export const EFFORT_USAGE = "Usage: /effort [low|medium|high|xhigh|max|auto]";
+export const EFFORT_USAGE = "Usage: /effort [<available-level>|auto]";
 
 function isEffortCommandValue(value: string): value is EffortCommandValue {
   return EFFORT_COMMAND_VALUES.includes(value as EffortCommandValue);
@@ -23,13 +23,31 @@ function effortArgument(args: string): EffortCommandValue | undefined {
   throw new Error(`Unknown effort '${value}'. ${EFFORT_USAGE}`);
 }
 
+function supportedThinkingLevels(model: Model<any> | undefined): ModelThinkingLevel[] {
+  if (!model) return [...THINKING_LEVEL_ORDER];
+  return getSupportedThinkingLevels(model);
+}
+
 function availableThinkingLevels(ctx: ExtensionCommandContext): ModelThinkingLevel[] {
-  if (!ctx.model) return [...THINKING_LEVEL_ORDER];
-  return getSupportedThinkingLevels(ctx.model);
+  return supportedThinkingLevels(ctx.model);
+}
+
+function displayEffortLevels(levels: readonly ModelThinkingLevel[]): Array<(typeof EXPLICIT_EFFORT_LEVELS)[number]> {
+  return levels.filter((level): level is (typeof EXPLICIT_EFFORT_LEVELS)[number] => EXPLICIT_EFFORT_LEVELS.includes(level as (typeof EXPLICIT_EFFORT_LEVELS)[number]));
+}
+
+function completionValues(levels: readonly ModelThinkingLevel[]): string[] {
+  const visibleLevels = displayEffortLevels(levels);
+  return visibleLevels.length > 0 ? [...visibleLevels, "auto"] : [];
 }
 
 function formatAvailable(levels: readonly ModelThinkingLevel[]): string {
-  return levels.filter((level) => level !== "off" && level !== "minimal").join(", ") || "none";
+  return displayEffortLevels(levels).join(", ") || "none";
+}
+
+function effortUsage(levels: readonly ModelThinkingLevel[]): string {
+  const values = completionValues(levels);
+  return values.length > 0 ? `Usage: /effort [${values.join("|")}]` : "Usage: /effort status";
 }
 
 function maxSupportedEffort(levels: readonly ModelThinkingLevel[]): ModelThinkingLevel | undefined {
@@ -54,17 +72,32 @@ function commandSuffix(value: EffortCommandValue): string {
 }
 
 function effortStatus(current: ModelThinkingLevel, levels: readonly ModelThinkingLevel[]): string {
-  return `effort: ${current} | available: ${formatAvailable(levels)} | ${EFFORT_USAGE}`;
+  return `effort: ${current} | available: ${formatAvailable(levels)} | ${effortUsage(levels)}`;
 }
 
 export function registerEffortCommand(pi: ExtensionAPI): void {
+  let currentModel: Model<any> | undefined;
+
+  pi.on("session_start", (_event, ctx) => {
+    currentModel = ctx.model;
+  });
+  pi.on("model_select", (event, ctx) => {
+    currentModel = event.model ?? ctx.model;
+  });
+  pi.on("agent_start", (_event, ctx) => {
+    currentModel = ctx.model;
+  });
+
   pi.registerCommand("effort", {
-    description: "Show or change thinking effort: low, medium, high, xhigh, max, or auto",
+    description: "Show or change thinking effort for the active model",
     getArgumentCompletions: (prefix) => {
       const query = prefix.trim().toLowerCase();
-      return EFFORT_COMMAND_VALUES.filter((value) => value.startsWith(query)).map((value) => ({ value, label: value }));
+      return completionValues(supportedThinkingLevels(currentModel))
+        .filter((value) => value.startsWith(query))
+        .map((value) => ({ value, label: value }));
     },
     handler: async (args, ctx) => {
+      currentModel = ctx.model;
       let value: EffortCommandValue | undefined;
       try {
         value = effortArgument(args);
