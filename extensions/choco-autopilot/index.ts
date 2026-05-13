@@ -69,6 +69,7 @@ import { guardDesignQualityMessage, type DesignRepairState } from "./design-qual
 import { runGuardPipeline } from "./guard-orchestrator";
 import { discoverImNotAiSkillPath } from "./im-not-ai-dependency";
 import { discoverKamiSkillPath } from "./kami-dependency";
+import { parseDogfoodMemoryMode, resolveDogfoodScope } from "./improvement-scope";
 import { guardReportQualityMessage, type ReportRepairState } from "./report-quality";
 import { registerRuntimeReload } from "./runtime-reload";
 import { resolveEffectiveWorkMode, sessionIdFromContext, sessionScopedKey } from "./session-scope";
@@ -620,12 +621,22 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
     const due = summarizeDueSources(state.sourceRegistry);
     const dueSourceSummary = [changed, due].filter((line) => !line.startsWith("No ")).join("\n\n");
 
+    const improvementProfile = process.env.CHOCO_PI_IMPROVEMENT_PROFILE === "personal" || process.env.CHOCO_PI_IMPROVEMENT_PROFILE === "scratch"
+      ? process.env.CHOCO_PI_IMPROVEMENT_PROFILE
+      : undefined;
+    const scope = await resolveDogfoodScope({
+      cwd,
+      mode: parseDogfoodMemoryMode(process.env.CHOCO_PI_IMPROVEMENT_MODE),
+      profile: improvementProfile,
+    });
+
     await startDogfoodCase(dogfoodCases, createDogfoodStore(dogfoodRootPath()), {
       prompt,
       cwd,
       salt: await dogfoodSalt(),
       workMode: effectiveWorkMode,
       executionIntensity,
+      scope,
     });
 
     return {

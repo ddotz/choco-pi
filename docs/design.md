@@ -27,6 +27,14 @@ The primary target is the user's current Pi environment under `~/.pi/agent`. `~/
 - Skill: describes the autonomous execution behavior for task-triggered progressive disclosure.
 - Prompt: lets the user explicitly force autonomous behavior if needed.
 
+## Self-Improvement Capture
+
+The dogfood layer is the first slice of the self-improvement loop. It captures only sanitized metadata needed to score clean/assisted/miss/review outcomes and mine recurring flows.
+
+Capture is controlled by `CHOCO_PI_IMPROVEMENT_MODE=off|readonly|manual|auto`. Automatic case storage happens only in `auto` mode and only when the scope resolves to a Git-root project or an explicit `personal`/`scratch` profile. `~/`, Downloads, `/tmp`, and other non-Git folders resolve to capture off by default.
+
+Stored flow data is limited to tool names and command classes such as `test`, `lint`, `typecheck`, `git`, and `web-fetch`. Raw prompts, raw command strings, raw tool output, and private paths are not stored for flow mining.
+
 ## Autonomous PM Base
 
 The autonomous PM/development-team base is always on. It is not a user-facing mode. The agent should act autonomously, choose defaults, self-review, fix, verify, and report concise evidence.

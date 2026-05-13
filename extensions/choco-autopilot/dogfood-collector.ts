@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { classifyPromptForDogfood, dogfoodHash, isoWeekId, safeProjectLabel } from "./dogfood-privacy";
 import { scoreDogfoodCase } from "./dogfood-scoring";
 import { appendDogfoodEvent, type DogfoodStore, writeDogfoodCase } from "./dogfood-store";
-import type { DogfoodCase } from "./dogfood-types";
-import { verificationCommandFromInput } from "./verification-command";
+import type { DogfoodCase, DogfoodScopeSignals } from "./dogfood-types";
+import { commandClassFromInput, verificationCommandFromInput } from "./verification-command";
 
 export interface ActiveDogfoodCaseState {
   current?: DogfoodCase;
@@ -21,8 +21,14 @@ export async function startDogfoodCase(state: ActiveDogfoodCaseState, store: Dog
   executionIntensity: string;
   model?: string;
   now?: Date;
+  scope: DogfoodScopeSignals;
 }): Promise<void> {
   const now = input.now ?? new Date();
+  if (!input.scope.capture) {
+    state.current = undefined;
+    await appendDogfoodEvent(store, { type: "case_skipped", at: now.toISOString(), reason: input.scope.reason, scope: input.scope.kind, memoryMode: input.scope.memoryMode });
+    return;
+  }
   const classified = classifyPromptForDogfood(input.prompt);
   state.current = {
     id: randomUUID(),
@@ -30,13 +36,15 @@ export async function startDogfoodCase(state: ActiveDogfoodCaseState, store: Dog
     startedAt: now.toISOString(),
     promptHash: dogfoodHash(input.prompt, input.salt),
     promptSummary: classified.summary,
-    cwdHash: dogfoodHash(input.cwd, input.salt),
-    projectLabel: safeProjectLabel(input.cwd),
+    cwdHash: input.scope.projectRootHash ?? dogfoodHash(input.cwd, input.salt),
+    projectLabel: input.scope.projectLabel ?? safeProjectLabel(input.cwd),
     workMode: input.workMode,
     executionIntensity: input.executionIntensity,
     model: input.model,
     taskType: classified.taskType,
     toolCounts: {},
+    scope: input.scope,
+    flow: { toolSequence: [], commandSequence: [] },
     verification: { required: false, passed: false, failedCommands: [], passedCommands: [] },
     gates: { structuralRequired: false, structuralPassed: false, loopTransitions: 0, repairQueued: false },
     userSteeringSignals: [],
@@ -51,6 +59,7 @@ export function recordDogfoodToolCall(state: ActiveDogfoodCaseState, toolName: s
   const current = state.current;
   if (!current) return;
   current.toolCounts[toolName] = (current.toolCounts[toolName] ?? 0) + 1;
+  current.flow.toolSequence = [...current.flow.toolSequence, toolName].slice(-40);
   if (toolName === "structural_gate") current.gates.structuralRequired = true;
   if (toolName === "loop_transition") current.gates.loopTransitions += 1;
 }
@@ -59,6 +68,8 @@ export function recordDogfoodToolResult(state: ActiveDogfoodCaseState, event: { 
   const current = state.current;
   if (!current) return;
   if (event.toolName === "bash") {
+    const commandClass = commandClassFromInput(event.input);
+    if (commandClass) current.flow.commandSequence = [...current.flow.commandSequence, commandClass].slice(-40);
     const command = verificationCommandFromInput(event.input);
     if (command) {
       current.verification.required = true;

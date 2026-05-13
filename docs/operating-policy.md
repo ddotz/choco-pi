@@ -55,6 +55,16 @@ Autonomy does not mean maximum ceremony. Choose the smallest adequate process:
 
 Summarize durable state. Do not retain long logs or noisy intermediate outputs. Use the Context Ledger to preserve what matters.
 
+## Self-Improvement Capture Rule
+
+Self-improvement capture is scope-bound and mode-gated:
+
+- Default project capture is based on the Git repo root, not the current subdirectory.
+- Non-Git locations such as `~/`, Downloads, and `/tmp` resolve to capture off unless an explicit profile is selected.
+- `CHOCO_PI_IMPROVEMENT_MODE=off|readonly|manual|auto` controls automatic capture.
+- `readonly` and `manual` do not automatically store dogfood cases.
+- Stored flow data is sanitized tool names and command classes, not raw commands, prompt text, or tool output.
+
 ## Commit Hygiene Rule
 
 Before committing, inspect changed and untracked files. Exclude unnecessary development analysis files, Superpowers runtime artifacts, private/personal files, secrets, generated output, caches, logs, and unneeded dotfiles.

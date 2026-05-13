@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -11,10 +11,12 @@ interface RegisteredCommand {
 }
 
 let tempAgentDir: string | undefined;
+const tempDirs: string[] = [];
 
 afterEach(async () => {
   delete process.env.PI_CODING_AGENT_DIR;
   if (tempAgentDir) await rm(tempAgentDir, { recursive: true, force: true });
+  await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
   tempAgentDir = undefined;
 });
 
@@ -46,6 +48,13 @@ async function emitAll(handlers: Map<string, EventHandler[]>, eventName: string,
   for (const handler of handlers.get(eventName) ?? []) await handler(event, { cwd, hasUI: false, ui: {} });
 }
 
+async function makeGitProject(): Promise<string> {
+  const projectDir = await mkdtemp(join(tmpdir(), "choco-pi-project-"));
+  tempDirs.push(projectDir);
+  await mkdir(join(projectDir, ".git"));
+  return projectDir;
+}
+
 describe("dogfood commands and hook capture", () => {
   it("registers /dogfood and captures a clean cross-project case without raw prompt text", async () => {
     await useTempAgentDir();
@@ -55,11 +64,13 @@ describe("dogfood commands and hook capture", () => {
 
     expect(commands.has("dogfood")).toBe(true);
 
-    await emitAll(handlers, "before_agent_start", { type: "before_agent_start", prompt, systemPrompt: "base", systemPromptOptions: {} });
-    await emitAll(handlers, "tool_call", { type: "tool_call", toolCallId: "bash-1", toolName: "bash", input: { command: "pnpm run test" } });
-    await emitAll(handlers, "tool_result", { type: "tool_result", toolCallId: "bash-1", toolName: "bash", input: { command: "pnpm run test" }, isError: false, content: [{ type: "text", text: "Tests passed" }], details: {} });
-    await emitAll(handlers, "tool_result", { type: "tool_result", toolCallId: "gate-1", toolName: "structural_gate", input: {}, isError: false, content: [{ type: "text", text: "Structural gate passed." }], details: { ok: true } });
-    await emitAll(handlers, "message_end", { type: "message_end", message: { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "완료했습니다." }], provider: "test", model: "test-model" } });
+    const projectDir = await makeGitProject();
+
+    await emitAll(handlers, "before_agent_start", { type: "before_agent_start", prompt, systemPrompt: "base", systemPromptOptions: {} }, projectDir);
+    await emitAll(handlers, "tool_call", { type: "tool_call", toolCallId: "bash-1", toolName: "bash", input: { command: "pnpm run test" } }, projectDir);
+    await emitAll(handlers, "tool_result", { type: "tool_result", toolCallId: "bash-1", toolName: "bash", input: { command: "pnpm run test" }, isError: false, content: [{ type: "text", text: "Tests passed" }], details: {} }, projectDir);
+    await emitAll(handlers, "tool_result", { type: "tool_result", toolCallId: "gate-1", toolName: "structural_gate", input: {}, isError: false, content: [{ type: "text", text: "Structural gate passed." }], details: { ok: true } }, projectDir);
+    await emitAll(handlers, "message_end", { type: "message_end", message: { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "완료했습니다." }], provider: "test", model: "test-model" } }, projectDir);
 
     await commands.get("dogfood")!.handler("weekly", { cwd: "/Users/hyuns/Code/example", ui: { notify } });
 
@@ -69,6 +80,20 @@ describe("dogfood commands and hook capture", () => {
     expect(output).toContain("clean hit rate: 100.0%");
     expect(output).not.toContain("sk-test-123");
     expect(output).not.toContain(prompt);
+  });
+
+  it("does not auto-capture outside git projects", async () => {
+    await useTempAgentDir();
+    const { handlers, commands } = setupAutopilot();
+    const notify = vi.fn();
+    const scratch = await mkdtemp(join(tmpdir(), "choco-pi-scratch-"));
+    tempDirs.push(scratch);
+
+    await emitAll(handlers, "before_agent_start", { type: "before_agent_start", prompt: "임시 질문", systemPrompt: "base", systemPromptOptions: {} }, scratch);
+    await emitAll(handlers, "message_end", { type: "message_end", message: { role: "assistant", stopReason: "stop", content: [], provider: "test", model: "test" } }, scratch);
+    await commands.get("dogfood")!.handler("weekly", { cwd: scratch, ui: { notify } });
+
+    expect(notify.mock.calls.at(-1)?.[0]).toContain("eligible cases: 0");
   });
 
   it("reports status and review queue", async () => {

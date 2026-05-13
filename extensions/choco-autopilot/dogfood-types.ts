@@ -1,5 +1,7 @@
 export type DogfoodOutcome = "clean" | "assisted" | "miss" | "review";
 export type DogfoodConfidence = "High" | "Medium" | "Low";
+export type DogfoodMemoryMode = "off" | "readonly" | "manual" | "auto";
+export type DogfoodScopeKind = "project" | "personal" | "scratch" | "off";
 
 export interface DogfoodVerificationSignals {
   required: boolean;
@@ -13,6 +15,21 @@ export interface DogfoodGateSignals {
   structuralPassed: boolean;
   loopTransitions: number;
   repairQueued: boolean;
+}
+
+export interface DogfoodScopeSignals {
+  kind: DogfoodScopeKind;
+  memoryMode: DogfoodMemoryMode;
+  projectId?: string;
+  projectRootHash?: string;
+  projectLabel?: string;
+  capture: boolean;
+  reason?: string;
+}
+
+export interface DogfoodFlowSignals {
+  toolSequence: string[];
+  commandSequence: string[];
 }
 
 export interface DogfoodCase {
@@ -29,6 +46,8 @@ export interface DogfoodCase {
   taskType: string;
   model?: string;
   toolCounts: Record<string, number>;
+  scope: DogfoodScopeSignals;
+  flow: DogfoodFlowSignals;
   verification: DogfoodVerificationSignals;
   gates: DogfoodGateSignals;
   userSteeringSignals: string[];
@@ -47,6 +66,12 @@ export interface DogfoodWeeklyPattern {
   reasons: string[];
 }
 
+export interface DogfoodFlowPattern {
+  signature: string;
+  count: number;
+  sampleCaseIds: string[];
+}
+
 export interface DogfoodWeeklyReport {
   week: string;
   generatedAt: string;
@@ -60,6 +85,7 @@ export interface DogfoodWeeklyReport {
   missRate: number;
   reviewRate: number;
   repeatedPatterns: DogfoodWeeklyPattern[];
+  topFlows: DogfoodFlowPattern[];
   autoImprovementAllowed: boolean;
   autoImprovementReason: string;
 }

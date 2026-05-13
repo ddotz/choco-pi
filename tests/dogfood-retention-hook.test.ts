@@ -55,6 +55,8 @@ function dogCase(id: string, startedAt: string): DogfoodCase {
     executionIntensity: "standard",
     taskType: "coding",
     toolCounts: {},
+    scope: { kind: "project", memoryMode: "auto", projectId: "repo", projectRootHash: "cwd", projectLabel: "repo", capture: true },
+    flow: { toolSequence: [], commandSequence: [] },
     verification: { required: true, passed: true, failedCommands: [], passedCommands: ["pnpm run test"] },
     gates: { structuralRequired: true, structuralPassed: true, loopTransitions: 1, repairQueued: false },
     userSteeringSignals: [],

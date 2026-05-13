@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { repeatedDogfoodPatterns, scoreDogfoodCase } from "../extensions/choco-autopilot/dogfood-scoring";
 import type { DogfoodCase } from "../extensions/choco-autopilot/dogfood-types";
+import { commandClassFromInput } from "../extensions/choco-autopilot/verification-command";
 
 function baseCase(overrides: Partial<DogfoodCase> = {}): DogfoodCase {
   return {
@@ -15,6 +16,8 @@ function baseCase(overrides: Partial<DogfoodCase> = {}): DogfoodCase {
     executionIntensity: "standard",
     taskType: "coding",
     toolCounts: {},
+    flow: { toolSequence: [], commandSequence: [] },
+    scope: { kind: "project", memoryMode: "auto", projectId: "repo", projectRootHash: "cwd", projectLabel: "repo", capture: true },
     verification: { required: true, passed: true, failedCommands: [], passedCommands: ["pnpm run test"] },
     gates: { structuralRequired: true, structuralPassed: true, loopTransitions: 1, repairQueued: false },
     userSteeringSignals: [],
@@ -26,6 +29,15 @@ function baseCase(overrides: Partial<DogfoodCase> = {}): DogfoodCase {
 }
 
 describe("dogfood scoring", () => {
+  it("classifies command flows without storing raw commands", () => {
+    expect(commandClassFromInput({ command: "pnpm run test -- --runInBand" })).toBe("test");
+    expect(commandClassFromInput({ command: "pnpm run lint" })).toBe("lint");
+    expect(commandClassFromInput({ command: "pnpm run typecheck" })).toBe("typecheck");
+    expect(commandClassFromInput({ command: "git status --short" })).toBe("git");
+    expect(commandClassFromInput({ command: "curl https://example.com" })).toBe("web-fetch");
+    expect(commandClassFromInput({ command: "echo sk-test-123" })).toBe("other");
+  });
+
   it("scores a verified gate-passing case as clean", () => {
     const scored = scoreDogfoodCase(baseCase());
     expect(scored.outcome).toBe("clean");

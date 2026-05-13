@@ -25,6 +25,8 @@ function makeCase(id: string, week = "2026-W20", startedAt = "2026-05-11T00:00:0
     executionIntensity: "standard",
     taskType: "coding",
     toolCounts: {},
+    scope: { kind: "project", memoryMode: "auto", projectId: "repo", projectRootHash: "cwd", projectLabel: "repo", capture: true },
+    flow: { toolSequence: [], commandSequence: [] },
     verification: { required: true, passed: true, failedCommands: [], passedCommands: ["pnpm run test"] },
     gates: { structuralRequired: true, structuralPassed: true, loopTransitions: 1, repairQueued: false },
     userSteeringSignals: [],
