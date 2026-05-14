@@ -8,7 +8,7 @@
 
 ## 상태
 
-- 현재 패키지 버전: `0.13.0`.
+- 현재 패키지 버전: `0.13.1`.
 - license 필드: `UNLICENSED`.
 - package manager: `pnpm@10.29.3`.
 - 주요 peer runtime: `@earendil-works/pi-coding-agent`.

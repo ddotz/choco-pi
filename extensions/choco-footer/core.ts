@@ -13,6 +13,8 @@ export interface RateLimitWindow {
   resetsAt: number | null;
 }
 
+export type RateLimitUnavailableReason = "auth" | "unavailable";
+
 export interface RateLimitSnapshot {
   limitId?: string | null;
   limitName?: string | null;
@@ -21,11 +23,26 @@ export interface RateLimitSnapshot {
   credits?: unknown;
   planType?: string | null;
   rateLimitReachedType?: string | null;
+  unavailableReason?: RateLimitUnavailableReason;
 }
 
 export interface CodexRateLimitResponse {
   rateLimits?: RateLimitSnapshot | null;
   rateLimitsByLimitId?: Record<string, RateLimitSnapshot | undefined> | null;
+}
+
+export interface RateLimitCacheEnvelope {
+  version: 1;
+  modelKey: string;
+  snapshot: RateLimitSnapshot;
+  updatedAt: number;
+  error?: string;
+}
+
+export interface RateLimitLockEnvelope {
+  version: 1;
+  pid: number;
+  createdAt: number;
 }
 
 export interface TodoSummary {
@@ -243,16 +260,117 @@ function windowFor(snapshot: RateLimitSnapshot | undefined | null, minutes: numb
   return undefined;
 }
 
-function formatPercent(value: number | undefined): string {
-  if (value === undefined || !Number.isFinite(value)) return "--";
+export function classifyRateLimitError(message: string): RateLimitUnavailableReason {
+  return /401|unauthorized|token_expired|refresh_token/i.test(message) ? "auth" : "unavailable";
+}
+
+export function createUnavailableRateLimitSnapshot(reason: RateLimitUnavailableReason, limitId = "codex"): RateLimitSnapshot {
+  return { limitId, limitName: limitId, unavailableReason: reason };
+}
+
+function formatPercent(value: number | undefined): string | undefined {
+  if (value === undefined || !Number.isFinite(value)) return undefined;
   const rounded = Math.abs(value - Math.round(value)) < 0.05 ? Math.round(value).toString() : value.toFixed(1);
-  return rounded.replace(/\.0$/, "");
+  return `${rounded.replace(/\.0$/, "")}%`;
+}
+
+function formatLimitValue(value: number | undefined, reason: RateLimitUnavailableReason | undefined): string {
+  const percent = formatPercent(value);
+  if (percent) return percent;
+  if (reason === "auth") return "login";
+  if (reason === "unavailable") return "n/a";
+  return "--";
 }
 
 export function formatRateLimits(snapshot?: RateLimitSnapshot | null): string {
   const fiveHour = windowFor(snapshot, 300);
   const weekly = windowFor(snapshot, 10080);
-  return `5h:${formatPercent(fiveHour?.usedPercent)}% wk:${formatPercent(weekly?.usedPercent)}%`;
+  return `5h:${formatLimitValue(fiveHour?.usedPercent, snapshot?.unavailableReason)} wk:${formatLimitValue(weekly?.usedPercent, snapshot?.unavailableReason)}`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function parseRateLimitWindow(value: unknown): RateLimitWindow | null | undefined {
+  if (value === null) return null;
+  if (!isRecord(value)) return undefined;
+  const usedPercent = finiteNumber(value.usedPercent);
+  if (usedPercent === undefined) return undefined;
+  const windowDurationMins = value.windowDurationMins === null ? null : finiteNumber(value.windowDurationMins);
+  const resetsAt = value.resetsAt === null || value.resetsAt === undefined ? null : finiteNumber(value.resetsAt);
+  return {
+    usedPercent,
+    windowDurationMins: windowDurationMins ?? null,
+    resetsAt: resetsAt ?? null,
+  };
+}
+
+function parseUnavailableReason(value: unknown): RateLimitUnavailableReason | undefined {
+  return value === "auth" || value === "unavailable" ? value : undefined;
+}
+
+function parseRateLimitSnapshot(value: unknown): RateLimitSnapshot | undefined {
+  if (!isRecord(value)) return undefined;
+  const primary = value.primary === undefined ? undefined : parseRateLimitWindow(value.primary);
+  const secondary = value.secondary === undefined ? undefined : parseRateLimitWindow(value.secondary);
+  if (primary === undefined && value.primary !== undefined) return undefined;
+  if (secondary === undefined && value.secondary !== undefined) return undefined;
+  const unavailableReason = parseUnavailableReason(value.unavailableReason);
+  if (!primary && !secondary && !unavailableReason) return undefined;
+  return {
+    limitId: typeof value.limitId === "string" ? value.limitId : undefined,
+    limitName: typeof value.limitName === "string" ? value.limitName : undefined,
+    primary,
+    secondary,
+    unavailableReason,
+  };
+}
+
+export function createRateLimitCacheEnvelope(modelKey: string, snapshot: RateLimitSnapshot, updatedAt: number, error?: string): RateLimitCacheEnvelope {
+  return {
+    version: 1,
+    modelKey,
+    snapshot,
+    updatedAt,
+    ...(error ? { error } : {}),
+  };
+}
+
+export function parseRateLimitCacheEnvelope(content: string): RateLimitCacheEnvelope | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return undefined;
+  }
+  if (!isRecord(parsed) || parsed.version !== 1 || typeof parsed.modelKey !== "string") return undefined;
+  const updatedAt = finiteNumber(parsed.updatedAt);
+  const snapshot = parseRateLimitSnapshot(parsed.snapshot);
+  if (updatedAt === undefined || !snapshot) return undefined;
+  return createRateLimitCacheEnvelope(parsed.modelKey, snapshot, updatedAt, typeof parsed.error === "string" ? parsed.error : undefined);
+}
+
+export function isFreshRateLimitCacheEnvelope(envelope: RateLimitCacheEnvelope | undefined, modelKey: string, now: number, ttlMs: number): boolean {
+  return Boolean(envelope && envelope.modelKey === modelKey && now >= envelope.updatedAt && now - envelope.updatedAt <= ttlMs);
+}
+
+export function isRateLimitLockStale(createdAt: number | undefined, now: number, staleMs: number): boolean {
+  return createdAt === undefined || now - createdAt > staleMs;
+}
+
+export function parseRateLimitLockEnvelope(content: string): RateLimitLockEnvelope | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return undefined;
+  }
+  if (!isRecord(parsed) || parsed.version !== 1) return undefined;
+  const pid = finiteNumber(parsed.pid);
+  const createdAt = finiteNumber(parsed.createdAt);
+  if (pid === undefined || createdAt === undefined) return undefined;
+  return { version: 1, pid, createdAt };
 }
 
 export function summarizeTodosJson(content: string): TodoSummary {

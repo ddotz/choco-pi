@@ -2,24 +2,32 @@ import type { AssistantMessage } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth } from "@mariozechner/pi-tui";
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import {
+  classifyRateLimitError,
   createRunStateSnapshot,
+  createRateLimitCacheEnvelope,
+  createUnavailableRateLimitSnapshot,
   detectProviderKind,
   formatModelLabel,
   formatPath,
   formatRateLimits,
   formatWorkModeLabel,
+  isFreshRateLimitCacheEnvelope,
+  isRateLimitLockStale,
   parseClaudeHudCacheJson,
   parseClaudeStatuslineCache,
+  parseRateLimitCacheEnvelope,
+  parseRateLimitLockEnvelope,
   reduceRunState,
   selectCodexRateLimit,
   summarizeTodosJson,
   type CodexRateLimitResponse,
   type MinimalModel,
   type ProviderKind,
+  type RateLimitCacheEnvelope,
   type RateLimitSnapshot,
   type RunStateSnapshot,
   type RunStateTransition,
@@ -30,10 +38,14 @@ import { normalizeSessionId } from "../session-identity.ts";
 const CODEX_RATE_LIMIT_TTL_MS = 5 * 60 * 1000;
 const CODEX_RATE_LIMIT_TIMEOUT_MS = 8000;
 const CODEX_RETRY_FLOOR_MS = 5000;
+const CODEX_RATE_LIMIT_LOCK_STALE_MS = 30 * 1000;
 const GIT_BRANCH_FALLBACK_TTL_MS = 1000;
 const GIT_BRANCH_FALLBACK_TIMEOUT_MS = 250;
+const CHOCO_AGENT_DIR = join(homedir(), ".pi", "agent", "choco-pi");
 const CODEX_FAST_MODE_STATE_PATH = join(homedir(), ".pi", "agent", "codex-fast-mode.json");
-const CHOCO_STATE_PATH = join(homedir(), ".pi", "agent", "choco-pi", "state.json");
+const CODEX_RATE_LIMIT_CACHE_PATH = join(CHOCO_AGENT_DIR, "codex-rate-limits.json");
+const CODEX_RATE_LIMIT_LOCK_PATH = join(CHOCO_AGENT_DIR, "codex-rate-limits.lock");
+const CHOCO_STATE_PATH = join(CHOCO_AGENT_DIR, "state.json");
 
 export interface FooterProjectMetadata {
   branch: string | null;
@@ -259,6 +271,77 @@ async function requestCodexRateLimits(): Promise<CodexRateLimitResponse> {
   throw lastError ?? new Error("Codex CLI not found");
 }
 
+function readGlobalCodexRateLimitCache(modelKey: string, now = Date.now()): RateLimitCacheEnvelope | undefined {
+  try {
+    if (!existsSync(CODEX_RATE_LIMIT_CACHE_PATH)) return undefined;
+    const envelope = parseRateLimitCacheEnvelope(readFileSync(CODEX_RATE_LIMIT_CACHE_PATH, "utf8"));
+    return isFreshRateLimitCacheEnvelope(envelope, modelKey, now, CODEX_RATE_LIMIT_TTL_MS) ? envelope : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeGlobalCodexRateLimitCache(modelKey: string, snapshot: RateLimitSnapshot, error?: string): void {
+  try {
+    mkdirSync(CHOCO_AGENT_DIR, { recursive: true });
+    const envelope = createRateLimitCacheEnvelope(modelKey, snapshot, Date.now(), error);
+    writeFileSync(CODEX_RATE_LIMIT_CACHE_PATH, `${JSON.stringify(envelope)}\n`, { encoding: "utf8", mode: 0o600 });
+  } catch {
+    // Cache writes are best-effort; never break footer rendering.
+  }
+}
+
+function readCodexRateLimitLockCreatedAt(): number | undefined {
+  try {
+    if (!existsSync(CODEX_RATE_LIMIT_LOCK_PATH)) return undefined;
+    return parseRateLimitLockEnvelope(readFileSync(CODEX_RATE_LIMIT_LOCK_PATH, "utf8"))?.createdAt;
+  } catch {
+    return undefined;
+  }
+}
+
+function acquireCodexRateLimitLock(now = Date.now()): (() => void) | undefined {
+  try {
+    mkdirSync(CHOCO_AGENT_DIR, { recursive: true });
+  } catch {
+    return undefined;
+  }
+
+  const tryCreate = (): (() => void) | undefined => {
+    try {
+      const fd = openSync(CODEX_RATE_LIMIT_LOCK_PATH, "wx", 0o600);
+      try {
+        writeFileSync(fd, `${JSON.stringify({ version: 1, pid: process.pid, createdAt: now })}\n`, "utf8");
+      } finally {
+        closeSync(fd);
+      }
+      return () => {
+        try {
+          rmSync(CODEX_RATE_LIMIT_LOCK_PATH, { force: true });
+        } catch {
+          // Best effort cleanup.
+        }
+      };
+    } catch {
+      return undefined;
+    }
+  };
+
+  const release = tryCreate();
+  if (release) return release;
+
+  if (isRateLimitLockStale(readCodexRateLimitLockCreatedAt(), Date.now(), CODEX_RATE_LIMIT_LOCK_STALE_MS)) {
+    try {
+      rmSync(CODEX_RATE_LIMIT_LOCK_PATH, { force: true });
+    } catch {
+      return undefined;
+    }
+    return tryCreate();
+  }
+
+  return undefined;
+}
+
 class CodexRateLimitCache {
   private cached:
     | {
@@ -277,6 +360,19 @@ class CodexRateLimitCache {
     const now = Date.now();
     const hasFreshValue = this.cached?.modelKey === modelKey && now - this.cached.updatedAt < CODEX_RATE_LIMIT_TTL_MS;
 
+    if (!hasFreshValue) {
+      const persisted = readGlobalCodexRateLimitCache(modelKey, now);
+      if (persisted) {
+        this.cached = {
+          modelKey,
+          snapshot: persisted.snapshot,
+          updatedAt: persisted.updatedAt,
+          error: persisted.error,
+        };
+        return persisted.snapshot;
+      }
+    }
+
     if (!hasFreshValue && this.inFlightKey !== modelKey && now - this.lastAttemptAt >= CODEX_RETRY_FLOOR_MS) {
       void this.refresh(modelKey, onUpdate);
     }
@@ -287,21 +383,43 @@ class CodexRateLimitCache {
   private async refresh(modelKey: string, onUpdate: () => void): Promise<void> {
     this.inFlightKey = modelKey;
     this.lastAttemptAt = Date.now();
+    const releaseLock = acquireCodexRateLimitLock();
+    if (!releaseLock) {
+      const persisted = readGlobalCodexRateLimitCache(modelKey);
+      this.cached = persisted
+        ? { modelKey, snapshot: persisted.snapshot, updatedAt: persisted.updatedAt, error: persisted.error }
+        : { modelKey, snapshot: this.cached?.modelKey === modelKey && this.cached.snapshot ? this.cached.snapshot : createUnavailableRateLimitSnapshot("unavailable"), updatedAt: Date.now(), error: "Codex rate-limit refresh lock is held" };
+      if (this.inFlightKey === modelKey) this.inFlightKey = undefined;
+      onUpdate();
+      return;
+    }
+
     try {
       const response = await requestCodexRateLimits();
+      const snapshot = selectCodexRateLimit(response, modelKey) ?? createUnavailableRateLimitSnapshot("unavailable");
       this.cached = {
         modelKey,
-        snapshot: selectCodexRateLimit(response, modelKey),
+        snapshot,
         updatedAt: Date.now(),
       };
+      writeGlobalCodexRateLimitCache(modelKey, snapshot);
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const reason = classifyRateLimitError(message);
+      const snapshot = reason === "auth"
+        ? createUnavailableRateLimitSnapshot(reason)
+        : this.cached?.modelKey === modelKey && this.cached.snapshot
+          ? this.cached.snapshot
+          : createUnavailableRateLimitSnapshot(reason);
       this.cached = {
         modelKey,
-        snapshot: this.cached?.modelKey === modelKey ? this.cached.snapshot : undefined,
+        snapshot,
         updatedAt: Date.now(),
-        error: error instanceof Error ? error.message : String(error),
+        error: message,
       };
+      writeGlobalCodexRateLimitCache(modelKey, snapshot, message);
     } finally {
+      releaseLock();
       if (this.inFlightKey === modelKey) this.inFlightKey = undefined;
       onUpdate();
     }
@@ -388,9 +506,13 @@ function cyan(theme: Theme, text: string): string {
   return theme.fg("mdLink", text);
 }
 
+function colorRateValue(theme: Theme, value: string): string {
+  return /^\d+(?:\.\d+)?%$/.test(value) ? cyan(theme, value) : theme.fg("warning", value);
+}
+
 function colorRate(theme: Theme, _snapshot: RateLimitSnapshot | undefined, text: string): string {
   return text.replace(/(5h:)([^\s]+)(\s+wk:)([^\s]+)/, (_match, fiveLabel: string, fiveValue: string, weekLabel: string, weekValue: string) =>
-    `${theme.fg("muted", fiveLabel)}${cyan(theme, fiveValue)}${theme.fg("muted", weekLabel)}${cyan(theme, weekValue)}`,
+    `${theme.fg("muted", fiveLabel)}${colorRateValue(theme, fiveValue)}${theme.fg("muted", weekLabel)}${colorRateValue(theme, weekValue)}`,
   );
 }
 

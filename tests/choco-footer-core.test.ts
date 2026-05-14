@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   buildFooterLines,
+  classifyRateLimitError,
+  createRateLimitCacheEnvelope,
   createRunStateSnapshot,
   formatModelLabel,
   formatPath,
   formatRateLimits,
   formatWorkModeLabel,
+  isFreshRateLimitCacheEnvelope,
+  isRateLimitLockStale,
   parseClaudeHudCacheJson,
   parseClaudeStatuslineCache,
+  parseRateLimitCacheEnvelope,
   selectCodexRateLimit,
   reduceRunState,
   resolveFooterBranch,
@@ -104,6 +109,30 @@ describe("choco footer core", () => {
 
     state = reduceRunState(state, "agent_end");
     expect(state).toMatchObject({ label: "Ready", activeTools: 0 });
+  });
+
+  it("surfaces Codex rate-limit auth failures instead of hiding usage as blanks", () => {
+    expect(classifyRateLimitError("401 Unauthorized: token_expired refresh_token_reused")).toBe("auth");
+    expect(formatRateLimits({ limitId: "codex", unavailableReason: "auth" })).toBe("5h:login wk:login");
+    expect(formatRateLimits()).toBe("5h:-- wk:--");
+  });
+
+  it("parses only fresh model-matched Codex rate-limit cache envelopes", () => {
+    const snapshot = selectCodexRateLimit(codexResponse, "gpt-5.5");
+    expect(snapshot).toBeDefined();
+
+    const envelope = createRateLimitCacheEnvelope("gpt-5.5", snapshot!, 1_000, "");
+    const parsed = parseRateLimitCacheEnvelope(JSON.stringify(envelope));
+    const authEnvelope = createRateLimitCacheEnvelope("gpt-5.5", { limitId: "codex", unavailableReason: "auth" }, 1_250, "token_expired");
+
+    expect(parsed).toEqual(envelope);
+    expect(parseRateLimitCacheEnvelope(JSON.stringify(authEnvelope))).toEqual(authEnvelope);
+    expect(isFreshRateLimitCacheEnvelope(parsed, "gpt-5.5", 1_500, 1_000)).toBe(true);
+    expect(isFreshRateLimitCacheEnvelope(parsed, "gpt-5.5", 2_500, 1_000)).toBe(false);
+    expect(isFreshRateLimitCacheEnvelope(parsed, "gpt-5.3", 1_500, 1_000)).toBe(false);
+    expect(parseRateLimitCacheEnvelope("not json")).toBeUndefined();
+    expect(isRateLimitLockStale(1_000, 31_000, 30_000)).toBe(false);
+    expect(isRateLimitLockStale(1_000, 31_001, 30_000)).toBe(true);
   });
 
   it("keeps existing footer parsing behavior", () => {
