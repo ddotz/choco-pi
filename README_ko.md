@@ -8,7 +8,7 @@
 
 ## 상태
 
-- 현재 패키지 버전: `0.12.2`.
+- 현재 패키지 버전: `0.13.0`.
 - license 필드: `UNLICENSED`.
 - package manager: `pnpm@10.29.3`.
 - 주요 peer runtime: `@earendil-works/pi-coding-agent`.
@@ -22,7 +22,7 @@ Pi는 `package.json`의 `pi` 필드를 통해 이 저장소를 로드합니다.
 
 | 표면 | 구현된 항목 |
 | --- | --- |
-| Extensions | `extensions/choco-autopilot/index.ts`, `extensions/input-newline/index.ts`, `extensions/todo-widget.ts`, `extensions/choco-footer/index.ts`, `extensions/fff-search/index.ts`, `node_modules/pi-lsp-client/src/index.ts`, `extensions/focus-rendering/index.ts`, `extensions/raw-paste/index.ts`, `extensions/btw.ts` |
+| Extensions | `extensions/choco-autopilot/index.ts`, `extensions/input-newline/index.ts`, `extensions/todo-widget.ts`, `extensions/choco-footer/index.ts`, `extensions/choco-header/index.ts`, `extensions/fff-search/index.ts`, `node_modules/pi-lsp-client/src/index.ts`, `extensions/focus-rendering/index.ts`, `extensions/raw-paste/index.ts`, `extensions/btw.ts` |
 | Skills | `skills/choco-autopilot`, `skills/prd-architect` |
 | Prompts | `prompts/` |
 
@@ -134,6 +134,10 @@ tool에서 `scope: "project"`를 사용하면 project-shared 저장소를 씁니
 `extensions/choco-footer/`는 custom footer를 설치하고 `session_start`, `before_agent_start`, `agent_start`, `turn_start`, `tool_execution_start`, `tool_execution_end`, `agent_end`, `session_shutdown` 같은 Pi event에서 run state를 추적합니다.
 
 Footer formatting code는 model label, project branch/version, cwd, thinking level, mode label, rate-limit text, context text, cost text, tool count, todo label, run state label을 지원합니다.
+
+### `choco-header`
+
+`extensions/choco-header/`는 높이를 맞춘 compact 텍스트 `CHOCO - PI` block 로고, 양쪽 간격을 둔 같은 크기의 3-cell block 하이픈, 제공된 SVG 기반 block `pi` 마크, 그리고 `Choco-Pi v...`, 현재 모델과 thinking effort, `/model`·`/effort` command hint, 현재 작업 경로를 담은 박스형 정보 패널을 포함하는 custom startup header를 설치합니다.
 
 ### `fff-search`
 

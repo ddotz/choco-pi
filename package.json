@@ -1,6 +1,6 @@
 {
   "name": "choco-pi",
-  "version": "0.12.2",
+  "version": "0.13.0",
   "private": true,
   "description": "Personal default-root all-purpose generalist layer for the pi coding agent.",
   "keywords": [
@@ -17,6 +17,7 @@
       "extensions/input-newline/index.ts",
       "extensions/todo-widget.ts",
       "extensions/choco-footer/index.ts",
+      "extensions/choco-header/index.ts",
       "extensions/fff-search/index.ts",
       "node_modules/pi-lsp-client/src/index.ts",
       "extensions/focus-rendering/index.ts",

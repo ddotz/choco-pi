@@ -16,6 +16,7 @@ describe("package configuration", () => {
     expect(packageJson.pi.extensions).toContain("extensions/input-newline/index.ts");
     expect(packageJson.pi.extensions).toContain("extensions/todo-widget.ts");
     expect(packageJson.pi.extensions).toContain("extensions/choco-footer/index.ts");
+    expect(packageJson.pi.extensions).toContain("extensions/choco-header/index.ts");
     expect(packageJson.pi.extensions).toContain("extensions/focus-rendering/index.ts");
     expect(packageJson.pi.extensions).toContain("extensions/raw-paste/index.ts");
     expect(packageJson.pi.extensions).toContain("extensions/btw.ts");

@@ -8,7 +8,7 @@
 
 ## Status
 
-- Current package version: `0.12.2`.
+- Current package version: `0.13.0`.
 - License field: `UNLICENSED`.
 - Package manager: `pnpm@10.29.3`.
 - Main peer runtime: `@earendil-works/pi-coding-agent`.
@@ -22,7 +22,7 @@ Pi loads this repository through the `pi` field in `package.json`.
 
 | Surface | Implemented entries |
 | --- | --- |
-| Extensions | `extensions/choco-autopilot/index.ts`, `extensions/input-newline/index.ts`, `extensions/todo-widget.ts`, `extensions/choco-footer/index.ts`, `extensions/fff-search/index.ts`, `node_modules/pi-lsp-client/src/index.ts`, `extensions/focus-rendering/index.ts`, `extensions/raw-paste/index.ts`, `extensions/btw.ts` |
+| Extensions | `extensions/choco-autopilot/index.ts`, `extensions/input-newline/index.ts`, `extensions/todo-widget.ts`, `extensions/choco-footer/index.ts`, `extensions/choco-header/index.ts`, `extensions/fff-search/index.ts`, `node_modules/pi-lsp-client/src/index.ts`, `extensions/focus-rendering/index.ts`, `extensions/raw-paste/index.ts`, `extensions/btw.ts` |
 | Skills | `skills/choco-autopilot`, `skills/prd-architect` |
 | Prompts | `prompts/` |
 
@@ -134,6 +134,10 @@ The implementation validates schema on load, uses atomic temp-file rename for wr
 `extensions/choco-footer/` installs a custom footer and tracks run state transitions from Pi events such as `session_start`, `before_agent_start`, `agent_start`, `turn_start`, `tool_execution_start`, `tool_execution_end`, `agent_end`, and `session_shutdown`.
 
 The footer formatting code supports model label, project branch/version, cwd, thinking level, mode label, rate-limit text, context text, cost text, tool count, todo label, and run state label.
+
+### `choco-header`
+
+`extensions/choco-header/` installs a custom startup header with a height-matched compact text `CHOCO - PI` block logo, a spaced same-size 3-cell block hyphen, the provided SVG-derived block `pi` mark, and a boxed info panel containing `Choco-Pi v...`, the active model with thinking effort, `/model` and `/effort` command hints, and the current working directory.
 
 ### `fff-search`
 
