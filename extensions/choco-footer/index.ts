@@ -38,6 +38,7 @@ import { normalizeSessionId } from "../session-identity.ts";
 const CODEX_RATE_LIMIT_TTL_MS = 5 * 60 * 1000;
 const CODEX_RATE_LIMIT_TIMEOUT_MS = 8000;
 const CODEX_RETRY_FLOOR_MS = 5000;
+const CODEX_RATE_LIMIT_UNAVAILABLE_TTL_MS = CODEX_RETRY_FLOOR_MS;
 const CODEX_RATE_LIMIT_LOCK_STALE_MS = 30 * 1000;
 const GIT_BRANCH_FALLBACK_TTL_MS = 1000;
 const GIT_BRANCH_FALLBACK_TIMEOUT_MS = 250;
@@ -275,7 +276,7 @@ function readGlobalCodexRateLimitCache(modelKey: string, now = Date.now()): Rate
   try {
     if (!existsSync(CODEX_RATE_LIMIT_CACHE_PATH)) return undefined;
     const envelope = parseRateLimitCacheEnvelope(readFileSync(CODEX_RATE_LIMIT_CACHE_PATH, "utf8"));
-    return isFreshRateLimitCacheEnvelope(envelope, modelKey, now, CODEX_RATE_LIMIT_TTL_MS) ? envelope : undefined;
+    return isFreshRateLimitCacheEnvelope(envelope, modelKey, now, CODEX_RATE_LIMIT_TTL_MS, CODEX_RATE_LIMIT_UNAVAILABLE_TTL_MS) ? envelope : undefined;
   } catch {
     return undefined;
   }

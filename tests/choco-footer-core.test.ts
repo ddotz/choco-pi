@@ -130,6 +130,8 @@ describe("choco footer core", () => {
     expect(isFreshRateLimitCacheEnvelope(parsed, "gpt-5.5", 1_500, 1_000)).toBe(true);
     expect(isFreshRateLimitCacheEnvelope(parsed, "gpt-5.5", 2_500, 1_000)).toBe(false);
     expect(isFreshRateLimitCacheEnvelope(parsed, "gpt-5.3", 1_500, 1_000)).toBe(false);
+    expect(isFreshRateLimitCacheEnvelope(parseRateLimitCacheEnvelope(JSON.stringify(authEnvelope)), "gpt-5.5", 1_260, 1_000, 100)).toBe(true);
+    expect(isFreshRateLimitCacheEnvelope(parseRateLimitCacheEnvelope(JSON.stringify(authEnvelope)), "gpt-5.5", 1_500, 1_000, 100)).toBe(false);
     expect(parseRateLimitCacheEnvelope("not json")).toBeUndefined();
     expect(isRateLimitLockStale(1_000, 31_000, 30_000)).toBe(false);
     expect(isRateLimitLockStale(1_000, 31_001, 30_000)).toBe(true);

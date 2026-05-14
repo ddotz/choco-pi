@@ -351,8 +351,10 @@ export function parseRateLimitCacheEnvelope(content: string): RateLimitCacheEnve
   return createRateLimitCacheEnvelope(parsed.modelKey, snapshot, updatedAt, typeof parsed.error === "string" ? parsed.error : undefined);
 }
 
-export function isFreshRateLimitCacheEnvelope(envelope: RateLimitCacheEnvelope | undefined, modelKey: string, now: number, ttlMs: number): boolean {
-  return Boolean(envelope && envelope.modelKey === modelKey && now >= envelope.updatedAt && now - envelope.updatedAt <= ttlMs);
+export function isFreshRateLimitCacheEnvelope(envelope: RateLimitCacheEnvelope | undefined, modelKey: string, now: number, ttlMs: number, unavailableTtlMs = ttlMs): boolean {
+  if (!envelope || envelope.modelKey !== modelKey || now < envelope.updatedAt) return false;
+  const effectiveTtl = envelope.snapshot.unavailableReason ? unavailableTtlMs : ttlMs;
+  return now - envelope.updatedAt <= effectiveTtl;
 }
 
 export function isRateLimitLockStale(createdAt: number | undefined, now: number, staleMs: number): boolean {
