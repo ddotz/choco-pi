@@ -2,6 +2,7 @@ import { StringEnum, Type, type AssistantMessage, type TextContent } from "@mari
 import type { ExtensionAPI, ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Container } from "@mariozechner/pi-tui";
 import type { Static } from "typebox";
+import { FALLBACK_SESSION_ID, normalizeSessionId, sessionIdFromContext } from "../session-identity";
 import {
   clearRepairState,
   GUARD_REPAIR_STATUS_TEXT,
@@ -81,18 +82,32 @@ export interface StructuralGateTurnState extends GuardRepairState {
 
 export interface StructuralGateState {
   current?: StructuralGateTurnState;
+  turns: Record<string, StructuralGateTurnState>;
 }
 
 export function createStructuralGateState(): StructuralGateState {
-  return {};
+  return { turns: {} };
 }
 
 export function promptRequiresStructuralGate(prompt: string): boolean {
   return NON_TRIVIAL_PROMPT_PATTERNS.some((pattern) => pattern.test(prompt));
 }
 
-export function startStructuralGateTurn(state: StructuralGateState, prompt: string): void {
-  state.current = {
+function structuralGateSessionKey(sessionId: string | undefined): string {
+  return normalizeSessionId(sessionId || FALLBACK_SESSION_ID);
+}
+
+function getStructuralGateTurn(state: StructuralGateState, sessionId: string | undefined): StructuralGateTurnState | undefined {
+  return state.turns[structuralGateSessionKey(sessionId)];
+}
+
+function setStructuralGateTurn(state: StructuralGateState, sessionId: string | undefined, turn: StructuralGateTurnState): void {
+  state.turns[structuralGateSessionKey(sessionId)] = turn;
+  state.current = turn;
+}
+
+export function startStructuralGateTurn(state: StructuralGateState, prompt: string, sessionId = FALLBACK_SESSION_ID): void {
+  setStructuralGateTurn(state, sessionId, {
     prompt,
     required: promptRequiresStructuralGate(prompt),
     passed: false,
@@ -103,17 +118,17 @@ export function startStructuralGateTurn(state: StructuralGateState, prompt: stri
     hasCompletedTodo: false,
     newWorkAfterTodo: false,
     newWorkAfterTodoHandled: false,
-  };
+  });
 }
 
 function objectInput(input: unknown): Record<string, unknown> | undefined {
   return input && typeof input === "object" ? input as Record<string, unknown> : undefined;
 }
 
-export function markStructuralGateToolUse(state: StructuralGateState, toolName: string, input?: unknown): void {
-  if (!state.current) return;
+export function markStructuralGateToolUse(state: StructuralGateState, toolName: string, input?: unknown, sessionId = FALLBACK_SESSION_ID): void {
+  const turn = getStructuralGateTurn(state, sessionId);
+  if (!turn) return;
   if (toolName === STRUCTURAL_GATE_TOOL_NAME) return;
-  const turn = state.current;
   turn.required = true;
   turn.toolCalls += 1;
 
@@ -152,8 +167,8 @@ function hasConcreteStopEvidence(review: StructuralGateReview, outcome: "blocked
   return /deferred|optional|new[- ]?scope|follow[- ]?up|out of scope|보류|선택|별도\s*범위|새\s*범위|후속/i.test(haystack);
 }
 
-export function recordLoopTransitionReview(state: StructuralGateState, review: LoopTransitionReview): { ok: boolean; reason?: string } {
-  if (!state.current) startStructuralGateTurn(state, "");
+export function recordLoopTransitionReview(state: StructuralGateState, review: LoopTransitionReview, sessionId = FALLBACK_SESSION_ID): { ok: boolean; reason?: string } {
+  if (!getStructuralGateTurn(state, sessionId)) startStructuralGateTurn(state, "", sessionId);
   const missing = [
     ["currentStep", review.currentStep, nonEmpty],
     ["nextStep", review.nextStep, nonEmptyOrFinal],
@@ -161,7 +176,7 @@ export function recordLoopTransitionReview(state: StructuralGateState, review: L
     ["currentTodoFit", review.currentTodoFit, nonEmpty],
   ].filter(([, value, predicate]) => typeof value !== "string" || !(predicate as (input: string) => boolean)(value));
 
-  const turn = state.current!;
+  const turn = getStructuralGateTurn(state, sessionId)!;
   turn.required = true;
 
   if (missing.length > 0) {
@@ -184,8 +199,8 @@ export function recordLoopTransitionReview(state: StructuralGateState, review: L
   return { ok: true };
 }
 
-export function recordStructuralGateReview(state: StructuralGateState, review: StructuralGateReview): { ok: boolean; reason?: string } {
-  if (!state.current) startStructuralGateTurn(state, "");
+export function recordStructuralGateReview(state: StructuralGateState, review: StructuralGateReview, sessionId = FALLBACK_SESSION_ID): { ok: boolean; reason?: string } {
+  if (!getStructuralGateTurn(state, sessionId)) startStructuralGateTurn(state, "", sessionId);
   const missing = [
     ["acceptanceFit", review.acceptanceFit],
     ["runtimeFit", review.runtimeFit],
@@ -195,7 +210,7 @@ export function recordStructuralGateReview(state: StructuralGateState, review: S
     ["completionBoundary", review.completionBoundary],
   ].filter(([, value]) => typeof value !== "string" || !nonEmpty(value));
 
-  const turn = state.current!;
+  const turn = getStructuralGateTurn(state, sessionId)!;
   turn.required = true;
   turn.review = review;
 
@@ -333,8 +348,8 @@ export function detectRequiredContinuationFromFinalText(text: string): string | 
   return undefined;
 }
 
-export function guardAssistantMessage(state: StructuralGateState, message: AssistantMessage): { message?: AssistantMessage; followUp?: string } {
-  const turn = state.current;
+export function guardAssistantMessage(state: StructuralGateState, message: AssistantMessage, sessionId = FALLBACK_SESSION_ID): { message?: AssistantMessage; followUp?: string } {
+  const turn = getStructuralGateTurn(state, sessionId);
   if (!turn?.required) return {};
   if (message.stopReason === "toolUse" || message.stopReason === "error" || message.stopReason === "aborted") return {};
   if (hasToolCall(message)) return {};
@@ -373,8 +388,8 @@ export function createLoopTransitionTool(state: StructuralGateState): ToolDefini
     ],
     parameters: LoopTransitionParams,
     renderShell: "self",
-    async execute(_toolCallId: string, params: LoopTransitionReview, _signal: AbortSignal | undefined, _onUpdate: undefined, _ctx: ExtensionContext) {
-      const result = recordLoopTransitionReview(state, params);
+    async execute(_toolCallId: string, params: LoopTransitionReview, _signal: AbortSignal | undefined, _onUpdate: undefined, ctx: ExtensionContext) {
+      const result = recordLoopTransitionReview(state, params, sessionIdFromContext(ctx));
       return {
         content: [{ type: "text", text: result.ok ? "Loop transition recorded." : `Loop transition failed: ${result.reason}` }],
         details: { ok: result.ok, reason: result.reason },
@@ -403,8 +418,8 @@ export function createStructuralGateTool(state: StructuralGateState): ToolDefini
     ],
     parameters: StructuralGateParams,
     renderShell: "self",
-    async execute(_toolCallId: string, params: StructuralGateReview, _signal: AbortSignal | undefined, _onUpdate: undefined, _ctx: ExtensionContext) {
-      const result = recordStructuralGateReview(state, params);
+    async execute(_toolCallId: string, params: StructuralGateReview, _signal: AbortSignal | undefined, _onUpdate: undefined, ctx: ExtensionContext) {
+      const result = recordStructuralGateReview(state, params, sessionIdFromContext(ctx));
       return {
         content: [{ type: "text", text: result.ok ? "Structural gate passed." : `Structural gate failed: ${result.reason}` }],
         details: { ok: result.ok, reason: result.reason },
@@ -424,17 +439,17 @@ export function installStructuralGate(pi: Pick<ExtensionAPI, "on" | "registerToo
   pi.registerTool(createLoopTransitionTool(state));
   pi.registerTool(createStructuralGateTool(state));
 
-  pi.on("before_agent_start", (event) => {
-    startStructuralGateTurn(state, event.prompt ?? "");
+  pi.on("before_agent_start", (event, ctx) => {
+    startStructuralGateTurn(state, event.prompt ?? "", sessionIdFromContext(ctx));
   });
 
-  pi.on("tool_call", (event) => {
-    markStructuralGateToolUse(state, event.toolName, event.input);
+  pi.on("tool_call", (event, ctx) => {
+    markStructuralGateToolUse(state, event.toolName, event.input, sessionIdFromContext(ctx));
   });
 
-  pi.on("message_end", (event) => {
+  pi.on("message_end", (event, ctx) => {
     if (event.message.role !== "assistant") return undefined;
-    const result = guardAssistantMessage(state, event.message);
+    const result = guardAssistantMessage(state, event.message, sessionIdFromContext(ctx));
     if (result.followUp) {
       pi.sendMessage(
         {

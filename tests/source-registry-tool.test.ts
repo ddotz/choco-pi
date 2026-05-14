@@ -15,6 +15,10 @@ interface RegisteredTool {
   ) => Promise<{ content: Array<{ type: string; text: string }>; details?: unknown }>;
 }
 
+interface RegisteredCommand {
+  handler: (args: string, ctx: { cwd: string; ui: { notify: ReturnType<typeof vi.fn> } }) => Promise<void>;
+}
+
 let tempAgentDir: string | undefined;
 
 afterEach(async () => {
@@ -28,11 +32,14 @@ async function useTempAgentDir(): Promise<void> {
   process.env.PI_CODING_AGENT_DIR = tempAgentDir;
 }
 
-function registeredTools(): Map<string, RegisteredTool> {
+function registeredHarness(): { tools: Map<string, RegisteredTool>; commands: Map<string, RegisteredCommand> } {
   const tools = new Map<string, RegisteredTool>();
+  const commands = new Map<string, RegisteredCommand>();
   chocoAutopilot({
     on: vi.fn(),
-    registerCommand: vi.fn(),
+    registerCommand: (name: string, definition: RegisteredCommand) => {
+      commands.set(name, definition);
+    },
     registerTool: (definition: RegisteredTool) => {
       tools.set(definition.name, definition);
     },
@@ -41,7 +48,11 @@ function registeredTools(): Map<string, RegisteredTool> {
     exec: vi.fn(),
     getFlag: vi.fn(),
   } as never);
-  return tools;
+  return { tools, commands };
+}
+
+function registeredTools(): Map<string, RegisteredTool> {
+  return registeredHarness().tools;
 }
 
 describe("source registry tool", () => {
@@ -85,5 +96,29 @@ describe("source registry tool", () => {
 
     const result = await tool.execute("3", { action: "list" }, undefined, undefined, { cwd: "/repo" });
     expect(result.content[0].text).toContain("[adopted depth:partial-port]");
+  });
+
+  it("rejects source_registry status changes for unknown source ids", async () => {
+    await useTempAgentDir();
+    const tool = registeredTools().get("source_registry")!;
+
+    await expect(tool.execute("1", {
+      action: "watch",
+      id: "github-example-missing",
+      review: "Should not silently succeed.",
+    }, undefined, undefined, { cwd: "/repo" })).rejects.toThrow("Unknown source id");
+  });
+
+  it("reports unknown source ids through the /source command instead of claiming success", async () => {
+    await useTempAgentDir();
+    const { commands } = registeredHarness();
+    const notify = vi.fn();
+
+    await commands.get("source")!.handler("watch github-example-missing Should not silently succeed", {
+      cwd: "/repo",
+      ui: { notify },
+    });
+
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("Unknown source id"), "error");
   });
 });

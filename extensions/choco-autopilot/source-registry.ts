@@ -128,6 +128,10 @@ function normalizeAdoptedOptions(options: string[] | MarkSourceAdoptedOptions): 
   return Array.isArray(options) ? { adoptedItems: options } : options;
 }
 
+function assertSourceExists(registry: SourceRegistry, id: string): void {
+  if (!registry.sources.some((source) => source.id === id)) throw new Error(`Unknown source id: ${id}`);
+}
+
 function mergeItems(existing: string[], incoming: string[] | undefined): string[] {
   return Array.from(new Set([...existing, ...(incoming ?? []).map((item) => item.trim()).filter(Boolean)]));
 }
@@ -151,6 +155,7 @@ export function markSourceAdopted(
   review: string,
   adoptedItemsOrOptions: string[] | MarkSourceAdoptedOptions = [],
 ): SourceRegistry {
+  assertSourceExists(registry, id);
   const options = normalizeAdoptedOptions(adoptedItemsOrOptions);
   return {
     ...registry,
@@ -174,6 +179,7 @@ export function markSourceWatching(
   review: string,
   options: MarkSourceAdoptedOptions = {},
 ): SourceRegistry {
+  assertSourceExists(registry, id);
   return {
     ...registry,
     sources: registry.sources.map((source) =>
@@ -191,6 +197,7 @@ export function markSourceWatching(
 }
 
 export function markSourceRejected(registry: SourceRegistry, id: string, review: string): SourceRegistry {
+  assertSourceExists(registry, id);
   return {
     ...registry,
     sources: registry.sources.map((source) =>

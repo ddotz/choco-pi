@@ -1,7 +1,7 @@
 import { StringEnum, type AssistantMessage } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { Type } from "typebox";
@@ -225,10 +225,34 @@ async function loadState(): Promise<ChocoState> {
   }
 }
 
+const stateLocks = new Map<string, Promise<void>>();
+
+async function withStateLock<T>(path: string, operation: () => Promise<T>): Promise<T> {
+  const previous = stateLocks.get(path) ?? Promise.resolve();
+  let release: () => void = () => {};
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const queued = previous.catch(() => undefined).then(() => current);
+  stateLocks.set(path, queued);
+
+  await previous.catch(() => undefined);
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (stateLocks.get(path) === queued) stateLocks.delete(path);
+  }
+}
+
 async function saveState(state: ChocoState): Promise<void> {
   const path = statePath();
-  await mkdir(join(agentDir(), "choco-pi"), { recursive: true });
-  await writeFile(path, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+  await withStateLock(path, async () => {
+    await mkdir(join(agentDir(), "choco-pi"), { recursive: true });
+    const tmpPath = `${path}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`;
+    await writeFile(tmpPath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+    await rename(tmpPath, path);
+  });
 }
 
 function getLedger(state: ChocoState, cwd: string, sessionId: string, prompt?: string): ContextLedger {
@@ -318,6 +342,10 @@ const SourceRegistryParams = Type.Object({
 function requireSourceId(id: string | undefined): string {
   if (!id?.trim()) throw new Error("Source id is required");
   return id.trim();
+}
+
+function hasSourceId(registry: SourceRegistry, id: string): boolean {
+  return registry.sources.some((source) => source.id === id);
 }
 
 async function setWorkMode(workMode: WorkMode, ctx: ExtensionCommandContext): Promise<void> {
@@ -969,6 +997,10 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
           ctx.ui.notify("Usage: /source watch <id> [review]", "error");
           return;
         }
+        if (!hasSourceId(state.sourceRegistry, id)) {
+          ctx.ui.notify(`Unknown source id: ${id}`, "error");
+          return;
+        }
         state.sourceRegistry = markSourceWatching(state.sourceRegistry, id, reviewParts.join(" ") || "Watching for future adoption analysis.");
         await saveState(state);
         ctx.ui.notify(`Marked watching: ${id}`, "info");
@@ -981,6 +1013,10 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
           ctx.ui.notify("Usage: /source adopt <id> [review]", "error");
           return;
         }
+        if (!hasSourceId(state.sourceRegistry, id)) {
+          ctx.ui.notify(`Unknown source id: ${id}`, "error");
+          return;
+        }
         state.sourceRegistry = markSourceAdopted(state.sourceRegistry, id, reviewParts.join(" ") || "Adopted for choco-pi.");
         await saveState(state);
         ctx.ui.notify(`Marked adopted: ${id}`, "info");
@@ -991,6 +1027,10 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
         const [id, ...reviewParts] = rest;
         if (!id) {
           ctx.ui.notify("Usage: /source reject <id> [review]", "error");
+          return;
+        }
+        if (!hasSourceId(state.sourceRegistry, id)) {
+          ctx.ui.notify(`Unknown source id: ${id}`, "error");
           return;
         }
         state.sourceRegistry = markSourceRejected(state.sourceRegistry, id, reviewParts.join(" ") || "Rejected for choco-pi.");

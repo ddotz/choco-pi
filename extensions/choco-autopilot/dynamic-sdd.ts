@@ -2,6 +2,7 @@ import { StringEnum } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Container } from "@mariozechner/pi-tui";
 import { Type, type Static } from "typebox";
+import { FALLBACK_SESSION_ID, normalizeSessionId, sessionIdFromContext } from "../session-identity";
 
 export const SPEC_GATE_TOOL_NAME = "spec_gate";
 
@@ -58,6 +59,7 @@ export interface DynamicSddTurnState {
 
 export interface DynamicSddState {
   current?: DynamicSddTurnState;
+  turns: Record<string, DynamicSddTurnState>;
 }
 
 export interface SpecGateResult {
@@ -68,15 +70,27 @@ export interface SpecGateResult {
 }
 
 export function createDynamicSddState(): DynamicSddState {
-  return {};
+  return { turns: {} };
 }
 
-export function startDynamicSddTurn(state: DynamicSddState): void {
-  state.current = { deltas: [], snapshots: [] };
+function dynamicSddSessionKey(sessionId: string | undefined): string {
+  return normalizeSessionId(sessionId || FALLBACK_SESSION_ID);
 }
 
-function ensureTurn(state: DynamicSddState): DynamicSddTurnState {
-  if (!state.current) startDynamicSddTurn(state);
+function emptyTurn(): DynamicSddTurnState {
+  return { deltas: [], snapshots: [] };
+}
+
+export function startDynamicSddTurn(state: DynamicSddState, sessionId = FALLBACK_SESSION_ID): void {
+  const turn = emptyTurn();
+  state.turns[dynamicSddSessionKey(sessionId)] = turn;
+  state.current = turn;
+}
+
+function ensureTurn(state: DynamicSddState, sessionId = FALLBACK_SESSION_ID): DynamicSddTurnState {
+  const key = dynamicSddSessionKey(sessionId);
+  if (!state.turns[key]) startDynamicSddTurn(state, sessionId);
+  state.current = state.turns[key];
   return state.current!;
 }
 
@@ -256,8 +270,8 @@ function snapshotSpec(turn: DynamicSddTurnState, input: Record<string, unknown>)
   return success(turn, `Spec Snapshot recorded: ${label}\n${formatWorkingSpec(snapshot.spec)}`);
 }
 
-export function recordSpecGateAction(state: DynamicSddState, params: SpecGateToolInput): SpecGateResult {
-  const turn = ensureTurn(state);
+export function recordSpecGateAction(state: DynamicSddState, params: SpecGateToolInput, sessionId = FALLBACK_SESSION_ID): SpecGateResult {
+  const turn = ensureTurn(state, sessionId);
   const input = params as Record<string, unknown>;
   if (!isSpecGateAction(input.action)) return failure(turn, "valid action is required");
 
@@ -265,8 +279,8 @@ export function recordSpecGateAction(state: DynamicSddState, params: SpecGateToo
   if (input.action === "delta") return recordDelta(turn, input);
   if (input.action === "snapshot") return snapshotSpec(turn, input);
   if (input.action === "clear") {
-    startDynamicSddTurn(state);
-    return success(state.current!, "Working Spec cleared.");
+    startDynamicSddTurn(state, sessionId);
+    return success(ensureTurn(state, sessionId), "Working Spec cleared.");
   }
 
   return success(turn, formatSpecGateState(turn));
@@ -285,8 +299,8 @@ export function createSpecGateTool(state: DynamicSddState): ToolDefinition<typeo
     ],
     parameters: SpecGateParams,
     renderShell: "self",
-    async execute(_toolCallId: string, params: SpecGateToolInput, _signal: AbortSignal | undefined, _onUpdate: undefined, _ctx: ExtensionContext) {
-      const result = recordSpecGateAction(state, params);
+    async execute(_toolCallId: string, params: SpecGateToolInput, _signal: AbortSignal | undefined, _onUpdate: undefined, ctx: ExtensionContext) {
+      const result = recordSpecGateAction(state, params, sessionIdFromContext(ctx));
       return {
         content: [{ type: "text", text: result.text }],
         details: { ok: result.ok, reason: result.reason, state: result.state },
@@ -304,7 +318,7 @@ export function createSpecGateTool(state: DynamicSddState): ToolDefinition<typeo
 export function installDynamicSdd(pi: Pick<ExtensionAPI, "on" | "registerTool">): void {
   const state = createDynamicSddState();
   pi.registerTool(createSpecGateTool(state));
-  pi.on("before_agent_start", () => {
-    startDynamicSddTurn(state);
+  pi.on("before_agent_start", (_event, ctx) => {
+    startDynamicSddTurn(state, sessionIdFromContext(ctx));
   });
 }

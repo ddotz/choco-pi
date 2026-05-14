@@ -52,10 +52,25 @@ function setupAutopilot(): {
   return { handlers, tools, sendMessage, sendUserMessage };
 }
 
+function ctx(sessionId: string): Record<string, unknown> {
+  return {
+    cwd: "/repo",
+    hasUI: false,
+    ui: {},
+    sessionManager: { getSessionId: () => sessionId },
+  };
+}
+
 async function emitFirst(handlers: Map<string, EventHandler[]>, eventName: string, event: Record<string, unknown>): Promise<unknown> {
   const handler = handlers.get(eventName)?.[0];
   if (!handler) throw new Error(`missing handler: ${eventName}`);
   return handler(event, { cwd: "/repo", hasUI: false, ui: {} });
+}
+
+async function emitFirstWithCtx(handlers: Map<string, EventHandler[]>, eventName: string, event: Record<string, unknown>, context: Record<string, unknown>): Promise<unknown> {
+  const handler = handlers.get(eventName)?.[0];
+  if (!handler) throw new Error(`missing handler: ${eventName}`);
+  return handler(event, context);
 }
 
 describe("structural gate guard", () => {
@@ -302,6 +317,32 @@ describe("structural gate guard", () => {
 
     expect(result).toBeUndefined();
     expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("keeps structural gate turn state isolated by Pi session id", async () => {
+    const { handlers, tools } = setupAutopilot();
+    await emitFirstWithCtx(handlers, "before_agent_start", { type: "before_agent_start", prompt: "현재 todo 끝나면 다음 단계로 넘어가", systemPrompt: "base", systemPromptOptions: {} }, ctx("session-a"));
+    await emitFirstWithCtx(handlers, "tool_call", { type: "tool_call", toolCallId: "todo-1", toolName: "todo", input: { action: "set_status", id: 1, status: "done" } }, ctx("session-a"));
+    await emitFirstWithCtx(handlers, "before_agent_start", { type: "before_agent_start", prompt: "다른 세션에서 별도 분석", systemPrompt: "base", systemPromptOptions: {} }, ctx("session-b"));
+
+    const gateResult = await tools.get("structural_gate")!.execute(
+      "gate-session-a",
+      {
+        acceptanceFit: "Current todo step was completed in session A.",
+        runtimeFit: "No runtime change was made.",
+        failureModes: "Session B startup must not erase session A loop-transition requirements.",
+        verificationEvidence: "Session A todo status transition was observed before session B started.",
+        loopGovernance: "Session A still requires loop_transition evidence for the completed todo.",
+        completionBoundary: "Cannot complete session A without loop_transition evidence.",
+        confidence: "High",
+        readyToComplete: true,
+      },
+      undefined,
+      undefined,
+      ctx("session-a"),
+    );
+
+    expect(gateResult.details).toMatchObject({ ok: false, reason: expect.stringContaining("loop_transition") });
   });
 
   it("requires loop_transition evidence after a todo step is completed", async () => {

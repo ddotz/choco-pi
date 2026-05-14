@@ -8,8 +8,12 @@ interface RegisteredTool {
     params: Record<string, unknown>,
     signal: AbortSignal | undefined,
     onUpdate: undefined,
-    ctx: { cwd: string },
+    ctx: { cwd: string; sessionManager?: { getSessionId: () => string } },
   ) => Promise<{ content: Array<{ type: string; text: string }>; details?: unknown }>;
+}
+
+function ctx(sessionId: string): { cwd: string; sessionManager: { getSessionId: () => string } } {
+  return { cwd: "/repo", sessionManager: { getSessionId: () => sessionId } };
 }
 
 function registeredTools(): Map<string, RegisteredTool> {
@@ -189,5 +193,44 @@ describe("dynamic SDD spec_gate tool", () => {
     const listed = await tool.execute("3", { action: "list" }, undefined, undefined, { cwd: "/repo" });
     expect(listed.content[0].text).toContain("Persist specs across sessions later.");
     expect(listed.content[0].text).not.toContain("Scope:\n- spec_gate tool\n- persistent spec history");
+  });
+
+  it("keeps working specs isolated by Pi session id", async () => {
+    const tool = registeredTools().get("spec_gate")!;
+
+    await tool.execute(
+      "a-start",
+      {
+        action: "start",
+        objective: "Session A spec",
+        scope: ["session A scope"],
+        acceptanceCriteria: ["session A acceptance"],
+        testStrategy: ["session A test"],
+      },
+      undefined,
+      undefined,
+      ctx("session-a"),
+    );
+    await tool.execute(
+      "b-start",
+      {
+        action: "start",
+        objective: "Session B spec",
+        scope: ["session B scope"],
+        acceptanceCriteria: ["session B acceptance"],
+        testStrategy: ["session B test"],
+      },
+      undefined,
+      undefined,
+      ctx("session-b"),
+    );
+
+    const listedA = await tool.execute("a-list", { action: "list" }, undefined, undefined, ctx("session-a"));
+    const listedB = await tool.execute("b-list", { action: "list" }, undefined, undefined, ctx("session-b"));
+
+    expect(listedA.content[0].text).toContain("Session A spec");
+    expect(listedA.content[0].text).not.toContain("Session B spec");
+    expect(listedB.content[0].text).toContain("Session B spec");
+    expect(listedB.content[0].text).not.toContain("Session A spec");
   });
 });

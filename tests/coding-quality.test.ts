@@ -168,6 +168,57 @@ describe("coding quality guardrails", () => {
     expect(result).toEqual({});
   });
 
+  it("queues hidden coding repair payloads while showing only the generic repair status", async () => {
+    await useTempAgentDir();
+    const handlers: Record<string, Array<(event: never, ctx: never) => unknown>> = {};
+    type RegisteredCommand = { handler: (args: string, ctx: { ui: { notify: ReturnType<typeof vi.fn> } }) => Promise<void> };
+    const commands = new Map<string, RegisteredCommand>();
+    const sendMessage = vi.fn();
+
+    chocoAutopilot({
+      on: (name: string, handler: (event: never, ctx: never) => unknown) => {
+        handlers[name] = [...(handlers[name] ?? []), handler];
+      },
+      registerCommand: (name: string, definition: RegisteredCommand) => {
+        commands.set(name, definition);
+      },
+      registerTool: vi.fn(),
+      sendUserMessage: vi.fn(),
+      sendMessage,
+      exec: vi.fn(),
+      getFlag: vi.fn(),
+    } as never);
+
+    await commands.get("mode")!.handler("set coding", { ui: { notify: vi.fn() } });
+
+    const badEvent = {
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "구현 완료했습니다. Confidence: High" }],
+        stopReason: "stop",
+      },
+    } as never;
+    const results = [];
+    for (const handler of handlers.message_end ?? []) results.push(await handler(badEvent, { cwd: "/repo" } as never));
+
+    const replacement = results.find((result): result is { message: { content: Array<{ type: "text"; text: string }> } } => {
+      return !!result && typeof result === "object" && "message" in result;
+    });
+    const visibleText = replacement?.message.content[0]?.text ?? "";
+    expect(visibleText).toContain("답변 검증 가드가 보강을 진행 중입니다");
+    expect(visibleText).not.toContain("coding 품질 보강");
+    expect(visibleText).not.toContain("Issues:");
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customType: "choco.coding_quality.repair",
+        display: false,
+        content: expect.stringContaining("coding 품질 보강이 필요합니다"),
+      }),
+      { deliverAs: "followUp", triggerTurn: true },
+    );
+  });
+
   it("queues only one coding repair follow-up for repeated failures in a session", async () => {
     await useTempAgentDir();
     const handlers: Record<string, Array<(event: never, ctx: never) => unknown>> = {};
