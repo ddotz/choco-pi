@@ -111,6 +111,17 @@ function buildNewFeaturePackageReuseGuidance(): string {
   ].join("\n");
 }
 
+function buildMarkdownArtifactRenderingGuidance(): string {
+  return [
+    "### Markdown artifact rendering",
+    "- When generating HTML/PDF/DOCX from a Markdown report, preserve the MD source but render Markdown into HTML before export.",
+    "- Never build HTML/PDF/DOCX artifacts by escaping raw Markdown text or by wrapping raw Markdown lines in `<p>` tags.",
+    "- Use a real Markdown renderer such as pandoc, markdown-it/marked, Python-Markdown, or a project-provided renderer before applying visual templates or browser/PDF conversion.",
+    "- If a custom template is necessary, insert rendered HTML blocks into the template; do not insert raw `**bold**`, heading markers, fenced code, or unrendered pipe-table rows as visible text.",
+    "- Artifact QA must check the generated artifact for visible Markdown control syntax, including `**bold**`, raw heading markers, fenced code markers, and unrendered pipe-table rows, before reporting completion.",
+  ].join("\n");
+}
+
 function buildModeOverlayGuidance(mode: WorkMode): string {
   if (mode === "web-analysis") return buildWebAnalysisModeGuidance();
   if (mode === "adoption-analysis") return buildAdoptionAnalysisModeGuidance();
@@ -201,6 +212,8 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "- Deep: split responsibilities across PM, Architect, Worker, Reviewer, Verifier, and Polish roles before execution.",
     "- Do not ask the user for routine implementation choices. Choose defaults and move forward.",
     "- Before final response, perform critical self-review, fix discovered issues, and verify with observable evidence.",
+    "",
+    buildMarkdownArtifactRenderingGuidance(),
     "",
     buildModeIsolationGuidance(),
     "",

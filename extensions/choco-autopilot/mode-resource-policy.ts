@@ -76,6 +76,7 @@ const REPORT_POLICY: ModeResourcePolicy = {
     "logic review before polishing",
     "Kami layout and im-not-ai polishing after evidence is stable",
     "MD source and evidence sidecar before DOCX/PDF conversion",
+    "Markdown rendering before HTML/PDF/DOCX export",
     "artifact QA before returning generated report files",
   ],
   processPriorities: [

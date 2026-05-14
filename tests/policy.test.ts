@@ -110,6 +110,22 @@ describe("choco autonomous PM policy", () => {
     expect(prompt).toContain("worktree per writable lane");
   });
 
+  it("injects a mode-agnostic Markdown artifact rendering guard", () => {
+    const prompt = buildAutopilotSystemPrompt({
+      workMode: "default",
+      executionIntensity: "standard",
+      cwd: "/repo",
+    });
+
+    expect(prompt).toContain("Markdown artifact rendering");
+    expect(prompt).toContain("Never build HTML/PDF/DOCX artifacts by escaping raw Markdown text");
+    expect(prompt).toContain("Use a real Markdown renderer");
+    expect(prompt).toContain("rendered HTML");
+    expect(prompt).toContain("visible Markdown control syntax");
+    expect(prompt).toContain("`**bold**`");
+    expect(prompt).toContain("unrendered pipe-table rows");
+  });
+
   it("injects autonomous base, default-only work mode, concise response, folded details, confidence, context, memory, and source tracking", () => {
     const prompt = buildAutopilotSystemPrompt({
       workMode: "default",

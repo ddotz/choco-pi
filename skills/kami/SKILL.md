@@ -32,11 +32,13 @@ Korean-safe font examples: `Noto Serif CJK KR`, `Nanum Myeongjo`, `AppleMyungjo`
 1. Write a stable MD source first.
 2. Keep evidence in an appendix or `<report>.evidence.md` evidence sidecar for file-based reports.
 3. Convert to requested output only when the user asked for an artifact.
-4. Run artifact QA: file exists, non-empty size, opens/converts successfully when tooling is available, title/summary/section breaks/references are visible, and no source facts changed.
-5. In Telegram contexts, attach the generated file instead of only naming the local path.
+4. Render Markdown with a real renderer before HTML/PDF/DOCX export. Use pandoc, markdown-it/marked, Python-Markdown, or a project-provided renderer; a browser or PDF converter should receive rendered HTML, not raw Markdown.
+5. Run artifact QA: file exists, non-empty size, opens/converts successfully when tooling is available, title/summary/section breaks/references are visible, no source facts changed, and no visible Markdown control syntax remains.
+6. In Telegram contexts, attach the generated file instead of only naming the local path.
 
 ## Avoid
 
 - Do not vendor upstream Kami templates wholesale.
+- Never make HTML/PDF by HTML-escaping raw Markdown or wrapping raw Markdown lines in paragraphs; `**bold**`, heading markers, fenced code markers, and pipe-table rows must not be visible in the artifact.
 - Do not let styling outrank evidence quality, numeric consistency, or citation integrity.
 - Do not claim exact Kami template compliance unless the actual template was loaded and checked.

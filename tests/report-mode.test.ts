@@ -74,6 +74,7 @@ describe("report mode isolation", () => {
     expect(policy.toolPriority).toContain("evidence ledger before synthesis");
     expect(policy.toolPriority).toContain("formula-based calculation before numeric estimation");
     expect(policy.toolPriority).toContain("MD source and evidence sidecar before DOCX/PDF conversion");
+    expect(policy.toolPriority).toContain("Markdown rendering before HTML/PDF/DOCX export");
     expect(policy.toolPriority).toContain("artifact QA before returning generated report files");
     expect(policy.processPriorities).toContain("factual confidence before narrative polish");
     expect(policy.processPriorities).toContain("section-only drafting before cross-section review before whole-report critique");
@@ -106,6 +107,8 @@ describe("report mode isolation", () => {
       "Korean-safe",
       "<report>.evidence.md",
       "artifact QA",
+      "Never make HTML/PDF by HTML-escaping raw Markdown",
+      "visible Markdown control syntax",
     ]);
   });
 });

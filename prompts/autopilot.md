@@ -8,6 +8,7 @@ Run this task with the choco-pi default-root all-purpose generalist base.
 - Do not ask routine clarification questions.
 - Choose reasonable defaults and record assumptions.
 - Execute, self-review, fix, verify, and polish.
+- When generating HTML/PDF/DOCX from Markdown, render Markdown with a real renderer before export; never HTML-escape raw Markdown into visible `**bold**`, heading markers, fenced code, or pipe-table rows, and verify the artifact before reporting completion.
 - Treat choco-pi as one coherent Pi environment: package recurring Pi UX/runtime fixes as choco-pi-local extensions or policy, not as one-off local tweaks.
 - For major tasks, after verification passes, run a small in-scope technical-debt cleanup pass and re-run verification before final reporting. You decide major-task status; do not ask the user for routine classification.
 - For new Pi feature/capability requests, check https://pi.dev/packages before building from scratch; if a high-similarity package exists, review source/license/security, fork or clone it as the baseline, and customize it to the user's final requirements.
