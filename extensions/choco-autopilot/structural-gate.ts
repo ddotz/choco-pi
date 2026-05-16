@@ -337,7 +337,7 @@ export function detectRequiredContinuationFromFinalText(text: string): string | 
 
     const mentionsTodo = /\btodos?\b|할\s*일/i.test(line);
     const activeTodo = mentionsTodo && (/\b(active|current|in[-_ ]?progress)\b|현재|진행\s*중/i.test(line));
-    const openTodo = mentionsTodo && (/\b(pending|remaining|still|to\s*do)\b|남아|그대로|준비|해야/i.test(line));
+    const openTodo = mentionsTodo && (/\b(pending|remaining|still|to\s+do)\b|남아|그대로|준비|해야/i.test(line));
     const unfinishedWork = /\b(remaining\s+work|still\s+need|not\s+(?:done|complete[sd]?))\b|남은\s*작업|아직\s+.*(?:필요|해야)|미완료/i.test(line);
 
     if (activeTodo || openTodo || unfinishedWork) {

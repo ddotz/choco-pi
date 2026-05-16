@@ -289,6 +289,45 @@ describe("structural gate guard", () => {
     expect(sendMessage).not.toHaveBeenCalled();
   });
 
+  it("does not reopen the loop for a generic todo condition list item", async () => {
+    const { handlers, tools, sendMessage } = setupAutopilot();
+    await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "절차 축소 방안을 설명해", systemPrompt: "base", systemPromptOptions: {} });
+
+    await tools.get("structural_gate")!.execute(
+      "gate-1",
+      {
+        acceptanceFit: "The answer explains which procedural steps should be relaxed or retained.",
+        runtimeFit: "No runtime change is claimed in this explanatory answer.",
+        failureModes: "A generic list item mentioning todo status changes must not be treated as an active todo still remaining.",
+        verificationEvidence: "The final answer is a recommendation list, not a live todo status report.",
+        loopGovernance: "No active todo transition is being claimed in the final answer.",
+        completionBoundary: "Safe to stop after answering the user's question.",
+        confidence: "High",
+        readyToComplete: true,
+      },
+      undefined,
+      undefined,
+      { cwd: "/repo" },
+    );
+
+    const result = await emitFirst(handlers, "message_end", {
+      type: "message_end",
+      message: assistantMessage([
+        "## Result",
+        "- micro 작업은 절차를 줄입니다.",
+        "- structural_gate는 아래 조건에서만 유지합니다.",
+        "  - 파일 변경",
+        "  - 명령 실행",
+        "  - todo 상태 변경",
+        "  - 완료 주장",
+        "Confidence: High",
+      ].join("\n")),
+    });
+
+    expect(result).toBeUndefined();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
   it("does not reopen the loop for explicitly deferred pending todos after the gate passes", async () => {
     const { handlers, tools, sendMessage } = setupAutopilot();
     await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "todo 보류 상태를 보고해", systemPrompt: "base", systemPromptOptions: {} });
