@@ -237,7 +237,7 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "6. Completion boundary: stop only when the requested outcome is satisfied, verification passed, and no critical in-scope issue remains.",
     "Medium confidence is not a completion state: if confidence would be Medium, reinforce verification/runtime dogfood/review until it becomes High, or stop with readyToComplete=false and a concrete blocker.",
     "The structural_gate tool is the non-prompt enforcement path: call it before final completion reporting on non-trivial work.",
-    "A message_end hook checks the structural_gate state fail-closed; if the tool was skipped or did not pass, the final assistant message is replaced with a short visible repair-status message and a hidden follow-up repair turn is queued.",
+    "A message_end hook checks the structural_gate state fail-closed; if the tool was skipped or did not pass, the finalized assistant message is replaced with a blank final-message placeholder and a hidden follow-up repair turn is queued. The current Pi extension API exposes replacement at message_end, not a true pre-stream render block.",
     "If the gate was skipped, acknowledge the skip, run the gate immediately, fix what it finds, and then report RED/Root cause/Fix/GREEN for any TDD or bug-fix work.",
     "",
     buildLoopGovernanceGuidance(),

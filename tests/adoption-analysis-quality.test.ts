@@ -117,7 +117,7 @@ describe("adoption-analysis quality guardrails", () => {
       stopReason: "stop",
     } as never);
 
-    expect(result.message?.content).toEqual([{ type: "text", text: expect.stringContaining("답변 검증 가드가 보강을 진행 중입니다") }]);
+    expect(result.message?.content).toEqual([{ type: "text", text: "" }]);
     expect(result.message?.content[0]).not.toEqual(expect.objectContaining({ text: expect.stringContaining("adoption-analysis 품질 보강") }));
     expect(result.followUp).toContain("adoption-analysis 품질 보강이 필요합니다");
     expect(result.followUp).toContain("missing-adoption-depth");
@@ -169,7 +169,7 @@ describe("adoption-analysis quality guardrails", () => {
       } as never, { cwd: "/repo" } as never));
     }
 
-    expect(results).toContainEqual({ message: expect.objectContaining({ content: [{ type: "text", text: expect.stringContaining("답변 검증 가드가 보강을 진행 중입니다") }] }) });
+    expect(results).toContainEqual({ message: expect.objectContaining({ content: [{ type: "text", text: "" }] }) });
     expect(sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({ customType: "choco.adoption_analysis_quality.repair" }),
       { deliverAs: "followUp", triggerTurn: true },

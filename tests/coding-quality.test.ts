@@ -153,7 +153,7 @@ describe("coding quality guardrails", () => {
       stopReason: "stop",
     } as never);
 
-    expect(result.message?.content).toEqual([{ type: "text", text: expect.stringContaining("답변 검증 가드가 보강을 진행 중입니다") }]);
+    expect(result.message?.content).toEqual([{ type: "text", text: "" }]);
     expect(result.followUp).toContain("coding 품질 보강이 필요합니다");
     expect(result.followUp).toContain("missing-verification");
   });
@@ -205,7 +205,7 @@ describe("coding quality guardrails", () => {
       return !!result && typeof result === "object" && "message" in result;
     });
     const visibleText = replacement?.message.content[0]?.text ?? "";
-    expect(visibleText).toContain("답변 검증 가드가 보강을 진행 중입니다");
+    expect(visibleText).toBe("");
     expect(visibleText).not.toContain("coding 품질 보강");
     expect(visibleText).not.toContain("Issues:");
 

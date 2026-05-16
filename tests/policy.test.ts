@@ -84,6 +84,8 @@ describe("choco autonomous PM policy", () => {
     expect(prompt).toContain("reinforce");
     expect(prompt).toContain("concrete blocker");
     expect(prompt).toContain("message_end hook");
+    expect(prompt).toContain("blank final-message placeholder");
+    expect(prompt).not.toContain("short visible repair-status message");
     expect(prompt).toContain("fail-closed");
     expect(prompt).toContain("Loop governance");
     expect(prompt).toContain("current todo");
@@ -92,6 +94,25 @@ describe("choco autonomous PM policy", () => {
     expect(prompt).toContain("loop_transition");
     expect(prompt).toContain("Do not clear or remove active todos when newly discovered work starts");
     expect(prompt).toContain("return to the preserved parent todo");
+  });
+
+  it("injects evidence-first autonomous harness guidance", () => {
+    const prompt = buildAutopilotSystemPrompt({
+      workMode: "default",
+      executionIntensity: "standard",
+      cwd: "/repo",
+    });
+
+    expect(prompt).toContain("Evidence-first autonomous harness");
+    expect(prompt).toContain("Premise Check");
+    expect(prompt).toContain("Evidence Ledger");
+    expect(prompt).toContain("Fail-Closed Gate");
+    expect(prompt).toContain("Autonomous Boundary");
+    expect(prompt).toContain("facts, assumptions, inferences, and speculation");
+    expect(prompt).toContain("Do not invent citations, numbers, names, dates, examples, or source claims");
+    expect(prompt).toContain("If information is missing, name the missing variable instead of guessing");
+    expect(prompt).toContain("Start with the strongest counterargument when evaluating a claim, plan, or opinion");
+    expect(prompt).toContain("If the user challenges an answer without new evidence");
   });
 
   it("requires collision-resistant area partitioning before writable parallel development", () => {
