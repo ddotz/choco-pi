@@ -41,6 +41,16 @@ const NON_TRIVIAL_PROMPT_PATTERNS = [
   /complete/i,
 ];
 
+const MICRO_EXPLANATORY_PROMPT_PATTERNS = [
+  /[?？]\s*$/,
+  /어떻게|왜|뭐|무엇|어떤|가능|불가능|할\s*건데|할건데|되어\s*있|돼\s*있|반영되어|반영돼|맞(?:아|나요)|인가|일까|어때/i,
+];
+
+const ACTION_REQUEST_PROMPT_PATTERNS = [
+  /해\s*줘|해주세요|해라|하자|고쳐|수정|구현|반영\s*해|반영\s*하|적용\s*해|적용\s*하|만들|실행|돌려|검증\s*해|확인\s*해|테스트\s*해|커밋|푸시/i,
+  /\b(fix|implement|build|run|test|verify|commit|push)\b/i,
+];
+
 const StructuralGateParams = Type.Object({
   acceptanceFit: Type.String({ description: "Compare the user's latest request, assumptions, and completion boundary against the actual result." }),
   runtimeFit: Type.String({ description: "Check whether tests and code changes represent real Pi/runtime behavior, including reload/load order/UI state/conflicts when relevant." }),
@@ -89,7 +99,15 @@ export function createStructuralGateState(): StructuralGateState {
   return { turns: {} };
 }
 
+function isMicroExplanatoryPrompt(prompt: string): boolean {
+  const text = prompt.trim();
+  if (!text || text.length > 180 || text.includes("\n")) return false;
+  if (!MICRO_EXPLANATORY_PROMPT_PATTERNS.some((pattern) => pattern.test(text))) return false;
+  return !ACTION_REQUEST_PROMPT_PATTERNS.some((pattern) => pattern.test(text));
+}
+
 export function promptRequiresStructuralGate(prompt: string): boolean {
+  if (isMicroExplanatoryPrompt(prompt)) return false;
   return NON_TRIVIAL_PROMPT_PATTERNS.some((pattern) => pattern.test(prompt));
 }
 
@@ -326,11 +344,31 @@ function isStatusAssertionLine(line: string): boolean {
     || /^(?:active\/current|active|current|in[-_ ]?progress)\s+todos?\b\s*(?::|=|-|\b(?:is|are|remain|remains|still|pending|open|left)\b)/i.test(line);
 }
 
-export function detectRequiredContinuationFromFinalText(text: string): string | undefined {
-  const lines = text
+function finalTextLines(text: string): string[] {
+  return text
     .split(/\r?\n/)
     .map((line) => line.trim().replace(/^[-*•]\s*/, ""))
     .filter(Boolean);
+}
+
+function isExplanatoryCompletionMention(line: string): boolean {
+  return /주장|문구|예시|조건|경우|기준|없음|없습니다|아님|아닙|금지|차단|유지|필수|생략|가능/i.test(line);
+}
+
+export function detectCompletionClaimFromFinalText(text: string): string | undefined {
+  for (const line of finalTextLines(text)) {
+    if (isExplanatoryCompletionMention(line)) continue;
+    if (/(?:완료|수정|구현|반영|적용|검증|테스트|해결|커밋|푸시)(?:\s*(?:완료|통과))?\s*(?:했|했습니다|됐|되었습니다|끝났습니다|완료했습니다)/i.test(line)
+      || /(?:고쳤|고쳤습니다|끝났|끝났습니다|통과했습니다)/i.test(line)
+      || /\b(?:completed|fixed|implemented|verified|tested|passed|committed|pushed)\b/i.test(line)) {
+      return `completion claim requires structural_gate: ${line}`;
+    }
+  }
+  return undefined;
+}
+
+export function detectRequiredContinuationFromFinalText(text: string): string | undefined {
+  const lines = finalTextLines(text);
 
   for (const line of lines) {
     if (!isStatusAssertionLine(line) || isDeferredOrBlockedLine(line) || isCompletedOrEmptyActiveLine(line)) continue;
@@ -350,11 +388,18 @@ export function detectRequiredContinuationFromFinalText(text: string): string | 
 
 export function guardAssistantMessage(state: StructuralGateState, message: AssistantMessage, sessionId = FALLBACK_SESSION_ID): { message?: AssistantMessage; followUp?: string } {
   const turn = getStructuralGateTurn(state, sessionId);
-  if (!turn?.required) return {};
+  if (!turn) return {};
   if (message.stopReason === "toolUse" || message.stopReason === "error" || message.stopReason === "aborted") return {};
   if (hasToolCall(message)) return {};
 
   const text = assistantText(message);
+  const completionClaimReason = detectCompletionClaimFromFinalText(text);
+  if (!turn.required && !completionClaimReason) return {};
+  if (!turn.required && completionClaimReason) {
+    turn.required = true;
+    turn.rejectionReason = completionClaimReason;
+  }
+
   const continuationReason = detectRequiredContinuationFromFinalText(text);
   if (turn.passed && !continuationReason) return {};
 
@@ -362,7 +407,7 @@ export function guardAssistantMessage(state: StructuralGateState, message: Assis
     ? continuationReason!
     : turn.review
       ? `structural_gate did not pass (${turn.rejectionReason ?? "unknown reason"})`
-      : "structural_gate tool was not called";
+      : completionClaimReason ?? "structural_gate tool was not called";
   const replacement: AssistantMessage = {
     ...message,
     content: [{ type: "text", text: GUARD_REPAIR_STATUS_TEXT }],

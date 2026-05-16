@@ -101,6 +101,61 @@ describe("structural gate guard", () => {
     );
   });
 
+  it("allows a pure explanatory micro answer without structural_gate", async () => {
+    const { handlers, sendMessage } = setupAutopilot();
+    await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "4번은 어떻게 할건데?", systemPrompt: "base", systemPromptOptions: {} });
+
+    const result = await emitFirst(handlers, "message_end", {
+      type: "message_end",
+      message: assistantMessage([
+        "4번은 단순 답변에는 gate 요구를 낮추고 실제 완료 주장에는 유지합니다.",
+        "- 설명만 하면 통과",
+        "- 도구를 쓰면 gate 필요",
+        "Confidence: High",
+      ].join("\n")),
+    });
+
+    expect(result).toBeUndefined();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("allows a status question mentioning reflected instructions when the answer makes no completion claim", async () => {
+    const { handlers, sendMessage } = setupAutopilot();
+    await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "지금 반영되어있어?", systemPrompt: "base", systemPromptOptions: {} });
+
+    const result = await emitFirst(handlers, "message_end", {
+      type: "message_end",
+      message: assistantMessage([
+        "현재 대화에는 적용됩니다.",
+        "다만 영구 설정 파일에 저장됐다고 단정할 수는 없습니다.",
+        "Confidence: High",
+      ].join("\n")),
+    });
+
+    expect(result).toBeUndefined();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("requires structural_gate when a micro answer claims completed work", async () => {
+    const { handlers, sendMessage } = setupAutopilot();
+    await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "4번은 어떻게 할건데?", systemPrompt: "base", systemPromptOptions: {} });
+
+    const result = await emitFirst(handlers, "message_end", {
+      type: "message_end",
+      message: assistantMessage("반영했습니다. 검증도 통과했습니다.\n\nConfidence: High"),
+    }) as { message: AssistantMessage };
+
+    expect((result.message.content[0] as { type: "text"; text: string }).text).toBe("");
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customType: "choco.structural_gate.repair",
+        display: false,
+        content: expect.stringContaining("completion claim requires structural_gate"),
+      }),
+      { deliverAs: "followUp", triggerTurn: true },
+    );
+  });
+
   it("caps structural repair follow-ups within one repair cycle", async () => {
     const { handlers, sendMessage } = setupAutopilot();
     await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "버그 고치고 테스트까지 해줘", systemPrompt: "base", systemPromptOptions: {} });
@@ -113,7 +168,7 @@ describe("structural gate guard", () => {
 
     const repairCalls = sendMessage.mock.calls.filter(([message]) => message.customType === "choco.structural_gate.repair");
     expect(repairCalls).toHaveLength(1);
-    expect(repairCalls[0][0].content).toContain("structural_gate tool was not called");
+    expect(repairCalls[0][0].content).toContain("completion claim requires structural_gate");
   });
 
   it("rejects structural_gate reviews that omit loop governance evidence", async () => {
