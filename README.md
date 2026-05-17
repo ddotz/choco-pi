@@ -10,7 +10,7 @@ This README describes implemented behavior only. It is based on `package.json`, 
 
 ## Status
 
-- Current package version: `0.14.9`.
+- Current package version: `0.15.0`.
 - License field: `UNLICENSED`.
 - Package manager: `pnpm@10.29.3`.
 - Main peer runtime: `@earendil-works/pi-coding-agent`.
@@ -29,6 +29,7 @@ choco-pi is not a standalone app. Pi loads it through the `pi` field in `package
 At runtime, those entries provide:
 
 - an autopilot policy layer for planning, execution, verification, memory, ledgers, source tracking, reloads, updates, and quality gates;
+- an autonomous protocol runtime that routes prompts to branch/coding/parallel/lane/integration/approval flows and tracks required tool satisfaction;
 - a session/project todo tool and `/todos` UI;
 - custom header and footer rendering;
 - FFF-backed `grep`, `find`, and `multi_grep` tools;
@@ -65,7 +66,7 @@ Reload an already running Pi session after installation:
 
 ### Autopilot policy
 
-`extensions/choco-autopilot/index.ts` is the main extension. It appends the choco-pi policy prompt during agent startup and installs tools/commands for structural review, dynamic SDD, source tracking, parallel-work planning, runtime reloads, memory, ledgers, dogfood capture, updates, and work-mode control.
+`extensions/choco-autopilot/index.ts` is the main extension. It appends the choco-pi policy prompt during agent startup and installs tools/commands for structural review, dynamic SDD, autonomous protocol routing, source tracking, parallel-work planning, runtime reloads, memory, ledgers, dogfood capture, updates, and work-mode control.
 
 The implemented policy includes these defaults:
 
@@ -77,6 +78,8 @@ The implemented policy includes these defaults:
 - Mode isolation is mandatory for every work mode.
 - No mode may change default or any other mode as a side effect.
 - Completion claims require observable verification and a structural review when work is non-trivial.
+- Prompt intent is routed into an autonomy protocol when branch, coding, parallel, worktree-lane, integration, or approval-boundary behavior is needed.
+- Required protocol tools are tracked from tool results; `structural_gate` fails closed when completion is attempted before required tools are satisfied.
 
 ### Work modes and intensity
 
@@ -121,8 +124,7 @@ Execution intensity is a process-weight setting. The implemented values are `mic
 | `agent_orchestrator` | `agent-orchestrator-tool.ts` | Start, dispatch, update, summarize, and close manifest-backed parallel agent runs. |
 | `integration_verifier` | `integration-verifier-tool.ts` | Run final integration verification for manifest-backed parallel lanes before completion. |
 | `mode_scaffold` | `mode-scaffold-tool.ts` | Generate planned or implementation-stub files for isolated work modes. |
-
-Runtime lane enforcement also guards active-lane writes and records bash post-diff scope violations; it is installed through the main extension hook rather than exposed as a user-facing tool.
+| Active lane write guard | `index.ts`, `write-scope-guard.ts` | Guard active-lane writes from cwd/session-scoped state and record bash post-diff scope violations. |
 | `reload_runtime` | `runtime-reload.ts` | Reload Pi runtime resources directly or through tmux self-input fallback. |
 | `todo` | `todo-widget.ts` | Manage session or project todo files. |
 | `grep`, `find`, `multi_grep` | `fff-search/index.ts` | Search files and content through FFF-backed tools. |
@@ -132,7 +134,7 @@ Runtime lane enforcement also guards active-lane writes and records bash post-di
 | Command | Behavior |
 | --- | --- |
 | `/mode` | Open the selector or manage modes with `status`, `list`, `set`, `add`, and `remove`. |
-| `/sessions` | Show current session, cwd, branch, todos, manifests, and worktrees. |
+| `/sessions` | Show current session, cwd, branch, mode, todos, autonomy protocol, active lane, manifests, and worktrees. |
 | `/intensity` | Show or set `micro`, `standard`, or `deep`. |
 | `/effort` | Show or set supported model effort levels. |
 | `/source` | Manage source registry records. |
@@ -156,15 +158,19 @@ The main state file is:
 ~/.pi/agent/choco-pi/state.json
 ```
 
-The current state schema version is `4`. The state object stores:
+The current state schema version is `5`. The state object stores:
 
 - `runtime`: persistent work mode and execution intensity;
 - `sessions`: per-session effective work mode, suggested mode, automatic-mode flag, execution intensity, and timestamp;
+- `activeLanes`: cwd/session-scoped active lane write-guard state;
+- `autonomyProtocols`: cwd/session-scoped prompt protocol, required tools, satisfied tools, and blocked tool state;
 - `memories`: durable facts saved through `/memory`;
 - `ledgers`: cwd/session keyed context ledgers;
 - `sourceRegistry`: external source tracking records;
 - `workModeRegistry`: built-in and custom work-mode metadata;
 - `autoUpdate`: choco-pi auto-update settings and the last result.
+
+The autonomy protocol state is recreated at agent start from the latest prompt and active runtime hints. Tool results update satisfaction automatically; blocked required tools or missing protocol tools prevent ready completion through `structural_gate`.
 
 The context ledger tracks objective, assumptions, decisions, changed files, verifications, blockers, risks, and next actions. Automatic ledger updates currently record write/edit paths and verification-like `bash` results.
 

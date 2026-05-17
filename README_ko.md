@@ -10,7 +10,7 @@
 
 ## 상태
 
-- 현재 패키지 버전: `0.13.6`.
+- 현재 패키지 버전: `0.15.0`.
 - 라이선스 필드: `UNLICENSED`.
 - 패키지 매니저: `pnpm@10.29.3`.
 - 주요 peer 런타임: `@earendil-works/pi-coding-agent`.
@@ -29,6 +29,7 @@ choco-pi는 단독 앱이 아닙니다. Pi가 `package.json`의 `pi` 필드를 �
 런타임에서는 위 항목을 통해 다음 기능이 추가됩니다.
 
 - 계획, 실행, 검증, 메모리, ledger, source tracking, reload, update, quality gate를 다루는 autopilot 정책 레이어
+- prompt를 branch/coding/parallel/lane/integration/approval flow로 라우팅하고 required tool 만족 상태를 추적하는 autonomous protocol runtime
 - 세션/프로젝트 todo 도구와 `/todos` UI
 - 커스텀 header/footer 렌더링
 - FFF 기반 `grep`, `find`, `multi_grep` 도구
@@ -65,7 +66,7 @@ pi install /absolute/path/to/choco-pi
 
 ### Autopilot 정책
 
-`extensions/choco-autopilot/index.ts`가 핵심 확장입니다. 에이전트 시작 시 choco-pi 정책 프롬프트를 추가하고, structural review, dynamic SDD, source tracking, 병렬 작업 계획, 런타임 리로드, memory, ledger, dogfood capture, update, work-mode control을 위한 도구와 명령을 설치합니다.
+`extensions/choco-autopilot/index.ts`가 핵심 확장입니다. 에이전트 시작 시 choco-pi 정책 프롬프트를 추가하고, structural review, dynamic SDD, autonomous protocol routing, source tracking, 병렬 작업 계획, 런타임 리로드, memory, ledger, dogfood capture, update, work-mode control을 위한 도구와 명령을 설치합니다.
 
 구현된 기본 정책은 다음과 같습니다.
 
@@ -75,6 +76,8 @@ pi install /absolute/path/to/choco-pi
 - 새 Pi 기능을 만들 때는 처음부터 구현하기 전에 `https://pi.dev/packages`를 확인합니다.
 - 작업 모드는 서로 격리되어야 하며, 한 모드가 다른 모드를 부작용으로 바꾸면 안 됩니다.
 - 단순하지 않은 작업을 완료했다고 말하려면 관찰 가능한 검증과 structural review가 필요합니다.
+- Branch, coding, parallel, worktree-lane, integration, approval-boundary 의도가 감지되면 runtime protocol을 생성합니다.
+- Required tool 결과는 자동 추적되며, 만족되지 않은 protocol은 `structural_gate`에서 fail-closed됩니다.
 
 ### 작업 모드와 실행 강도
 
@@ -119,8 +122,7 @@ Execution intensity는 프로세스의 무게를 정하는 값입니다. 현재 
 | `agent_orchestrator` | `agent-orchestrator-tool.ts` | manifest 기반 병렬 agent run을 시작, dispatch, 상태 갱신, 요약, 종료합니다. |
 | `integration_verifier` | `integration-verifier-tool.ts` | manifest 기반 병렬 lane의 최종 통합 검증을 실행하고 완료 전 evidence를 제공합니다. |
 | `mode_scaffold` | `mode-scaffold-tool.ts` | 격리 work mode를 위한 planned 또는 implementation-stub 파일을 생성합니다. |
-
-Active lane write enforcement는 main extension hook에서 동작하며, bash post-diff scope violation도 기록합니다. 사용자-facing tool로 별도 노출하지 않습니다.
+| Active lane write guard | `index.ts`, `write-scope-guard.ts` | cwd/session-scoped state를 우선 사용해 active-lane write와 bash post-diff scope violation을 guard합니다. |
 | `reload_runtime` | `runtime-reload.ts` | Pi 런타임 리소스를 직접 reload하거나 tmux self-input fallback으로 reload합니다. |
 | `todo` | `todo-widget.ts` | 세션 또는 프로젝트 todo 파일을 관리합니다. |
 | `grep`, `find`, `multi_grep` | `fff-search/index.ts` | FFF 기반으로 파일과 내용을 검색합니다. |
@@ -130,7 +132,7 @@ Active lane write enforcement는 main extension hook에서 동작하며, bash po
 | Command | 동작 |
 | --- | --- |
 | `/mode` | selector를 열거나 `status`, `list`, `set`, `add`, `remove`로 mode를 관리합니다. |
-| `/sessions` | 현재 session, cwd, branch, todo, manifest, worktree 상태를 표시합니다. |
+| `/sessions` | 현재 session, cwd, branch, mode, todo, autonomy protocol, active lane, manifest, worktree 상태를 표시합니다. |
 | `/intensity` | `micro`, `standard`, `deep` 값을 확인하거나 설정합니다. |
 | `/effort` | 지원되는 model effort level을 확인하거나 설정합니다. |
 | `/source` | source registry record를 관리합니다. |
@@ -154,15 +156,19 @@ Active lane write enforcement는 main extension hook에서 동작하며, bash po
 ~/.pi/agent/choco-pi/state.json
 ```
 
-현재 state schema version은 `4`입니다. state object에는 다음 정보가 저장됩니다.
+현재 state schema version은 `5`입니다. state object에는 다음 정보가 저장됩니다.
 
 - `runtime`: persistent work mode와 execution intensity
 - `sessions`: 세션별 effective work mode, suggested mode, automatic-mode flag, execution intensity, timestamp
+- `activeLanes`: cwd/session-scoped active lane write-guard state
+- `autonomyProtocols`: cwd/session-scoped prompt protocol, required tool, satisfied tool, blocked tool state
 - `memories`: `/memory`로 저장한 durable fact
 - `ledgers`: cwd/session key 기반 context ledger
 - `sourceRegistry`: external source tracking record
 - `workModeRegistry`: built-in/custom work-mode metadata
 - `autoUpdate`: choco-pi auto-update 설정과 마지막 결과
+
+Autonomy protocol state는 agent start 시 최신 prompt와 active runtime hint를 기준으로 다시 생성됩니다. Tool result는 required tool satisfaction을 자동 갱신하며, blocked 또는 missing protocol tool은 ready completion을 `structural_gate`에서 차단합니다.
 
 Context ledger는 objective, assumptions, decisions, changed files, verifications, blockers, risks, next actions를 기록합니다. 현재 자동 ledger 업데이트는 write/edit path와 verification 성격의 `bash` result를 중심으로 저장합니다.
 

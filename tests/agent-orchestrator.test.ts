@@ -61,7 +61,7 @@ describe("agent orchestrator", () => {
     expect(result.blockers.join("\n")).toContain("serial lane cannot be dispatched as a parallel handoff");
   });
 
-  it("marks dispatched lanes running so repeated dispatch does not duplicate handoffs", async () => {
+  it("marks dispatchable lanes dispatched so repeated dispatch does not duplicate handoffs", async () => {
     const root = await tempRepoRoot();
     const plan = planParallelWorkAreas({ items: [{ id: "review", description: "Review docs", files: ["README.md"], write: false }] });
     await runAgentOrchestrator({ action: "start", repoRoot: root, groupId: "group-a", baseRef: "main", plan });
@@ -72,10 +72,23 @@ describe("agent orchestrator", () => {
 
     expect(first.ok).toBe(true);
     expect(first.handoffPrompts).toHaveLength(1);
-    expect(manifest.status).toBe("running");
-    expect(manifest.lanes[0].status).toBe("running");
+    expect(manifest.status).toBe("dispatching");
+    expect(manifest.lanes[0].status).toBe("dispatched");
     expect(second.ok).toBe(true);
     expect(second.handoffPrompts).toEqual([]);
+  });
+
+  it("allows mark_running from dispatched lanes", async () => {
+    const root = await tempRepoRoot();
+    const plan = planParallelWorkAreas({ items: [{ id: "review", description: "Review docs", files: ["README.md"], write: false }] });
+    await runAgentOrchestrator({ action: "start", repoRoot: root, groupId: "group-a", baseRef: "main", plan });
+    await runAgentOrchestrator({ action: "dispatch", repoRoot: root, groupId: "group-a" });
+
+    const result = await runAgentOrchestrator({ action: "mark_running", repoRoot: root, groupId: "group-a", laneId: "lane-1" });
+    const manifest = await loadAgentRunManifest(root, "group-a");
+
+    expect(result.ok).toBe(true);
+    expect(manifest.lanes[0].status).toBe("running");
   });
 
   it("dispatches read-only lanes with a handoff prompt", async () => {
@@ -119,5 +132,7 @@ describe("agent orchestrator", () => {
     expect(verified.ok).toBe(true);
     expect(manifest.lanes[0].status).toBe("verified");
     expect(manifest.lanes[0].verificationEvidence).toBe("pnpm test passed");
+    expect(manifest.lanes[0].verifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(verified.summary).toContain("pnpm test passed");
   });
 });

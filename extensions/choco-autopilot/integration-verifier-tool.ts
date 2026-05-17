@@ -7,7 +7,7 @@ import { Type } from "typebox";
 import { loadAgentRunManifest, updateAgentRunManifest, type AgentRunManifest } from "./agent-run-manifest";
 import { classifyApprovalBoundaryCommand, formatApprovalBoundaryBlock } from "./approval-boundary";
 import { execGit, listWorktrees, statusSummary } from "./git-runtime";
-import { normalizeGroupId, safeJoinWithin } from "./safe-identifiers";
+import { assertSafeBranchName, normalizeGroupId, safeJoinWithin } from "./safe-identifiers";
 import { normalizeWorktreePath, pathExists } from "./worktree-runtime";
 
 const execAsync = promisify(exec);
@@ -73,6 +73,13 @@ async function addPreflightBlockers(result: IntegrationVerifierResult, manifest:
     }
     if (laneRequiresBranch(lane) && !lane.branchName) {
       result.blockers.push(`verified worktree lane lacks branchName: ${lane.id}`);
+    }
+    if (lane.branchName) {
+      try {
+        assertSafeBranchName(lane.branchName, "branchName");
+      } catch (error) {
+        result.blockers.push(`${lane.id} branchName invalid: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
     if (lane.worktreePath && (await statusSummary(lane.worktreePath)).dirty) {
       result.blockers.push(`dirty lane worktree: ${lane.id} ${lane.worktreePath}`);

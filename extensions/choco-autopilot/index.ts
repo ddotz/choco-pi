@@ -1,11 +1,21 @@
 import { StringEnum, type AssistantMessage } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { Type } from "typebox";
 import { ADOPTION_DEPTHS, type AdoptionDepth } from "./adoption-depth";
+import {
+  autonomyProtocolKey,
+  createAutonomyProtocol,
+  markProtocolToolBlocked,
+  markProtocolToolSatisfied,
+  missingRequiredTools,
+  protocolToolSatisfactionFromResult,
+  type AutonomyProtocol,
+} from "./autonomy-protocol";
+import { routeAutonomyProtocol } from "./autonomy-router";
 import {
   createEmptyLedger,
   recordChangedFile,
@@ -88,6 +98,7 @@ import { installDynamicSdd } from "./dynamic-sdd";
 import { runGuardPipeline } from "./guard-orchestrator";
 import { discoverImNotAiSkillPath } from "./im-not-ai-dependency";
 import { discoverKamiSkillPath } from "./kami-dependency";
+import { currentBranch as gitCurrentBranch, repoRoot as gitRepoRoot } from "./git-runtime";
 import { registerIntegrationVerifierTool } from "./integration-verifier-tool";
 import { registerModeScaffoldTool } from "./mode-scaffold-tool";
 import { parseDogfoodMemoryMode, resolveDogfoodScope } from "./improvement-scope";
@@ -95,7 +106,7 @@ import { guardReportQualityMessage, type ReportRepairState } from "./report-qual
 import { registerRuntimeReload } from "./runtime-reload";
 import { registerSessionDashboardCommand } from "./session-dashboard";
 import { resolveEffectiveWorkMode, sessionIdFromContext, sessionScopedKey } from "./session-scope";
-import { installStructuralGate } from "./structural-gate";
+import { installStructuralGate, type StructuralGateReview } from "./structural-gate";
 import { discoverSuperpowersSkillPath } from "./superpowers-dependency";
 import { withFileLock } from "./state-lock";
 import { CHOCO_PI_VERSION } from "./version";
@@ -123,11 +134,19 @@ export interface SessionRuntimeState {
   updatedAt: string;
 }
 
+export interface ActiveLaneRuntimeState extends ActiveLaneContext {
+  version: 1;
+  sessionId: string;
+  cwd: string;
+  activatedAt: string;
+}
+
 export interface ChocoState {
   version: 5;
   runtime: RuntimeState;
   sessions: Record<string, SessionRuntimeState>;
-  activeLanes: Record<string, ActiveLaneContext & { activatedAt: string }>;
+  activeLanes: Record<string, ActiveLaneRuntimeState>;
+  autonomyProtocols: Record<string, AutonomyProtocol>;
   memories: StoredMemory[];
   ledgers: Record<string, ContextLedger>;
   sourceRegistry: SourceRegistry;
@@ -202,6 +221,7 @@ function emptyState(): ChocoState {
     runtime: createRuntimeState(DEFAULT_WORK_MODE, DEFAULT_EXECUTION_INTENSITY),
     sessions: {},
     activeLanes: {},
+    autonomyProtocols: {},
     memories: [],
     ledgers: {},
     sourceRegistry: createSourceRegistry(),
@@ -221,6 +241,35 @@ function ledgerKey(cwd: string, sessionId: string): string {
   return sessionScopedKey(cwd || process.cwd(), sessionId);
 }
 
+function activeLaneKey(cwd: string, sessionId: string): string {
+  return sessionScopedKey(cwd || process.cwd(), sessionId);
+}
+
+function activeLaneFromState(state: ChocoState, cwd: string, sessionId: string): ActiveLaneRuntimeState | undefined {
+  return state.activeLanes[activeLaneKey(cwd, sessionId)] ?? state.activeLanes[sessionId];
+}
+
+async function hasActiveManifestForCwd(cwd: string): Promise<boolean> {
+  const root = await gitRepoRoot(cwd).catch(() => cwd);
+  let groupIds: string[] = [];
+  try {
+    groupIds = await readdir(join(root, ".pi", "agent-runs"));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    return false;
+  }
+  for (const groupId of groupIds) {
+    try {
+      const raw = await readFile(join(root, ".pi", "agent-runs", groupId, "manifest.json"), "utf8");
+      const manifest = JSON.parse(raw) as { status?: string };
+      if (manifest.status !== "integrated" && manifest.status !== "closed") return true;
+    } catch {
+      return true;
+    }
+  }
+  return false;
+}
+
 async function loadStateUnlocked(): Promise<ChocoState> {
   try {
     const raw = await readFile(statePath(), "utf8");
@@ -229,7 +278,8 @@ async function loadStateUnlocked(): Promise<ChocoState> {
       version: STATE_VERSION,
       runtime: migrateLegacyMode(parsed),
       sessions: parsed.sessions && typeof parsed.sessions === "object" ? parsed.sessions : {},
-      activeLanes: parsed.activeLanes && typeof parsed.activeLanes === "object" ? parsed.activeLanes : {},
+      activeLanes: parsed.activeLanes && typeof parsed.activeLanes === "object" ? parsed.activeLanes as Record<string, ActiveLaneRuntimeState> : {},
+      autonomyProtocols: parsed.autonomyProtocols && typeof parsed.autonomyProtocols === "object" ? parsed.autonomyProtocols : {},
       memories: Array.isArray(parsed.memories) ? parsed.memories : [],
       ledgers: parsed.ledgers && typeof parsed.ledgers === "object" ? parsed.ledgers : {},
       sourceRegistry: parsed.sourceRegistry?.sources ? parsed.sourceRegistry : createSourceRegistry(),
@@ -593,6 +643,24 @@ async function updateLedgerForToolCall(cwd: string, sessionId: string, toolName:
   });
 }
 
+async function updateAutonomyProtocolForToolResult(
+  cwd: string,
+  sessionId: string,
+  toolName: string,
+  event: { toolCallId?: unknown; details?: unknown; isError?: unknown; content?: unknown },
+): Promise<void> {
+  const satisfaction = protocolToolSatisfactionFromResult(toolName, event);
+  if (!satisfaction || satisfaction.status === "ignored") return;
+  await updateState((state) => {
+    const key = autonomyProtocolKey(cwd, sessionId);
+    const protocol = state.autonomyProtocols[key];
+    if (!protocol || !protocol.requiredTools.includes(toolName)) return;
+    state.autonomyProtocols[key] = satisfaction.status === "satisfied"
+      ? markProtocolToolSatisfied(protocol, toolName, satisfaction.evidence)
+      : markProtocolToolBlocked(protocol, toolName, satisfaction.evidence ?? `${toolName} ${satisfaction.status}`);
+  });
+}
+
 async function updateLedgerForToolResult(
   cwd: string,
   sessionId: string,
@@ -612,10 +680,11 @@ async function updateLedgerForToolResult(
   });
 }
 
-async function activeLaneContextFromState(ctx: { cwd?: string } | undefined): Promise<ActiveLaneContext | undefined> {
+async function activeLaneContextFromState(ctx: { cwd?: string } | undefined): Promise<ActiveLaneRuntimeState | undefined> {
+  const cwd = ctx?.cwd || process.cwd();
   const sessionId = sessionIdFromContext(ctx);
   const state = await loadState();
-  return state.activeLanes[sessionId];
+  return activeLaneFromState(state, cwd, sessionId);
 }
 
 async function activeLaneContextFor(ctx: { cwd?: string } | undefined): Promise<ActiveLaneContext | undefined> {
@@ -623,20 +692,48 @@ async function activeLaneContextFor(ctx: { cwd?: string } | undefined): Promise<
 }
 
 const activeLaneStore = {
-  async activate(sessionId: string, context: ActiveLaneContext): Promise<void> {
+  async activate(sessionId: string, cwd: string, context: ActiveLaneContext): Promise<void> {
     await updateState((state) => {
-      state.activeLanes[sessionId] = { ...context, activatedAt: nowIso() };
+      const runtimeState: ActiveLaneRuntimeState = { version: 1, sessionId, cwd, ...context, activatedAt: nowIso() };
+      state.activeLanes[activeLaneKey(cwd, sessionId)] = runtimeState;
+      delete state.activeLanes[sessionId];
     });
   },
-  async deactivate(sessionId: string): Promise<void> {
+  async deactivate(sessionId: string, cwd?: string): Promise<void> {
     await updateState((state) => {
+      if (cwd) delete state.activeLanes[activeLaneKey(cwd, sessionId)];
       delete state.activeLanes[sessionId];
+      for (const [key, lane] of Object.entries(state.activeLanes)) {
+        if (lane.sessionId === sessionId && (!cwd || lane.cwd === cwd)) delete state.activeLanes[key];
+      }
     });
   },
 };
 
+async function autonomyProtocolCompletionBlock(review: StructuralGateReview, ctx: { cwd?: string }): Promise<string | undefined> {
+  const cwd = ctx.cwd || process.cwd();
+  const sessionId = sessionIdFromContext(ctx);
+  const protocol = (await loadState()).autonomyProtocols[autonomyProtocolKey(cwd, sessionId)];
+  if (!protocol || protocol.kind === "none") return undefined;
+
+  const outcome = review.outcome ?? "complete";
+  if (protocol.kind === "approval-boundary") {
+    return review.readyToComplete || outcome === "complete"
+      ? `approval-boundary protocol cannot complete before hard boundary: ${protocol.hardBoundary ?? "unknown"}`
+      : undefined;
+  }
+
+  if (outcome !== "complete" || !review.readyToComplete) return undefined;
+  const nonStructuralBlockedTools = protocol.blockedTools.filter((tool) => tool.toolName !== "structural_gate");
+  if (nonStructuralBlockedTools.length > 0) {
+    return `autonomous protocol has blocked tools: ${nonStructuralBlockedTools.map((tool) => `${tool.toolName} (${tool.reason})`).join(", ")}`;
+  }
+  const missing = missingRequiredTools(protocol, { excludeTools: ["structural_gate"] });
+  return missing.length > 0 ? `required autonomous protocol tools missing: ${missing.join(", ")}` : undefined;
+}
+
 export default function chocoAutopilot(pi: ExtensionAPI) {
-  installStructuralGate(pi);
+  installStructuralGate(pi, autonomyProtocolCompletionBlock);
   installDynamicSdd(pi);
   registerRuntimeReload(pi);
   registerSessionDashboardCommand(pi, loadState);
@@ -695,6 +792,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
       }
     }
     recordDogfoodToolResult(dogfoodCases, event);
+    await updateAutonomyProtocolForToolResult(ctx.cwd || process.cwd(), sessionIdFromContext(ctx), event.toolName, event);
     await updateLedgerForToolResult(ctx.cwd || process.cwd(), sessionIdFromContext(ctx), event.toolName, event.input, event.isError, event.content);
   });
 
@@ -755,6 +853,8 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
     if (!prompt.includes(DESIGN_REPAIR_PROMPT_MARKER)) repairStateFor(designRepairStates, sessionId).repairQueued = false;
     const suggestedWorkModes = inferPlannedWorkModes(prompt);
     const suggestedWorkMode = suggestedWorkModes.at(-1) ?? inferPlannedWorkMode(prompt);
+    const hasActiveManifest = await hasActiveManifestForCwd(cwd);
+    const currentBranch = await gitCurrentBranch(cwd).catch(() => null);
     const {
       workMode,
       effectiveWorkMode,
@@ -763,6 +863,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
       ledger,
       sourceRegistry,
       memories,
+      autonomyProtocol,
     } = await updateState((state) => {
       const modeDecision = resolveEffectiveWorkMode({
         persistentMode: state.runtime.workMode,
@@ -783,8 +884,31 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
         executionIntensity,
         updatedAt: nowIso(),
       };
+      const activeLane = activeLaneFromState(state, cwd, sessionId);
+      const route = routeAutonomyProtocol({
+        prompt,
+        cwd,
+        sessionId,
+        hasActiveManifest,
+        activeLaneId: activeLane?.laneId,
+        currentBranch,
+      });
+      const initiallySatisfiedTools = route.protocolKind === "worktree-lane" && activeLane ? ["write_scope_guard"] : [];
+      const autonomyProtocol = createAutonomyProtocol({
+        kind: route.protocolKind,
+        sessionId,
+        cwd,
+        prompt,
+        requiredTools: route.requiredTools,
+        hardBoundary: route.hardBoundary,
+        activeGroupId: activeLane?.groupId,
+        activeLaneId: activeLane?.laneId,
+        initiallySatisfiedTools,
+        reason: route.reason,
+      });
+      state.autonomyProtocols[autonomyProtocolKey(cwd, sessionId)] = autonomyProtocol;
       const ledger = getLedger(state, cwd, sessionId, prompt);
-      return { workMode, effectiveWorkMode, executionIntensity, modeSequence: modeDecision.modeSequence, ledger, sourceRegistry: state.sourceRegistry, memories: state.memories };
+      return { workMode, effectiveWorkMode, executionIntensity, modeSequence: modeDecision.modeSequence, ledger, sourceRegistry: state.sourceRegistry, memories: state.memories, autonomyProtocol };
     });
 
     const ledgerSummary = summarizeLedger(ledger, { maxItemsPerSection: 4 });
@@ -817,6 +941,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
         ledgerSummary,
         dueSourceSummary: dueSourceSummary || undefined,
         suggestedWorkMode,
+        autonomyProtocol,
         globalMemorySummary: scope.kind === "global" && scope.memoryMode === "readonly" ? formatMemories(memories) : undefined,
       })}`,
     };

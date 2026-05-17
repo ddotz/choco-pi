@@ -6,7 +6,7 @@ import { withFileLock } from "./state-lock";
 import type { LaneExecutionStrategy, ParallelStrategy, ParallelWorkAreaPlan } from "./worktree-planner";
 
 export type AgentRunStatus = "planned" | "dispatching" | "running" | "blocked" | "integrating" | "integrated" | "failed" | "closed";
-export type AgentLaneStatus = "planned" | "created" | "running" | "blocked" | "failed" | "verified" | "ready-to-integrate" | "integrated";
+export type AgentLaneStatus = "planned" | "created" | "dispatched" | "running" | "blocked" | "failed" | "verified" | "ready-to-integrate" | "integrated";
 
 export interface AgentRunManifest {
   version: 1;
@@ -35,6 +35,7 @@ export interface AgentLaneManifest {
   status: AgentLaneStatus;
   verificationCommands: string[];
   verificationEvidence?: string;
+  verifiedAt?: string;
   changedFiles: string[];
   writable: boolean;
   lastCommit?: string;
@@ -52,8 +53,9 @@ export interface CreateAgentRunManifestInput {
 type LanePatch = Partial<Omit<AgentLaneManifest, "id" | "status" | "updatedAt">>;
 
 const ALLOWED_TRANSITIONS: Record<AgentLaneStatus, AgentLaneStatus[]> = {
-  planned: ["planned", "created", "running", "blocked", "failed"],
-  created: ["created", "running", "blocked", "failed"],
+  planned: ["planned", "created", "dispatched", "running", "blocked", "failed"],
+  created: ["created", "dispatched", "running", "blocked", "failed"],
+  dispatched: ["dispatched", "running", "blocked", "failed"],
   running: ["running", "verified", "blocked", "failed"],
   blocked: ["blocked", "running", "failed"],
   failed: ["failed", "running"],
@@ -175,6 +177,7 @@ export function summarizeAgentRunManifest(manifest: AgentRunManifest): string {
     lines.push(`- ${lane.id} [${lane.status}] ${lane.executionStrategy}: ${lane.itemIds.join(", ")}`);
     if (lane.blockedByLaneIds.length > 0) lines.push(`  blockedBy: ${lane.blockedByLaneIds.join(", ")}`);
     if (lane.worktreePath) lines.push(`  worktree: ${lane.worktreePath}`);
+    if (lane.verificationEvidence) lines.push(`  evidence: ${lane.verificationEvidence.slice(0, 120)}`);
   }
   if (manifest.integrationEvidence) lines.push(`integrationEvidence: ${manifest.integrationEvidence}`);
   return lines.join("\n");

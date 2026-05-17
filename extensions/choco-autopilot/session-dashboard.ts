@@ -3,7 +3,22 @@ import { join } from "node:path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { currentBranch, listWorktrees, statusSummary } from "./git-runtime";
 import { summarizeAgentRunManifest, type AgentRunManifest } from "./agent-run-manifest";
-import { sessionIdFromContext } from "./session-scope";
+import { autonomyProtocolKey, summarizeAutonomyProtocol, type AutonomyProtocolKind } from "./autonomy-protocol";
+import { sessionIdFromContext, sessionScopedKey } from "./session-scope";
+
+export interface SessionDashboardAutonomyInput {
+  protocol: AutonomyProtocolKind | "none";
+  required?: string[];
+  satisfied?: string[];
+  missing?: string[];
+  blocked?: string[];
+}
+
+export interface SessionDashboardActiveLaneInput {
+  groupId: string;
+  laneId: string;
+  readOnly: boolean;
+}
 
 export interface SessionDashboardInput {
   sessionId: string;
@@ -14,9 +29,16 @@ export interface SessionDashboardInput {
   ledger?: string;
   manifests?: string[];
   worktrees?: string[];
+  autonomy?: SessionDashboardAutonomyInput;
+  activeLane?: SessionDashboardActiveLaneInput;
+}
+
+function formatList(values: string[] | undefined): string {
+  return values?.length ? values.join(", ") : "none";
 }
 
 export function formatSessionDashboard(input: SessionDashboardInput): string {
+  const autonomy = input.autonomy ?? { protocol: "none" as const, required: [], satisfied: [], missing: [], blocked: [] };
   return [
     "# choco-pi sessions",
     `session: ${input.sessionId}`,
@@ -25,6 +47,18 @@ export function formatSessionDashboard(input: SessionDashboardInput): string {
     `mode: ${input.mode ?? "unknown"}`,
     `todos: ${input.todos ?? "none"}`,
     `ledger: ${input.ledger ?? "none"}`,
+    "autonomy:",
+    `- protocol: ${autonomy.protocol}`,
+    `- required: ${formatList(autonomy.required)}`,
+    `- satisfied: ${formatList(autonomy.satisfied)}`,
+    `- missing: ${formatList(autonomy.missing)}`,
+    ...(autonomy.blocked?.length ? [`- blocked: ${formatList(autonomy.blocked)}`] : []),
+    "active lane:",
+    ...(input.activeLane ? [
+      `- groupId: ${input.activeLane.groupId}`,
+      `- laneId: ${input.activeLane.laneId}`,
+      `- readOnly: ${input.activeLane.readOnly}`,
+    ] : ["- none"]),
     "manifests:",
     ...(input.manifests?.length ? input.manifests.map((item) => `- ${item}`) : ["- none"]),
     "worktrees:",
@@ -81,6 +115,8 @@ async function worktreeSummaries(cwd: string): Promise<string[]> {
 interface DashboardModeState {
   runtime?: { workMode?: string; executionIntensity?: string };
   sessions?: Record<string, { effectiveWorkMode?: string; executionIntensity?: string }>;
+  autonomyProtocols?: Record<string, Parameters<typeof summarizeAutonomyProtocol>[0]>;
+  activeLanes?: Record<string, { groupId: string; laneId: string; readOnly: boolean; sessionId?: string; cwd?: string }>;
 }
 
 type DashboardStateReader = () => Promise<DashboardModeState>;
@@ -99,12 +135,27 @@ async function modeSummary(readState: DashboardStateReader | undefined, sessionI
   }
 }
 
+async function dashboardState(readState: DashboardStateReader | undefined): Promise<DashboardModeState | undefined> {
+  try {
+    return await readState?.();
+  } catch {
+    return undefined;
+  }
+}
+
+function activeLaneSummary(state: DashboardModeState | undefined, cwd: string, sessionId: string): SessionDashboardActiveLaneInput | undefined {
+  const lanes = state?.activeLanes ?? {};
+  return lanes[sessionScopedKey(cwd, sessionId)] ?? lanes[sessionId];
+}
+
 export function registerSessionDashboardCommand(pi: Pick<ExtensionAPI, "registerCommand">, readState?: DashboardStateReader): void {
   pi.registerCommand("sessions", {
     description: "Show session, branch, todo, ledger, manifest, and worktree status",
     handler: async (_args: string, ctx: ExtensionCommandContext) => {
       const cwd = ctx.cwd || process.cwd();
       const sessionId = sessionIdFromContext(ctx as never);
+      const state = await dashboardState(readState);
+      const protocol = state?.autonomyProtocols?.[autonomyProtocolKey(cwd, sessionId)];
       const text = formatSessionDashboard({
         sessionId,
         cwd,
@@ -112,6 +163,8 @@ export function registerSessionDashboardCommand(pi: Pick<ExtensionAPI, "register
         mode: await modeSummary(readState, sessionId),
         todos: await todoSummary(cwd, sessionId),
         ledger: "see /ledger for detailed context ledger",
+        autonomy: summarizeAutonomyProtocol(protocol),
+        activeLane: activeLaneSummary(state, cwd, sessionId),
         manifests: await manifestSummaries(cwd),
         worktrees: await worktreeSummaries(cwd),
       });

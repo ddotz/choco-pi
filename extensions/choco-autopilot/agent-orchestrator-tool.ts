@@ -62,8 +62,8 @@ export interface ActiveLaneContext {
 }
 
 export interface ActiveLaneStore {
-  activate(sessionId: string, context: ActiveLaneContext): Promise<void>;
-  deactivate(sessionId: string): Promise<void>;
+  activate(sessionId: string, cwd: string, context: ActiveLaneContext): Promise<void>;
+  deactivate(sessionId: string, cwd?: string): Promise<void>;
 }
 
 interface AgentOrchestratorContext {
@@ -174,7 +174,7 @@ export async function runAgentOrchestrator(
 
   if (input.action === "deactivate_lane") {
     if (!activeLaneStore) return { ...result, blockers: ["active lane store is unavailable."] };
-    await activeLaneStore.deactivate(context.sessionId ?? FALLBACK_ACTIVE_SESSION_ID);
+    await activeLaneStore.deactivate(context.sessionId ?? FALLBACK_ACTIVE_SESSION_ID, context.cwd);
     return { ...result, ok: true, summary: "active lane deactivated" };
   }
 
@@ -214,10 +214,10 @@ export async function runAgentOrchestrator(
     }
     if (blockers.length > 0) return { ...result, blockers, manifest };
     await updateAgentRunManifest(manifest.repoRoot, manifest.groupId, (draft) => {
-      draft.status = "running";
+      draft.status = "dispatching";
       for (const lane of draft.lanes) {
         if (dispatchableLaneIds.includes(lane.id)) {
-          lane.status = "running";
+          lane.status = "dispatched";
           lane.updatedAt = new Date().toISOString();
         }
       }
@@ -231,7 +231,7 @@ export async function runAgentOrchestrator(
     if (!activeLaneStore) return { ...result, blockers: ["active lane store is unavailable."], manifest };
     const lane = manifest.lanes.find((candidate) => candidate.id === input.laneId);
     if (!lane) return { ...result, blockers: [`Unknown lane id: ${input.laneId}`], manifest };
-    await activeLaneStore.activate(context.sessionId ?? FALLBACK_ACTIVE_SESSION_ID, activeLaneContext(manifest, lane));
+    await activeLaneStore.activate(context.sessionId ?? FALLBACK_ACTIVE_SESSION_ID, context.cwd ?? manifest.repoRoot, activeLaneContext(manifest, lane));
     return { ...result, ok: true, manifest, summary: `active lane ${lane.id} activated` };
   }
 
@@ -249,6 +249,7 @@ export async function runAgentOrchestrator(
   const patch: Partial<AgentLaneManifest> = {};
   if (input.verificationCommands) patch.verificationCommands = input.verificationCommands;
   if (input.evidence?.trim()) patch.verificationEvidence = input.evidence.trim();
+  if (input.action === "mark_verified") patch.verifiedAt = new Date().toISOString();
   if (input.error) patch.lastError = input.error;
   const updated = await updateAgentLaneStatus(manifest.repoRoot, manifest.groupId, input.laneId, status, patch);
   return { ...result, ok: true, manifest: updated, summary: summarizeAgentRunManifest(updated) };

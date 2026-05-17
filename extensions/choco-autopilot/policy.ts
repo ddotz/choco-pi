@@ -1,5 +1,6 @@
 import { buildAdoptionAnalysisModeGuidance } from "./adoption-analysis-policy";
 import { buildCodingModeGuidance } from "./coding-policy";
+import type { AutonomyProtocol } from "./autonomy-protocol";
 import { buildCommitHygieneGuidance } from "./commit-hygiene";
 import { buildCompletionBoundaryGuidance } from "./completion-boundary";
 import { buildDesignModeGuidance } from "./design-policy";
@@ -42,6 +43,7 @@ export interface AutopilotPromptOptions {
   dueSourceSummary?: string;
   suggestedWorkMode?: WorkMode;
   globalMemorySummary?: string;
+  autonomyProtocol?: AutonomyProtocol;
 }
 
 const DEEP_PATTERNS = [
@@ -120,6 +122,33 @@ function buildMarkdownArtifactRenderingGuidance(): string {
     "- If a custom template is necessary, insert rendered HTML blocks into the template; do not insert raw `**bold**`, heading markers, fenced code, or unrendered pipe-table rows as visible text.",
     "- Artifact QA must check the generated artifact for visible Markdown control syntax, including `**bold**`, raw heading markers, fenced code markers, and unrendered pipe-table rows, before reporting completion.",
   ].join("\n");
+}
+
+function buildAutonomyProtocolGuidance(protocol: AutonomyProtocol | undefined): string {
+  if (!protocol || protocol.kind === "none") return "";
+  const lines = [
+    "## Autonomous Protocol for This Turn",
+    `Protocol: ${protocol.kind}`,
+  ];
+  if (protocol.hardBoundary) lines.push(`Hard boundary: ${protocol.hardBoundary}`);
+  if (protocol.reason) lines.push(`Reason: ${protocol.reason}`);
+  if (protocol.requiredTools.length > 0) {
+    lines.push("Required tools:");
+    lines.push(...protocol.requiredTools.map((tool) => `- ${tool}`));
+  } else {
+    lines.push("Required tools: none before the hard boundary.");
+  }
+  lines.push(
+    "Rules:",
+    "- Do not ask routine questions.",
+    "- Execute required tools in order unless blocked.",
+    "- If a required tool fails, repair safely or report a concrete blocker.",
+    "- Do not claim completion until all required tools are satisfied.",
+  );
+  if (protocol.kind === "approval-boundary") {
+    lines.push("- Stop before the hard boundary; use readyToComplete=false with a blocked/deferred outcome at that boundary.");
+  }
+  return lines.join("\n");
 }
 
 function buildModeOverlayGuidance(mode: WorkMode): string {
@@ -203,6 +232,7 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "4. Ask the user only for production deployment/package publishing, payment, secrets/accounts, large deletion, external private-data transfer, irreversible actions, work mode switching, or logically contradictory goals without safe defaults. Git commit and normal git push are autonomous routine source synchronization, not deployment.",
     "",
     buildEpistemicIntegrityGuidance(),
+    ...(buildAutonomyProtocolGuidance(options.autonomyProtocol) ? ["", buildAutonomyProtocolGuidance(options.autonomyProtocol)] : []),
     "",
     "### Autonomous execution loop",
     "- Treat choco-pi as one coherent Pi environment: package recurring Pi UX/runtime fixes as choco-pi-local extensions or policy, not as one-off local tweaks.",

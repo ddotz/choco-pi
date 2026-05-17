@@ -125,7 +125,7 @@ describe("worktree_manage tool", () => {
       expect(manifestAfterCreate.lanes[0]).toMatchObject({ status: "created", worktreePath: path, branchName: "session/test/manifest-link" });
       expect(dispatched.ok).toBe(true);
       expect(dispatched.handoffPrompts.join("\n")).toContain(path);
-      expect(manifestAfterDispatch.lanes[0].status).toBe("running");
+      expect(manifestAfterDispatch.lanes[0].status).toBe("dispatched");
     } finally {
       await fixture.cleanup();
     }

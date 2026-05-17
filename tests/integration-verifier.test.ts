@@ -44,6 +44,25 @@ describe("integration verifier", () => {
     }
   });
 
+  it("blocks unsafe lane branch names before integration git commands", async () => {
+    const fixture = await createGitFixture();
+    try {
+      const plan = planParallelWorkAreas({ items: [{ id: "a", description: "A", files: ["a.txt"] }] });
+      await createAgentRunManifest({ repoRoot: fixture.repoRoot, groupId: "group-a", baseRef: "main", plan });
+      await updateAgentLaneStatus(fixture.repoRoot, "group-a", "lane-1", "running");
+      await updateAgentLaneStatus(fixture.repoRoot, "group-a", "lane-1", "verified", { worktreePath: fixture.repoRoot, branchName: "feature/bad..branch" });
+
+      const result = await runIntegrationVerifier({ groupId: "group-a", repoRoot: fixture.repoRoot, dryRun: true });
+
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe("blocked");
+      expect(result.blockers.join("\n")).toContain("branchName");
+      expect(result.commands).toEqual([]);
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("blocks worktree lanes that are verified without a branch name", async () => {
     const fixture = await createGitFixture();
     try {

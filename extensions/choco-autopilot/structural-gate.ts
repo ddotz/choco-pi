@@ -98,6 +98,8 @@ export interface StructuralGateState {
   turns: Record<string, StructuralGateTurnState>;
 }
 
+export type StructuralGateExternalCheck = (review: StructuralGateReview, ctx: ExtensionContext) => Promise<string | undefined>;
+
 export function createStructuralGateState(): StructuralGateState {
   return { turns: {} };
 }
@@ -476,7 +478,19 @@ async function activeParallelManifestIntegrationBlock(cwd: string, _review: Stru
   return undefined;
 }
 
-export function createStructuralGateTool(state: StructuralGateState): ToolDefinition<typeof StructuralGateParams, { ok: boolean; reason?: string }, unknown> {
+function recordStructuralGateExternalBlock(state: StructuralGateState, review: StructuralGateReview, reason: string, sessionId: string): void {
+  const turn = getStructuralGateTurn(state, sessionId);
+  if (!turn) return;
+  turn.required = true;
+  turn.review = review;
+  turn.passed = false;
+  turn.rejectionReason = reason;
+}
+
+export function createStructuralGateTool(
+  state: StructuralGateState,
+  externalCheck?: StructuralGateExternalCheck,
+): ToolDefinition<typeof StructuralGateParams, { ok: boolean; reason?: string }, unknown> {
   return {
     name: STRUCTURAL_GATE_TOOL_NAME,
     label: "Structural gate",
@@ -491,17 +505,12 @@ export function createStructuralGateTool(state: StructuralGateState): ToolDefini
     parameters: StructuralGateParams,
     renderShell: "self",
     async execute(_toolCallId: string, params: StructuralGateReview, _signal: AbortSignal | undefined, _onUpdate: undefined, ctx: ExtensionContext) {
+      const sessionId = sessionIdFromContext(ctx);
       const integrationBlock = params.readyToComplete ? await activeParallelManifestIntegrationBlock(ctx.cwd || process.cwd(), params) : undefined;
-      const result = integrationBlock ? { ok: false, reason: integrationBlock } : recordStructuralGateReview(state, params, sessionIdFromContext(ctx));
-      if (integrationBlock) {
-        const turn = getStructuralGateTurn(state, sessionIdFromContext(ctx));
-        if (turn) {
-          turn.required = true;
-          turn.review = params;
-          turn.passed = false;
-          turn.rejectionReason = integrationBlock;
-        }
-      }
+      const protocolBlock = integrationBlock ? undefined : await externalCheck?.(params, ctx);
+      const block = integrationBlock ?? protocolBlock;
+      const result = block ? { ok: false, reason: block } : recordStructuralGateReview(state, params, sessionId);
+      if (block) recordStructuralGateExternalBlock(state, params, block, sessionId);
       return {
         content: [{ type: "text", text: result.ok ? "Structural gate passed." : `Structural gate failed: ${result.reason}` }],
         details: { ok: result.ok, reason: result.reason },
@@ -516,10 +525,13 @@ export function createStructuralGateTool(state: StructuralGateState): ToolDefini
   };
 }
 
-export function installStructuralGate(pi: Pick<ExtensionAPI, "on" | "registerTool" | "sendMessage">): void {
+export function installStructuralGate(
+  pi: Pick<ExtensionAPI, "on" | "registerTool" | "sendMessage">,
+  externalCheck?: StructuralGateExternalCheck,
+): void {
   const state = createStructuralGateState();
   pi.registerTool(createLoopTransitionTool(state));
-  pi.registerTool(createStructuralGateTool(state));
+  pi.registerTool(createStructuralGateTool(state, externalCheck));
 
   pi.on("before_agent_start", (event, ctx) => {
     startStructuralGateTurn(state, event.prompt ?? "", sessionIdFromContext(ctx));

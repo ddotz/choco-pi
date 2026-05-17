@@ -99,6 +99,21 @@ Execution intensity is process weight, not a work mode.
 - **standard**: plan briefly, execute, self-review, fix, verify.
 - **deep**: split responsibilities into PM, Architect, Worker, Reviewer, Verifier, and Polish. Use subagents or separate passes only when they reduce risk.
 
+## Autonomous Protocol Runtime
+
+choco-pi creates a cwd/session-scoped autonomy protocol at agent start when the prompt implies branch, coding, parallel-work, worktree-lane, integration, or approval-boundary behavior. The protocol is injected into the system prompt, stored in `state.json`, and updated from tool results.
+
+Required tools are completion contracts, not suggestions:
+
+- `single-branch`: `branch_switch_guard` before branch completion.
+- `coding`: `spec_gate` for non-trivial implementation plus `structural_gate` before completion.
+- `parallel-work`: `spec_gate`, `parallel_work_plan`, `agent_orchestrator`, `worktree_manage`, `integration_verifier`, and `structural_gate`.
+- `worktree-lane`: active lane/write guard state plus orchestrator/worktree protocol tools.
+- `integration`: `integration_verifier` before completion.
+- `approval-boundary`: stop at the boundary with `readyToComplete=false`; do not execute publish/deploy/payment/secret/destructive/private-transfer actions.
+
+If a required tool is missing or blocked, repair safely or report the concrete blocker. Do not claim completion until the protocol and structural gate both pass.
+
 ## Structural Execution Gate
 
 This gate is non-negotiable and must not be skipped or softened when context is long. The base philosophy is default-root all-purpose execution with complete PM-style project ownership; the enforcement mechanism is a structured development flow. The final `structural_gate` review must include loop governance evidence: step/todo transitions stayed plan-first, and any new work after the current todo used new steering/new loop or was deferred.

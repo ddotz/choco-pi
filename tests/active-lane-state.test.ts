@@ -60,6 +60,46 @@ async function emitToolCall(handlers: Map<string, EventHandler[]>, repoRoot: str
 }
 
 describe("active lane runtime state", () => {
+  it("scopes active lanes by cwd and session so another cwd in the same session is not blocked", async () => {
+    await useTempAgentDir();
+    delete process.env.CHOCO_PI_ACTIVE_LANE_CONTEXT;
+    const fixtureA = await createGitFixture();
+    const fixtureB = await createGitFixture();
+    try {
+      const { tools, handlers } = setupAutopilot();
+      const plan = planParallelWorkAreas({ items: [{ id: "runtime", description: "Edit runtime", files: ["src/owned.ts"] }] });
+      await tools.get("agent_orchestrator")!.execute("start", { action: "start", repoRoot: fixtureA.repoRoot, groupId: "group-a", baseRef: "main", plan }, undefined, undefined, ctx(fixtureA.repoRoot));
+      await tools.get("agent_orchestrator")!.execute("activate", { action: "activate_lane", repoRoot: fixtureA.repoRoot, groupId: "group-a", laneId: "lane-1" }, undefined, undefined, ctx(fixtureA.repoRoot));
+
+      const sameCwdBlocked = await emitToolCall(handlers, fixtureA.repoRoot, "write", { path: "README.md", content: "outside" });
+      const otherCwdAllowed = await emitToolCall(handlers, fixtureB.repoRoot, "write", { path: "README.md", content: "outside" });
+
+      expect(sameCwdBlocked).toContainEqual(expect.objectContaining({ block: true }));
+      expect(otherCwdAllowed.every((result) => result === undefined)).toBe(true);
+    } finally {
+      await fixtureA.cleanup();
+      await fixtureB.cleanup();
+    }
+  });
+
+  it("blocks writes in read-only active lanes", async () => {
+    await useTempAgentDir();
+    delete process.env.CHOCO_PI_ACTIVE_LANE_CONTEXT;
+    const fixture = await createGitFixture();
+    try {
+      const { tools, handlers } = setupAutopilot();
+      const plan = planParallelWorkAreas({ items: [{ id: "review", description: "Review docs", files: ["README.md"], write: false }] });
+      await tools.get("agent_orchestrator")!.execute("start", { action: "start", repoRoot: fixture.repoRoot, groupId: "group-a", baseRef: "main", plan }, undefined, undefined, ctx(fixture.repoRoot));
+      await tools.get("agent_orchestrator")!.execute("activate", { action: "activate_lane", repoRoot: fixture.repoRoot, groupId: "group-a", laneId: "lane-1" }, undefined, undefined, ctx(fixture.repoRoot));
+
+      const blocked = await emitToolCall(handlers, fixture.repoRoot, "write", { path: "README.md", content: "outside" });
+
+      expect(blocked).toContainEqual(expect.objectContaining({ block: true, reason: expect.stringContaining("read-only lane") }));
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("enforces write scope from session state even when CHOCO_PI_ACTIVE_LANE_CONTEXT is not set", async () => {
     await useTempAgentDir();
     delete process.env.CHOCO_PI_ACTIVE_LANE_CONTEXT;
