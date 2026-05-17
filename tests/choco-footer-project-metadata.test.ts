@@ -2,8 +2,8 @@ import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { ActiveWorktreeCwdTracker, readFooterProjectMetadata } from "../extensions/choco-footer/index";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import chocoFooterExtension, { readFooterProjectMetadata } from "../extensions/choco-footer/index";
 
 let tempDirs: string[] = [];
 
@@ -50,32 +50,53 @@ describe("choco footer project metadata", () => {
     expect(readFooterProjectMetadata(nested).version).toBe("0.2.2");
   });
 
-  it("uses the git worktree touched by tool calls as the active footer cwd", async () => {
-    const project = await tempDir("choco-footer-active-worktree-project-");
+  it("keeps the footer cwd pinned to the session cwd when tools inspect another worktree", async () => {
+    const project = await tempDir("choco-footer-session-cwd-project-");
     execFileSync("git", ["init", "-b", "main"], { cwd: project, stdio: "ignore" });
     await writeFile(join(project, "README.md"), "base\n", "utf8");
     execFileSync("git", ["add", "README.md"], { cwd: project, stdio: "ignore" });
     execFileSync("git", ["-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "init"], { cwd: project, stdio: "ignore" });
 
-    const worktreeParent = await tempDir("choco-footer-active-worktree-");
+    const worktreeParent = await tempDir("choco-footer-other-worktree-");
     const worktree = join(worktreeParent, "feature");
     execFileSync("git", ["worktree", "add", "-b", "feature-footer", worktree], { cwd: project, stdio: "ignore" });
     await mkdir(join(worktree, "Sources"), { recursive: true });
     await writeFile(join(worktree, "Sources", "App.swift"), "// feature\n", "utf8");
 
-    const tracker = new ActiveWorktreeCwdTracker();
+    const handlers = new Map<string, Array<(event: Record<string, unknown>, ctx: Record<string, unknown>) => unknown>>();
+    let footerFactory: ((tui: { requestRender: () => void }, theme: Record<string, unknown>) => { render: (width: number) => string[] }) | undefined;
+    chocoFooterExtension({
+      events: { on: vi.fn(() => () => {}) },
+      getThinkingLevel: () => "high",
+      on: (eventName: string, handler: (event: Record<string, unknown>, ctx: Record<string, unknown>) => unknown) => {
+        handlers.set(eventName, [...(handlers.get(eventName) ?? []), handler]);
+      },
+    } as never);
 
-    const expectedWorktreeRoot = execFileSync("git", ["-C", worktree, "rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
+    const ctx = {
+      cwd: project,
+      hasUI: true,
+      ui: { setFooter: vi.fn((factory) => { footerFactory = factory; }) },
+      model: undefined,
+      sessionManager: { getCwd: () => project, getSessionId: () => "session-1", getBranch: () => [] },
+      getContextUsage: () => undefined,
+    };
 
-    expect(tracker.get("session-1", project)).toBe(project);
-    expect(tracker.updateFromToolCall("session-1", project, "read", { path: join(worktree, "Sources", "App.swift") })).toBe(expectedWorktreeRoot);
-    expect(tracker.get("session-1", project)).toBe(expectedWorktreeRoot);
+    for (const handler of handlers.get("session_start") ?? []) handler({ reason: "startup" }, ctx as never);
+    expect(footerFactory).toBeDefined();
 
-    tracker.clear("session-1");
-    expect(tracker.updateFromToolCall("session-1", project, "bash", { command: `git -C "${worktree}" status --short` })).toBe(expectedWorktreeRoot);
+    const footer = footerFactory!({ requestRender: vi.fn() }, {
+      bold: (text: string) => text,
+      fg: (_name: string, text: string) => text,
+    });
+    expect(footer.render(200)[0]).toContain(`⎇ main | ${project}`);
 
-    tracker.clear("session-1");
-    expect(tracker.updateFromToolCall("session-1", project, "write", { path: join(worktree, "Generated", "NewFile.swift") })).toBe(expectedWorktreeRoot);
-    expect(readFooterProjectMetadata(tracker.get("session-1", project)).branch).toBe("feature-footer");
+    for (const handler of handlers.get("tool_call") ?? []) handler({ toolName: "read", input: { path: join(worktree, "Sources", "App.swift") } }, ctx as never);
+    for (const handler of handlers.get("tool_call") ?? []) handler({ toolName: "bash", input: { command: `git -C "${worktree}" status --short` } }, ctx as never);
+
+    const rendered = footer.render(200)[0];
+    expect(rendered).toContain(`⎇ main | ${project}`);
+    expect(rendered).not.toContain("feature-footer");
+    expect(rendered).not.toContain(worktree);
   });
 });

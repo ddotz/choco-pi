@@ -153,81 +153,6 @@ export function readGitBranchFallback(cwd: string): string | null {
   return readGitBranchCommand(cwd, ["symbolic-ref", "--short", "HEAD"]) ?? readGitBranchCommand(cwd, ["rev-parse", "--abbrev-ref", "HEAD"]);
 }
 
-export function readGitRootFallback(path: string): string | null {
-  let current = resolve(path);
-  while (true) {
-    const root = readGitCommand(current, ["rev-parse", "--show-toplevel"]);
-    if (root) return root;
-    const parent = dirname(current);
-    if (parent === current) return null;
-    current = parent;
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
-
-function unquoteShellToken(value: string): string {
-  const trimmed = value.trim();
-  return trimmed.replace(/^['"]|['"]$/g, "");
-}
-
-function resolveCandidatePath(cwd: string, path: string): string | undefined {
-  const normalized = unquoteShellToken(path);
-  if (!normalized || normalized.startsWith("-") || /[$`*?[\]{}]/.test(normalized)) return undefined;
-  if (normalized === "~") return homedir();
-  if (normalized.startsWith("~/")) return resolve(homedir(), normalized.slice(2));
-  return resolve(cwd, normalized);
-}
-
-function pushResolvedPath(candidates: string[], cwd: string, path: unknown): void {
-  if (typeof path !== "string") return;
-  const resolved = resolveCandidatePath(cwd, path);
-  if (resolved) candidates.push(resolved);
-}
-
-function pushBashPathCandidates(candidates: string[], cwd: string, command: string): void {
-  const token = "((?:\\\"[^\\\"]+\\\")|(?:'[^']+')|(?:[^\\s;&|]+))";
-  const patterns = [new RegExp(`(?:^|[;&|]\\s*)git\\s+-C\\s+${token}`, "g"), new RegExp(`(?:^|[;&|]\\s*)cd\\s+${token}`, "g")];
-  for (const pattern of patterns) {
-    for (const match of command.matchAll(pattern)) pushResolvedPath(candidates, cwd, match[1]);
-  }
-}
-
-export function resolveToolCallPathCandidates(sessionCwd: string, toolName: string, input: unknown): string[] {
-  const candidates: string[] = [];
-  if (!isRecord(input)) return candidates;
-
-  if (toolName === "bash" && typeof input.command === "string") pushBashPathCandidates(candidates, sessionCwd, input.command);
-  pushResolvedPath(candidates, sessionCwd, input.path);
-  return candidates;
-}
-
-export class ActiveWorktreeCwdTracker {
-  private readonly activeBySessionId = new Map<string, string>();
-
-  constructor(private readonly resolveGitRoot: (path: string) => string | null = readGitRootFallback) {}
-
-  get(sessionId: string, sessionCwd: string): string {
-    return this.activeBySessionId.get(normalizeSessionId(sessionId)) ?? sessionCwd;
-  }
-
-  clear(sessionId: string): void {
-    this.activeBySessionId.delete(normalizeSessionId(sessionId));
-  }
-
-  updateFromToolCall(sessionId: string, sessionCwd: string, toolName: string, input: unknown): string | null {
-    for (const candidate of resolveToolCallPathCandidates(sessionCwd, toolName, input)) {
-      const root = this.resolveGitRoot(candidate);
-      if (!root) continue;
-      this.activeBySessionId.set(normalizeSessionId(sessionId), root);
-      return root;
-    }
-    return null;
-  }
-}
-
 export function readFooterProjectMetadata(cwd: string): FooterProjectMetadata {
   return {
     branch: readGitBranchFallback(cwd),
@@ -710,7 +635,6 @@ function collectFooterData(
 export default function chocoFooterExtension(pi: ExtensionAPI) {
   const codexCache = new CodexRateLimitCache();
   const gitBranchFallbackCache = new GitBranchFallbackCache();
-  const activeWorktreeCwdTracker = new ActiveWorktreeCwdTracker();
   const renderCallbacks = new Set<() => void>();
   let codexFastModeEnabled = readCodexFastModeEnabled();
   let fastModeUnsubscribed = false;
@@ -750,8 +674,7 @@ export default function chocoFooterExtension(pi: ExtensionAPI) {
           const baseThinkingLevel = pi.getThinkingLevel();
           const model = ctx.model as MinimalModel | undefined;
           const thinkingLabel = codexFastModeEnabled && detectProviderKind(model) === "codex" ? `${baseThinkingLevel} fast` : baseThinkingLevel;
-          const sessionCwd = ctx.sessionManager.getCwd() || ctx.cwd;
-          const footerCwd = activeWorktreeCwdTracker.get(ctx.sessionManager.getSessionId(), sessionCwd);
+          const footerCwd = ctx.sessionManager.getCwd() || ctx.cwd;
           const projectMetadata = {
             branch: gitBranchFallbackCache.get(footerCwd),
             version: readProjectPackageVersion(footerCwd),
@@ -774,15 +697,10 @@ export default function chocoFooterExtension(pi: ExtensionAPI) {
       unsubscribeFastMode();
       fastModeUnsubscribed = true;
     }
-    activeWorktreeCwdTracker.clear(ctx.sessionManager.getSessionId());
     setRunState("session_shutdown");
     if (ctx.hasUI) ctx.ui.setFooter(undefined);
   });
 
-  pi.on("tool_call", (event, ctx) => {
-    const sessionCwd = ctx.sessionManager.getCwd() || ctx.cwd;
-    if (activeWorktreeCwdTracker.updateFromToolCall(ctx.sessionManager.getSessionId(), sessionCwd, event.toolName, event.input)) requestRenderAll();
-  });
 
   pi.on("model_select", () => requestRenderAll());
   pi.on("thinking_level_select", () => requestRenderAll());

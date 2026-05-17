@@ -129,6 +129,10 @@ describe("choco autonomous PM policy", () => {
     expect(prompt).toContain("one writable owner per file/domain");
     expect(prompt).toContain("serialize shared files");
     expect(prompt).toContain("worktree per writable lane");
+    expect(prompt).toContain("Single-session branch work");
+    expect(prompt).toContain("keep the current working directory as the work root");
+    expect(prompt).toContain("use git switch in-place");
+    expect(prompt).toContain("detach that other clean worktree first");
   });
 
   it("injects a mode-agnostic Markdown artifact rendering guard", () => {
