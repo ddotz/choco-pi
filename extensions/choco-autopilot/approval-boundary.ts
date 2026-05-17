@@ -17,6 +17,9 @@ const DEPLOYMENT_PATTERNS = [
   /\bpnpm\s+publish\b/i,
   /\byarn\s+npm\s+publish\b/i,
   /\bgh\s+release\s+(create|upload)\b/i,
+  /\bgh\s+workflow\s+run\b/i,
+  /\bgh\s+run\s+(rerun|cancel|watch)\b/i,
+  /\bgh\s+api\b[^;&|]*(?:actions\/workflows|\/dispatches|\/runs)\b/i,
 ];
 
 const PAYMENT_PATTERNS = [
@@ -55,6 +58,10 @@ const EXTERNAL_TRANSFER_PATTERNS = [
 const IRREVERSIBLE_PATTERNS = [
   /\bgit\s+reset\s+--hard\b/i,
   /\bgit\s+clean\s+-[a-zA-Z]*[xdf][a-zA-Z]*\b/i,
+  /\bgit\s+branch\s+(?:-[a-zA-Z]*D[a-zA-Z]*|--delete\s+--force|--force\s+--delete)\b/i,
+  /\bgit\s+push\b[^;&|]*\s--force(?:-with-lease)?\b/i,
+  /\bgit\s+push\b[^;&|]*\s--delete\s+\S+/i,
+  /\bgit\s+push\b[^;&|]*\s:\S+/i,
   /\bdd\s+if=.*\bof=\/dev\//i,
   /\bterraform\s+(apply\b.*--?auto-approve\b|destroy\b)/i,
   /\bkubectl\s+(delete|apply|replace)\b/i,
