@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   autonomyProtocolKey,
+  completeAutonomyProtocol,
   createAutonomyProtocol,
+  markProtocolSuperseded,
   markProtocolToolBlocked,
   markProtocolToolSatisfied,
   missingRequiredTools,
+  pruneAutonomyProtocols,
   protocolReadyForCompletion,
+  summarizeAutonomyProtocol,
 } from "../extensions/choco-autopilot/autonomy-protocol";
 
 describe("autonomy protocol state model", () => {
@@ -25,6 +29,7 @@ describe("autonomy protocol state model", () => {
     expect(protocol.promptHash).toHaveLength(16);
     expect(protocol.requiredTools).toEqual(["branch_switch_guard", "structural_gate"]);
     expect(protocol.satisfiedTools).toEqual([]);
+    expect(protocol.taskStatus).toBe("active");
     expect(autonomyProtocolKey("/repo", "s1")).toBeTruthy();
   });
 
@@ -83,5 +88,61 @@ describe("autonomy protocol state model", () => {
 
     expect(protocolReadyForCompletion(none)).toBe(true);
     expect(protocolReadyForCompletion(approval)).toBe(false);
+  });
+
+  it("marks protocols completed and hides them from active summaries", () => {
+    const protocol = createAutonomyProtocol({
+      kind: "micro-coding",
+      sessionId: "s1",
+      cwd: "/repo",
+      prompt: "README 오타 고쳐줘",
+      requiredTools: ["structural_gate"],
+      reason: "micro coding",
+      now: new Date("2026-05-17T00:00:00.000Z"),
+    });
+
+    const completed = completeAutonomyProtocol(protocol, new Date("2026-05-17T00:00:02.000Z"));
+
+    expect(completed.taskStatus).toBe("completed");
+    expect(completed.completedAt).toBe("2026-05-17T00:00:02.000Z");
+    expect(summarizeAutonomyProtocol(completed).protocol).toBe("none");
+  });
+
+  it("marks incompatible active protocols superseded for audit", () => {
+    const protocol = createAutonomyProtocol({
+      kind: "parallel-work",
+      sessionId: "s1",
+      cwd: "/repo",
+      prompt: "병렬로 구현해줘",
+      requiredTools: ["spec_gate"],
+      reason: "parallel",
+      now: new Date("2026-05-17T00:00:00.000Z"),
+    });
+
+    const superseded = markProtocolSuperseded(protocol, "single-branch-2", new Date("2026-05-17T00:00:03.000Z"));
+
+    expect(superseded.taskStatus).toBe("superseded");
+    expect(superseded.supersededBy).toBe("single-branch-2");
+    expect(superseded.supersededAt).toBe("2026-05-17T00:00:03.000Z");
+  });
+
+  it("prunes old completed and superseded protocol audit entries but keeps active ones", () => {
+    const protocols = Object.fromEntries(Array.from({ length: 4 }, (_, index) => {
+      const protocol = completeAutonomyProtocol(createAutonomyProtocol({
+        kind: "micro-coding",
+        sessionId: "s1",
+        cwd: "/repo",
+        prompt: `오타 ${index}`,
+        requiredTools: ["structural_gate"],
+        reason: "micro",
+        now: new Date(`2026-05-17T00:00:0${index}.000Z`),
+      }), new Date(`2026-05-17T00:00:1${index}.000Z`));
+      return [`archive-${index}`, protocol];
+    }));
+    const active = createAutonomyProtocol({ kind: "coding", sessionId: "s1", cwd: "/repo", prompt: "구현해줘", requiredTools: ["spec_gate"], reason: "coding" });
+
+    const pruned = pruneAutonomyProtocols({ ...protocols, active }, 2);
+
+    expect(Object.keys(pruned).sort()).toEqual(["active", "archive-2", "archive-3"]);
   });
 });

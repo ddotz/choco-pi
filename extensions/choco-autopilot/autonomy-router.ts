@@ -1,5 +1,14 @@
 import { classifyApprovalBoundaryCommand } from "./approval-boundary";
-import type { AutonomyProtocolKind } from "./autonomy-protocol";
+import type { AutonomyProtocolKind, AutonomyProtocolTaskStatus } from "./autonomy-protocol";
+
+export interface AutonomyRouterCurrentProtocol {
+  id: string;
+  kind: AutonomyProtocolKind;
+  taskStatus?: AutonomyProtocolTaskStatus;
+  requiredTools: string[];
+  satisfiedTools?: string[];
+  blockedTools?: unknown[];
+}
 
 export interface AutonomyRouterInput {
   prompt: string;
@@ -8,6 +17,7 @@ export interface AutonomyRouterInput {
   hasActiveManifest: boolean;
   activeLaneId?: string;
   currentBranch?: string | null;
+  currentProtocol?: AutonomyRouterCurrentProtocol;
 }
 
 export interface AutonomyRouterDecision {
@@ -15,6 +25,7 @@ export interface AutonomyRouterDecision {
   requiredTools: string[];
   hardBoundary?: string;
   reason: string;
+  resumeExisting?: boolean;
 }
 
 const PARALLEL_PATTERNS = [
@@ -31,6 +42,18 @@ const BRANCH_PATTERNS = [
   /\b(?:feature|fix|bugfix|hotfix|release|chore)\/[A-Za-z0-9._/-]+\b/,
 ];
 
+const CONTINUATION_PATTERNS = [
+  /계속/,
+  /이어/,
+  /진행/,
+  /다음/,
+  /마저/,
+  /continue/i,
+  /resume/i,
+  /proceed/i,
+  /next/i,
+];
+
 const INTEGRATION_PATTERNS = [
   /마무리/,
   /완료/,
@@ -43,6 +66,31 @@ const INTEGRATION_PATTERNS = [
   /complete/i,
 ];
 
+const MICRO_CODING_PATTERNS = [
+  /오타/,
+  /문구/,
+  /한\s*줄/,
+  /이름만/,
+  /간단히/,
+  /small/i,
+  /typo/i,
+  /rename/i,
+  /one[- ]?line/i,
+];
+
+const NON_TRIVIAL_DEEP_PATTERNS = [
+  /전체/,
+  /끝까지/,
+  /구조/,
+  /리팩터링|리팩토링/,
+  /구현/,
+  /버그/,
+  /테스트/,
+  /검증/,
+  /implement/i,
+  /refactor/i,
+];
+
 const ACTION_PATTERNS = [
   /구현/,
   /수정/,
@@ -53,7 +101,9 @@ const ACTION_PATTERNS = [
   /만들/,
   /반영/,
   /적용/,
+  /리팩터링|리팩토링/,
   /실행/,
+  /진행/,
   /fix/i,
   /implement/i,
   /build/i,
@@ -65,7 +115,7 @@ const ACTION_PATTERNS = [
 const PROMPT_APPROVAL_PATTERNS: Array<{ kind: string; pattern: RegExp; command: string }> = [
   { kind: "deployment", pattern: /\bnpm\s+publish\b|\bpnpm\s+publish\b|\bdeploy\b|배포|publish/i, command: "npm publish" },
   { kind: "payment", pattern: /payment|stripe|paypal|결제|환불/i, command: "stripe charges" },
-  { kind: "secret-or-account", pattern: /secret|credential|token|account|login|logout|비밀|토큰|계정|로그인/i, command: "gh auth login" },
+  { kind: "secret-or-account", pattern: /secret|credential|token|account|logout|비밀|토큰|계정|로그인\s*(?:해|하|시도|진행)|\blogin\s+(?:to|with)\b/i, command: "gh auth login" },
   { kind: "large-delete", pattern: /rm\s+-rf|대량\s*삭제|전부\s*삭제/i, command: "rm -rf /" },
   { kind: "external-data-transfer", pattern: /private\s*data|upload|scp|rsync|외부\s*전송|개인정보/i, command: "scp file host:/tmp" },
   { kind: "irreversible", pattern: /reset\s+--hard|git\s+clean|force\s+push|강제\s*푸시|되돌릴\s*수\s*없/i, command: "git reset --hard" },
@@ -76,6 +126,7 @@ function matchesAny(prompt: string, patterns: RegExp[]): boolean {
 }
 
 export function requiredToolsForProtocol(kind: AutonomyProtocolKind): string[] {
+  if (kind === "micro-coding") return ["structural_gate"];
   if (kind === "single-branch") return ["branch_switch_guard", "structural_gate"];
   if (kind === "coding") return ["spec_gate", "structural_gate"];
   if (kind === "parallel-work") return ["spec_gate", "parallel_work_plan", "agent_orchestrator", "worktree_manage", "integration_verifier", "structural_gate"];
@@ -94,8 +145,33 @@ function approvalBoundaryForPrompt(prompt: string): string | undefined {
   return undefined;
 }
 
-function decision(protocolKind: AutonomyProtocolKind, reason: string, hardBoundary?: string): AutonomyRouterDecision {
-  return { protocolKind, requiredTools: requiredToolsForProtocol(protocolKind), hardBoundary, reason };
+function decision(protocolKind: AutonomyProtocolKind, reason: string, hardBoundary?: string, options: { resumeExisting?: boolean; requiredTools?: string[] } = {}): AutonomyRouterDecision {
+  return {
+    protocolKind,
+    requiredTools: options.requiredTools ?? requiredToolsForProtocol(protocolKind),
+    hardBoundary,
+    reason,
+    resumeExisting: options.resumeExisting,
+  };
+}
+
+function isContinuationPrompt(prompt: string): boolean {
+  return matchesAny(prompt, CONTINUATION_PATTERNS);
+}
+
+function isResumableProtocol(protocol: AutonomyRouterCurrentProtocol | undefined): boolean {
+  if (!protocol) return false;
+  if (protocol.kind === "none" || protocol.kind === "approval-boundary") return false;
+  return protocol.taskStatus === undefined || protocol.taskStatus === "active" || protocol.taskStatus === "blocked";
+}
+
+function isMicroCodingPrompt(prompt: string): boolean {
+  const text = prompt.trim();
+  if (!text || text.includes("\n")) return false;
+  const hasMicroSignal = text.length <= 80 || matchesAny(text, MICRO_CODING_PATTERNS);
+  if (!hasMicroSignal) return false;
+  if (matchesAny(text, NON_TRIVIAL_DEEP_PATTERNS)) return false;
+  return matchesAny(text, MICRO_CODING_PATTERNS) || matchesAny(text, ACTION_PATTERNS);
 }
 
 export function routeAutonomyProtocol(input: AutonomyRouterInput): AutonomyRouterDecision {
@@ -107,8 +183,17 @@ export function routeAutonomyProtocol(input: AutonomyRouterInput): AutonomyRoute
 
   if (matchesAny(prompt, PARALLEL_PATTERNS)) return decision("parallel-work", "parallel or multi-session intent detected");
   if (input.hasActiveManifest && matchesAny(prompt, INTEGRATION_PATTERNS)) return decision("integration", "active manifest completion/integration intent detected");
-  if (input.activeLaneId && matchesAny(prompt, ACTION_PATTERNS)) return decision("worktree-lane", `active lane ${input.activeLaneId} with implementation intent`);
+  if (input.activeLaneId && (matchesAny(prompt, ACTION_PATTERNS) || isContinuationPrompt(prompt))) return decision("worktree-lane", `active lane ${input.activeLaneId} with implementation intent`);
   if (matchesAny(prompt, BRANCH_PATTERNS)) return decision("single-branch", "branch intent detected");
+  if (isContinuationPrompt(prompt) && isResumableProtocol(input.currentProtocol) && (input.hasActiveManifest || input.currentProtocol?.taskStatus === "blocked")) {
+    return decision(
+      input.currentProtocol!.kind,
+      `continuation prompt resumes existing ${input.currentProtocol!.kind} protocol`,
+      undefined,
+      { resumeExisting: true, requiredTools: input.currentProtocol!.requiredTools },
+    );
+  }
+  if (isMicroCodingPrompt(prompt)) return decision("micro-coding", "micro coding intent detected");
   if (matchesAny(prompt, ACTION_PATTERNS)) return decision("coding", "general implementation or verification intent detected");
 
   return decision("none", "no autonomous execution protocol required");

@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -6,6 +6,7 @@ import chocoAutopilot, { updateState } from "../extensions/choco-autopilot/index
 import { autonomyProtocolKey, createAutonomyProtocol, markProtocolToolSatisfied } from "../extensions/choco-autopilot/autonomy-protocol";
 import { formatSessionDashboard } from "../extensions/choco-autopilot/session-dashboard";
 import { sessionScopedKey } from "../extensions/choco-autopilot/session-scope";
+import { createGitFixture } from "./helpers/git-fixture";
 import { createPiExtensionFixture } from "./helpers/pi-extension-fixture";
 
 let tempAgentDir: string | undefined;
@@ -96,6 +97,37 @@ describe("/sessions autonomy visibility", () => {
     expect(output).toContain("missing: parallel_work_plan, integration_verifier");
     expect(output).toContain("active lane:");
     expect(output).toContain("groupId: group-a");
+  });
+
+  it("shows repo-root manifests even when /sessions is run from a repository subdirectory", async () => {
+    const fixture = await createGitFixture();
+    try {
+      await useTempAgentDir();
+      const { commands } = createPiExtensionFixture(chocoAutopilot);
+      const notify = vi.fn();
+      const manifestDir = join(fixture.repoRoot, ".pi", "agent-runs", "group-a");
+      const subdir = join(fixture.repoRoot, "packages", "app");
+      await mkdir(manifestDir, { recursive: true });
+      await mkdir(subdir, { recursive: true });
+      await writeFile(join(manifestDir, "manifest.json"), JSON.stringify({
+        version: 1,
+        groupId: "group-a",
+        repoRoot: fixture.repoRoot,
+        baseRef: "main",
+        createdAt: "2026-05-17T00:00:00.000Z",
+        updatedAt: "2026-05-17T00:00:00.000Z",
+        parallelStrategy: "hybrid",
+        status: "running",
+        lanes: [],
+      }, null, 2));
+
+      await commands.get("sessions")!.handler("", { cwd: subdir, ui: { notify }, sessionManager: { getSessionId: () => "s1" } });
+
+      const output = notify.mock.calls[0][0] as string;
+      expect(output).toContain("Agent run group-a [running]");
+    } finally {
+      await fixture.cleanup();
+    }
   });
 
   it("shows autonomy none when no protocol exists", () => {

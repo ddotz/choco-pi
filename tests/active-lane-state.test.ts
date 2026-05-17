@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import chocoAutopilot from "../extensions/choco-autopilot/index";
+import { updateAgentLaneStatus } from "../extensions/choco-autopilot/agent-run-manifest";
 import { planParallelWorkAreas } from "../extensions/choco-autopilot/worktree-planner";
 import { createGitFixture } from "./helpers/git-fixture";
 
@@ -69,6 +70,7 @@ describe("active lane runtime state", () => {
       const { tools, handlers } = setupAutopilot();
       const plan = planParallelWorkAreas({ items: [{ id: "runtime", description: "Edit runtime", files: ["src/owned.ts"] }] });
       await tools.get("agent_orchestrator")!.execute("start", { action: "start", repoRoot: fixtureA.repoRoot, groupId: "group-a", baseRef: "main", plan }, undefined, undefined, ctx(fixtureA.repoRoot));
+      await updateAgentLaneStatus(fixtureA.repoRoot, "group-a", "lane-1", "created", { worktreePath: fixtureA.repoRoot, branchName: "main" });
       await tools.get("agent_orchestrator")!.execute("activate", { action: "activate_lane", repoRoot: fixtureA.repoRoot, groupId: "group-a", laneId: "lane-1" }, undefined, undefined, ctx(fixtureA.repoRoot));
 
       const sameCwdBlocked = await emitToolCall(handlers, fixtureA.repoRoot, "write", { path: "README.md", content: "outside" });
@@ -108,6 +110,7 @@ describe("active lane runtime state", () => {
       const { tools, handlers } = setupAutopilot();
       const plan = planParallelWorkAreas({ items: [{ id: "runtime", description: "Edit runtime", files: ["src/owned.ts"] }] });
       await tools.get("agent_orchestrator")!.execute("start", { action: "start", repoRoot: fixture.repoRoot, groupId: "group-a", baseRef: "main", plan }, undefined, undefined, ctx(fixture.repoRoot));
+      await updateAgentLaneStatus(fixture.repoRoot, "group-a", "lane-1", "created", { worktreePath: fixture.repoRoot, branchName: "main" });
 
       const activated = await tools.get("agent_orchestrator")!.execute("activate", { action: "activate_lane", repoRoot: fixture.repoRoot, groupId: "group-a", laneId: "lane-1" }, undefined, undefined, ctx(fixture.repoRoot));
       const blocked = await emitToolCall(handlers, fixture.repoRoot, "write", { path: "README.md", content: "outside" });

@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { statusSummary } from "./git-runtime";
 import {
   createAgentRunManifest,
   loadAgentRunManifest,
@@ -146,6 +147,28 @@ function resultBase(input: AgentOrchestratorParams, root: string): AgentOrchestr
   return { ok: false, action: input.action, groupId: input.groupId, repoRoot: root, blockers: [], handoffPrompts: [] };
 }
 
+async function activeLaneActivationBlockers(lane: AgentLaneManifest): Promise<string[]> {
+  const blockers: string[] = [];
+  const writable = laneIsWritable(lane);
+  const readOnlySpawnLane = lane.executionStrategy === "spawn-agent" && !writable;
+
+  if (lane.executionStrategy === "serial") blockers.push("serial lane cannot be activated.");
+  if (lane.status === "blocked") blockers.push("blocked lane cannot be activated.");
+  if (lane.status === "failed") blockers.push("failed lane cannot be activated.");
+  if (lane.status === "integrated") blockers.push("integrated lane cannot be activated.");
+  if (lane.status === "verified" || lane.status === "ready-to-integrate") blockers.push(`${lane.status} lane cannot be activated.`);
+  if (lane.status === "planned" && !readOnlySpawnLane) blockers.push("planned lane cannot be activated before it is created, dispatched, or running.");
+  if (lane.executionStrategy === "worktree" && writable && !lane.worktreePath) blockers.push("writable worktree lane requires worktreePath before activation.");
+  if (lane.worktreePath) {
+    try {
+      await statusSummary(lane.worktreePath);
+    } catch (error) {
+      blockers.push(`worktreePath status check failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  return blockers;
+}
+
 function activeLaneContext(manifest: AgentRunManifest, lane: AgentLaneManifest): ActiveLaneContext {
   return {
     groupId: manifest.groupId,
@@ -231,6 +254,8 @@ export async function runAgentOrchestrator(
     if (!activeLaneStore) return { ...result, blockers: ["active lane store is unavailable."], manifest };
     const lane = manifest.lanes.find((candidate) => candidate.id === input.laneId);
     if (!lane) return { ...result, blockers: [`Unknown lane id: ${input.laneId}`], manifest };
+    const blockers = await activeLaneActivationBlockers(lane);
+    if (blockers.length > 0) return { ...result, blockers, manifest };
     await activeLaneStore.activate(context.sessionId ?? FALLBACK_ACTIVE_SESSION_ID, context.cwd ?? manifest.repoRoot, activeLaneContext(manifest, lane));
     return { ...result, ok: true, manifest, summary: `active lane ${lane.id} activated` };
   }

@@ -10,7 +10,7 @@ This README describes implemented behavior only. It is based on `package.json`, 
 
 ## Status
 
-- Current package version: `0.15.0`.
+- Current package version: `0.16.0`.
 - License field: `UNLICENSED`.
 - Package manager: `pnpm@10.29.3`.
 - Main peer runtime: `@earendil-works/pi-coding-agent`.
@@ -29,7 +29,7 @@ choco-pi is not a standalone app. Pi loads it through the `pi` field in `package
 At runtime, those entries provide:
 
 - an autopilot policy layer for planning, execution, verification, memory, ledgers, source tracking, reloads, updates, and quality gates;
-- an autonomous protocol runtime that routes prompts to branch/coding/parallel/lane/integration/approval flows and tracks required tool satisfaction;
+- an autonomous protocol runtime that routes prompts to branch/micro-coding/coding/parallel/lane/integration/approval flows, preserves long-running protocol continuity, and tracks required tool satisfaction;
 - a session/project todo tool and `/todos` UI;
 - custom header and footer rendering;
 - FFF-backed `grep`, `find`, and `multi_grep` tools;
@@ -78,8 +78,23 @@ The implemented policy includes these defaults:
 - Mode isolation is mandatory for every work mode.
 - No mode may change default or any other mode as a side effect.
 - Completion claims require observable verification and a structural review when work is non-trivial.
-- Prompt intent is routed into an autonomy protocol when branch, coding, parallel, worktree-lane, integration, or approval-boundary behavior is needed.
+- Prompt intent is routed into an autonomy protocol when branch, micro-coding, coding, parallel, worktree-lane, integration, or approval-boundary behavior is needed.
 - Required protocol tools are tracked from tool results; `structural_gate` fails closed when completion is attempted before required tools are satisfied.
+- Long-running parallel/worktree/integration protocols survive continuation prompts until the manifest is closed/integrated or the task is superseded.
+
+### Autonomous protocol runtime
+
+| Protocol | Required completion tools | Notes |
+| --- | --- | --- |
+| `micro-coding` | `structural_gate` | For small typo, wording, rename, or one-line edits. It avoids `spec_gate` ceremony while keeping completion safety. |
+| `single-branch` | `branch_switch_guard`, `structural_gate` | Branch names are validated before Git commands and dirty/occupied worktrees block unsafe switching. |
+| `coding` | `spec_gate`, `structural_gate` | Non-trivial implementation keeps Working Spec + final structural review. |
+| `parallel-work` | `spec_gate`, `parallel_work_plan`, `agent_orchestrator`, `worktree_manage`, `integration_verifier`, `structural_gate` | Requires ownership planning, manifest orchestration, worktree lifecycle, and final integration evidence. |
+| `worktree-lane` | `agent_orchestrator`, `worktree_manage`, `write_scope_guard`, `structural_gate` | Active lane activation is blocked for planned/blocked/failed/verified/integrated/serial lanes and invalid writable worktree lanes. |
+| `integration` | `integration_verifier`, `structural_gate` | Verification commands are allowlisted and `pnpm --dir` must stay inside the integration cwd. |
+| `approval-boundary` | none before boundary | Stops before deploy/publish/payment/secret/destructive/private-transfer boundaries with blocked/deferred completion. |
+
+`/sessions` shows the current protocol, missing/blocked required tools, active lane, manifests, branch, mode, and worktrees. Manifest discovery uses the Git repo root, so subdirectory cwd sessions still show repo-level `.pi/agent-runs`.
 
 ### Work modes and intensity
 
@@ -170,7 +185,7 @@ The current state schema version is `5`. The state object stores:
 - `workModeRegistry`: built-in and custom work-mode metadata;
 - `autoUpdate`: choco-pi auto-update settings and the last result.
 
-The autonomy protocol state is recreated at agent start from the latest prompt and active runtime hints. Tool results update satisfaction automatically; blocked required tools or missing protocol tools prevent ready completion through `structural_gate`.
+The autonomy protocol state is created or resumed at agent start from the latest prompt, active manifests, active lanes, and previous protocol lifecycle status. Tool results update satisfaction automatically; blocked required tools or missing protocol tools prevent ready completion through `structural_gate`. Completed and superseded protocols are hidden from the active `/sessions` summary and pruned by recent-audit retention.
 
 The context ledger tracks objective, assumptions, decisions, changed files, verifications, blockers, risks, and next actions. Automatic ledger updates currently record write/edit paths and verification-like `bash` results.
 

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import chocoAutopilot from "../extensions/choco-autopilot/index";
-import { runAgentOrchestrator } from "../extensions/choco-autopilot/agent-orchestrator-tool";
+import { runAgentOrchestrator, type ActiveLaneContext } from "../extensions/choco-autopilot/agent-orchestrator-tool";
 import { loadAgentRunManifest, updateAgentLaneStatus } from "../extensions/choco-autopilot/agent-run-manifest";
 import { planParallelWorkAreas } from "../extensions/choco-autopilot/worktree-planner";
 import { createPiExtensionFixture } from "./helpers/pi-extension-fixture";
@@ -18,6 +18,19 @@ afterEach(async () => {
 async function tempRepoRoot(): Promise<string> {
   repoRoot = await mkdtemp(join(tmpdir(), "choco-pi-orchestrator-"));
   return repoRoot;
+}
+
+function captureActiveLaneStore() {
+  const activations: ActiveLaneContext[] = [];
+  return {
+    activations,
+    store: {
+      async activate(_sessionId: string, _cwd: string, context: ActiveLaneContext): Promise<void> {
+        activations.push(context);
+      },
+      async deactivate(): Promise<void> {},
+    },
+  };
 }
 
 describe("agent orchestrator", () => {
@@ -134,5 +147,68 @@ describe("agent orchestrator", () => {
     expect(manifest.lanes[0].verificationEvidence).toBe("pnpm test passed");
     expect(manifest.lanes[0].verifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(verified.summary).toContain("pnpm test passed");
+  });
+
+  it("blocks activation of planned writable lanes and lanes without required worktree paths", async () => {
+    const root = await tempRepoRoot();
+    const plan = planParallelWorkAreas({ items: [{ id: "runtime", description: "Edit runtime", files: ["src/runtime.ts"] }] });
+    await runAgentOrchestrator({ action: "start", repoRoot: root, groupId: "group-a", baseRef: "main", plan });
+    const { activations, store } = captureActiveLaneStore();
+
+    const planned = await runAgentOrchestrator({ action: "activate_lane", repoRoot: root, groupId: "group-a", laneId: "lane-1" }, {}, store);
+    await updateAgentLaneStatus(root, "group-a", "lane-1", "created");
+    const missingPath = await runAgentOrchestrator({ action: "activate_lane", repoRoot: root, groupId: "group-a", laneId: "lane-1" }, {}, store);
+
+    expect(planned.ok).toBe(false);
+    expect(planned.blockers.join("\n")).toContain("planned lane cannot be activated");
+    expect(missingPath.ok).toBe(false);
+    expect(missingPath.blockers.join("\n")).toContain("writable worktree lane requires worktreePath");
+    expect(activations).toEqual([]);
+  });
+
+  it("allows dispatched and running lanes but blocks verified lanes", async () => {
+    const root = await tempRepoRoot();
+    const plan = planParallelWorkAreas({ items: [{ id: "review", description: "Review docs", files: ["README.md"], write: false }] });
+    await runAgentOrchestrator({ action: "start", repoRoot: root, groupId: "group-a", baseRef: "main", plan });
+    await runAgentOrchestrator({ action: "dispatch", repoRoot: root, groupId: "group-a" });
+    const { activations, store } = captureActiveLaneStore();
+
+    const dispatched = await runAgentOrchestrator({ action: "activate_lane", repoRoot: root, groupId: "group-a", laneId: "lane-1" }, {}, store);
+    await updateAgentLaneStatus(root, "group-a", "lane-1", "running");
+    const running = await runAgentOrchestrator({ action: "activate_lane", repoRoot: root, groupId: "group-a", laneId: "lane-1" }, {}, store);
+    await updateAgentLaneStatus(root, "group-a", "lane-1", "verified", { verificationEvidence: "done" });
+    const verified = await runAgentOrchestrator({ action: "activate_lane", repoRoot: root, groupId: "group-a", laneId: "lane-1" }, {}, store);
+
+    expect(dispatched.ok).toBe(true);
+    expect(running.ok).toBe(true);
+    expect(verified.ok).toBe(false);
+    expect(verified.blockers.join("\n")).toContain("verified lane cannot be activated");
+    expect(activations).toHaveLength(2);
+  });
+
+  it("blocks activation of serial lanes", async () => {
+    const root = await tempRepoRoot();
+    const plan = planParallelWorkAreas({ items: [{ id: "serial", description: "Unknown writable scope" }] });
+    await runAgentOrchestrator({ action: "start", repoRoot: root, groupId: "group-a", baseRef: "main", plan });
+    const { activations, store } = captureActiveLaneStore();
+
+    const serial = await runAgentOrchestrator({ action: "activate_lane", repoRoot: root, groupId: "group-a", laneId: "lane-1" }, {}, store);
+
+    expect(serial.ok).toBe(false);
+    expect(serial.blockers.join("\n")).toContain("serial lane cannot be activated");
+    expect(activations).toEqual([]);
+  });
+
+  it("allows read-only spawn lanes even before dispatch", async () => {
+    const root = await tempRepoRoot();
+    const plan = planParallelWorkAreas({ items: [{ id: "review", description: "Review docs", files: ["README.md"], write: false }] });
+    await runAgentOrchestrator({ action: "start", repoRoot: root, groupId: "group-a", baseRef: "main", plan });
+    const { activations, store } = captureActiveLaneStore();
+
+    const result = await runAgentOrchestrator({ action: "activate_lane", repoRoot: root, groupId: "group-a", laneId: "lane-1" }, {}, store);
+
+    expect(result.ok).toBe(true);
+    expect(activations).toHaveLength(1);
+    expect(activations[0]).toMatchObject({ laneId: "lane-1", readOnly: true, executionStrategy: "spawn-agent" });
   });
 });

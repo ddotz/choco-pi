@@ -71,6 +71,46 @@ describe("autonomy router", () => {
     expect(decision.requiredTools).toContain("agent_orchestrator");
   });
 
+  it("routes micro coding requests without requiring spec_gate", () => {
+    const typo = routeAutonomyProtocol({ prompt: "README 오타 하나 고쳐줘", cwd: "/repo", sessionId: "s1", hasActiveManifest: false });
+    const wording = routeAutonomyProtocol({ prompt: "한 줄 문구만 수정해줘", cwd: "/repo", sessionId: "s1", hasActiveManifest: false });
+
+    expect(typo.protocolKind).toBe("micro-coding");
+    expect(typo.requiredTools).toEqual(["structural_gate"]);
+    expect(wording.protocolKind).toBe("micro-coding");
+  });
+
+  it("keeps non-trivial implementation on the full coding protocol", () => {
+    expect(routeAutonomyProtocol({ prompt: "로그인 기능 구현해줘", cwd: "/repo", sessionId: "s1", hasActiveManifest: false }).protocolKind).toBe("coding");
+    expect(routeAutonomyProtocol({ prompt: "전체 구조를 리팩터링해줘", cwd: "/repo", sessionId: "s1", hasActiveManifest: false }).protocolKind).toBe("coding");
+  });
+
+  it("prioritizes parallel and branch intent over micro wording", () => {
+    expect(routeAutonomyProtocol({ prompt: "병렬로 오타 수정해줘", cwd: "/repo", sessionId: "s1", hasActiveManifest: false }).protocolKind).toBe("parallel-work");
+    expect(routeAutonomyProtocol({ prompt: "feature/foo 브랜치에서 오타만 수정해줘", cwd: "/repo", sessionId: "s1", hasActiveManifest: false }).protocolKind).toBe("single-branch");
+  });
+
+  it("resumes active long-running protocols for continuation prompts", () => {
+    const decision = routeAutonomyProtocol({
+      prompt: "계속 진행해줘",
+      cwd: "/repo",
+      sessionId: "s1",
+      hasActiveManifest: true,
+      currentProtocol: {
+        id: "p1",
+        kind: "parallel-work",
+        taskStatus: "active",
+        requiredTools: ["spec_gate", "integration_verifier", "structural_gate"],
+        satisfiedTools: ["spec_gate"],
+        blockedTools: [],
+      },
+    });
+
+    expect(decision.protocolKind).toBe("parallel-work");
+    expect(decision.resumeExisting).toBe(true);
+    expect(decision.requiredTools).toEqual(["spec_gate", "integration_verifier", "structural_gate"]);
+  });
+
   it("routes general implementation to coding and simple explanation to none", () => {
     expect(routeAutonomyProtocol({ prompt: "버그 수정하고 테스트해줘", cwd: "/repo", sessionId: "s1", hasActiveManifest: false }).protocolKind).toBe("coding");
     expect(routeAutonomyProtocol({ prompt: "이 구조가 뭔지 설명해줘", cwd: "/repo", sessionId: "s1", hasActiveManifest: false }).protocolKind).toBe("none");

@@ -311,7 +311,66 @@ function hasToolCall(message: AssistantMessage): boolean {
   return message.content.some((item) => item.type === "toolCall");
 }
 
-function repairPromptText(reason: string, originalText: string): string {
+function protocolRepairInstruction(reason: string): string | undefined {
+  const missingMatch = reason.match(/required autonomous protocol tools missing:\s*(.+)$/i);
+  if (missingMatch) {
+    const tools = missingMatch[1]
+      .split(",")
+      .map((tool) => tool.trim())
+      .filter(Boolean);
+    const nextAction = tools.includes("integration_verifier")
+      ? "Run integration_verifier for the active manifest, then rerun structural_gate."
+      : tools.includes("branch_switch_guard")
+        ? "Run branch_switch_guard for the requested branch, then rerun structural_gate."
+        : tools.includes("parallel_work_plan")
+          ? "Run parallel_work_plan to assign file/domain ownership, then continue the required tool sequence."
+          : tools.includes("agent_orchestrator")
+            ? "Run agent_orchestrator for the active manifest/lane workflow, then rerun structural_gate."
+            : tools.includes("worktree_manage")
+              ? "Run worktree_manage for required worktree lifecycle actions, then rerun structural_gate."
+              : tools.includes("spec_gate")
+                ? "Run spec_gate for the active non-trivial coding scope, then rerun structural_gate."
+                : `Run the missing required tool${tools.length > 1 ? "s" : ""}, then rerun structural_gate.`;
+    return [
+      "Autonomous protocol repair required.",
+      "Missing required tools:",
+      ...tools.map((tool) => `- ${tool}`),
+      "Next action:",
+      nextAction,
+      "Do not claim completion until protocol is satisfied.",
+    ].join("\n");
+  }
+
+  const blockedMatch = reason.match(/autonomous protocol has blocked tools:\s*(.+)$/i);
+  if (blockedMatch) {
+    const blocked = blockedMatch[1].trim();
+    const branchAdvice = blocked.includes("branch_switch_guard")
+      ? "For branch_switch_guard, report the blocker or repair the dirty cwd safely before retrying."
+      : undefined;
+    return [
+      "Autonomous protocol repair required.",
+      "Blocked protocol tools:",
+      `- ${blocked}`,
+      branchAdvice,
+      "Next action:",
+      "Resolve the blocked tool reason safely or report a concrete blocker; rerun structural_gate only after the blocker is resolved.",
+    ].filter(Boolean).join("\n");
+  }
+
+  if (/approval-boundary/i.test(reason)) {
+    return [
+      "Autonomous protocol repair required.",
+      "Approval boundary detected.",
+      "Next action:",
+      "Stop before the hard boundary and rerun structural_gate with readyToComplete=false and outcome=blocked or outcome=deferred.",
+      "Do not execute publish/deploy/payment/secret/destructive/private-transfer actions.",
+    ].join("\n");
+  }
+
+  return undefined;
+}
+
+export function repairPromptText(reason: string, originalText: string): string {
   return [
     "내부 structural_gate 보강이 필요합니다.",
     "이 내부 gate 메시지를 사용자에게 보여주거나 요약하지 마세요.",
@@ -319,6 +378,7 @@ function repairPromptText(reason: string, originalText: string): string {
     "최종 사용자 답변은 반드시 한국어 존댓말로 작성하세요. 사용자가 다른 언어를 명시한 경우에만 그 언어를 따르세요.",
     "원래 사용자 요청 언어와 출력 형식을 유지하고, 이전 차단/보강 과정을 언급하지 마세요.",
     `Reason: ${reason}`,
+    protocolRepairInstruction(reason),
     "structural_gate를 호출해 gate checks와 loopGovernance를 기록하세요. 실제로 완료된 경우에만 readyToComplete=true를 사용하고, 아니면 먼저 수정/검증을 계속하세요.",
     originalText ? `차단된 원래 초안:\n${originalText}` : undefined,
   ]

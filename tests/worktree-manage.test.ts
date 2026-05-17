@@ -54,16 +54,18 @@ describe("worktree_manage tool", () => {
     const fixture = await createGitFixture();
     const path = await tempWorktreePath();
     try {
-      const result = await runWorktreeManage({
-        action: "create",
-        repoRoot: fixture.repoRoot,
-        branchName: "feature/bad..branch",
-        path,
-      }, { cwd: fixture.repoRoot });
+      for (const branchName of ["feature/bad..branch", "foo bar", "-bad", "feature/bad.lock"]) {
+        const result = await runWorktreeManage({
+          action: "create",
+          repoRoot: fixture.repoRoot,
+          branchName,
+          path,
+        }, { cwd: fixture.repoRoot });
 
-      expect(result.ok).toBe(false);
-      expect(result.blockers.join("\n")).toContain("branchName");
-      expect(result.commands).toEqual([]);
+        expect(result.ok).toBe(false);
+        expect(result.blockers.join("\n")).toContain("branchName");
+        expect(result.commands).toEqual([]);
+      }
     } finally {
       await fixture.cleanup();
     }

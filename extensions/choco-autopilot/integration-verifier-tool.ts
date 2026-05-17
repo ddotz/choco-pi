@@ -1,13 +1,13 @@
 import { exec } from "node:child_process";
-import { mkdir, rm } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { mkdir, realpath, rm } from "node:fs/promises";
+import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { promisify } from "node:util";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { loadAgentRunManifest, updateAgentRunManifest, type AgentRunManifest } from "./agent-run-manifest";
 import { classifyApprovalBoundaryCommand, formatApprovalBoundaryBlock } from "./approval-boundary";
 import { execGit, listWorktrees, statusSummary } from "./git-runtime";
-import { assertSafeBranchName, normalizeGroupId, safeJoinWithin } from "./safe-identifiers";
+import { assertSafeBranchName, normalizeGroupId, pathIsInside, safeJoinWithin } from "./safe-identifiers";
 import { normalizeWorktreePath, pathExists } from "./worktree-runtime";
 
 const execAsync = promisify(exec);
@@ -87,20 +87,54 @@ async function addPreflightBlockers(result: IntegrationVerifierResult, manifest:
   }
 }
 
-function verificationCommandBlocker(command: string): string | undefined {
+async function realpathWithExistingPrefix(target: string): Promise<string | undefined> {
+  const suffix: string[] = [];
+  let cursor = target;
+  while (true) {
+    try {
+      return resolve(await realpath(cursor), ...suffix.reverse());
+    } catch {
+      const parent = dirname(cursor);
+      if (parent === cursor) return undefined;
+      suffix.push(basename(cursor));
+      cursor = parent;
+    }
+  }
+}
+
+async function pnpmDirPathBlocker(dir: string, cwd: string): Promise<string | undefined> {
+  if (dir === "~" || dir.startsWith("~/")) return "verification command is not allowlisted: pnpm --dir home directory expansion is blocked.";
+  const root = resolve(cwd);
+  const target = isAbsolute(dir) ? resolve(dir) : resolve(root, dir);
+  if (!pathIsInside(root, target)) return `verification command is not allowlisted: pnpm --dir escapes integration cwd (${dir}).`;
+
+  const realRoot = await realpath(root).catch(() => root);
+  const realTarget = await realpathWithExistingPrefix(target);
+  if (realTarget && !pathIsInside(realRoot, realTarget)) {
+    return `verification command is not allowlisted: pnpm --dir escapes integration cwd (${dir}).`;
+  }
+  return undefined;
+}
+
+export async function verificationCommandBlocker(command: string, cwd: string): Promise<string | undefined> {
   const trimmed = command.trim();
   if (!trimmed) return "verification command is empty.";
   const boundary = classifyApprovalBoundaryCommand(trimmed);
   if (boundary) return formatApprovalBoundaryBlock(boundary);
   if (/[;&|`$<>]/.test(trimmed)) return "verification command is not allowlisted: shell metacharacters are blocked.";
   const tokens = trimmed.split(/\s+/);
-  const safeToken = (token: string) => /^[A-Za-z0-9_@%+=:,./~:-]+$/.test(token) && token !== "." && token !== "..";
+  const safeToken = (token: string) => /^[A-Za-z0-9_@%+=:,./~:-]+$/.test(token) && token !== "..";
   if (!tokens.every(safeToken)) return "verification command is not allowlisted: unsupported token.";
   if (tokens[0] === "git" && tokens.length === 3 && tokens[1] === "status" && tokens[2] === "--short") return undefined;
   if (tokens[0] === "git" && tokens.length === 3 && tokens[1] === "diff" && tokens[2] === "--check") return undefined;
   if (tokens[0] === "pnpm") {
     let index = 1;
-    if (tokens[index] === "--dir" && tokens[index + 1]) index += 2;
+    if (tokens[index] === "--dir") {
+      if (!tokens[index + 1]) return "verification command is not allowlisted: pnpm --dir requires a path.";
+      const pathBlocker = await pnpmDirPathBlocker(tokens[index + 1], cwd);
+      if (pathBlocker) return pathBlocker;
+      index += 2;
+    }
     const allowedScripts = new Set(["version:check", "lint", "typecheck", "test", "check"]);
     if (tokens[index] === "run" && allowedScripts.has(tokens[index + 1] ?? "")) return undefined;
     if (tokens[index] === "test") return undefined;
@@ -109,7 +143,7 @@ function verificationCommandBlocker(command: string): string | undefined {
 }
 
 async function runVerificationCommand(command: string, cwd: string): Promise<IntegrationVerifierResult["verificationResults"][number]> {
-  const blocker = verificationCommandBlocker(command);
+  const blocker = await verificationCommandBlocker(command, cwd);
   if (blocker) return { command, status: "blocked", evidence: blocker };
   try {
     const output = await execAsync(command, { cwd, shell: "/bin/bash", timeout: 120_000 });

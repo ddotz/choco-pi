@@ -101,18 +101,19 @@ Execution intensity is process weight, not a work mode.
 
 ## Autonomous Protocol Runtime
 
-choco-pi creates a cwd/session-scoped autonomy protocol at agent start when the prompt implies branch, coding, parallel-work, worktree-lane, integration, or approval-boundary behavior. The protocol is injected into the system prompt, stored in `state.json`, and updated from tool results.
+choco-pi creates or resumes a cwd/session-scoped autonomy protocol at agent start when the prompt implies branch, micro-coding, coding, parallel-work, worktree-lane, integration, or approval-boundary behavior. The protocol is injected into the system prompt, stored in `state.json`, updated from tool results, and retained across continuation prompts for active long-running manifests.
 
 Required tools are completion contracts, not suggestions:
 
+- `micro-coding`: `structural_gate` only, for small typo/wording/rename/one-line edits where `spec_gate` would be ceremony.
 - `single-branch`: `branch_switch_guard` before branch completion.
 - `coding`: `spec_gate` for non-trivial implementation plus `structural_gate` before completion.
 - `parallel-work`: `spec_gate`, `parallel_work_plan`, `agent_orchestrator`, `worktree_manage`, `integration_verifier`, and `structural_gate`.
-- `worktree-lane`: active lane/write guard state plus orchestrator/worktree protocol tools.
-- `integration`: `integration_verifier` before completion.
+- `worktree-lane`: active lane/write guard state plus orchestrator/worktree protocol tools. Activation is blocked for planned/blocked/failed/verified/integrated/serial lanes and writable worktree lanes without a valid worktree path.
+- `integration`: `integration_verifier` before completion. Verification commands are allowlisted; `pnpm --dir` must remain inside the integration cwd.
 - `approval-boundary`: stop at the boundary with `readyToComplete=false`; do not execute publish/deploy/payment/secret/destructive/private-transfer actions.
 
-If a required tool is missing or blocked, repair safely or report the concrete blocker. Do not claim completion until the protocol and structural gate both pass.
+If a required tool is missing or blocked, repair safely or report the concrete blocker. Repair prompts name the missing/blocked protocol tool and the next safe action. Do not claim completion until the protocol and structural gate both pass. Completed and superseded protocols are not shown as active in `/sessions`.
 
 ## Structural Execution Gate
 

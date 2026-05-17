@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createAgentRunManifest, loadAgentRunManifest, updateAgentLaneStatus } from "../extensions/choco-autopilot/agent-run-manifest";
-import { runIntegrationVerifier } from "../extensions/choco-autopilot/integration-verifier-tool";
+import { runIntegrationVerifier, verificationCommandBlocker } from "../extensions/choco-autopilot/integration-verifier-tool";
 import { planParallelWorkAreas } from "../extensions/choco-autopilot/worktree-planner";
 import { createGitFixture } from "./helpers/git-fixture";
 
@@ -174,6 +174,21 @@ describe("integration verifier", () => {
       expect(result.verificationResults).toContainEqual(expect.objectContaining({ command: "git status --short", status: "passed" }));
       expect(manifest.status).toBe("integrated");
       expect(manifest.integrationEvidence).toContain("integration_verifier passed");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("blocks verification commands whose pnpm --dir escapes the integration cwd", async () => {
+    const fixture = await createGitFixture();
+    try {
+      await expect(verificationCommandBlocker("pnpm run check", fixture.repoRoot)).resolves.toBeUndefined();
+      await expect(verificationCommandBlocker("pnpm --dir packages/app run test", fixture.repoRoot)).resolves.toBeUndefined();
+      await expect(verificationCommandBlocker("pnpm --dir . run check", fixture.repoRoot)).resolves.toBeUndefined();
+      await expect(verificationCommandBlocker("pnpm --dir ../other run check", fixture.repoRoot)).resolves.toContain("escapes integration cwd");
+      await expect(verificationCommandBlocker("pnpm --dir /tmp run check", fixture.repoRoot)).resolves.toContain("escapes integration cwd");
+      await expect(verificationCommandBlocker("pnpm --dir ~ run check", fixture.repoRoot)).resolves.toContain("home directory expansion");
+      await expect(verificationCommandBlocker("node -e console.log(1)", fixture.repoRoot)).resolves.toContain("not allowlisted");
     } finally {
       await fixture.cleanup();
     }

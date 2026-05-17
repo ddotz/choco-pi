@@ -8,11 +8,18 @@ import { Type } from "typebox";
 import { ADOPTION_DEPTHS, type AdoptionDepth } from "./adoption-depth";
 import {
   autonomyProtocolKey,
+  completeAutonomyProtocol,
   createAutonomyProtocol,
+  markProtocolSuperseded,
   markProtocolToolBlocked,
   markProtocolToolSatisfied,
   missingRequiredTools,
+  normalizeAutonomyProtocol,
+  protocolIsActive,
+  protocolReadyForCompletion,
   protocolToolSatisfactionFromResult,
+  pruneAutonomyProtocols,
+  resumeAutonomyProtocol,
   type AutonomyProtocol,
 } from "./autonomy-protocol";
 import { routeAutonomyProtocol } from "./autonomy-router";
@@ -249,6 +256,15 @@ function activeLaneFromState(state: ChocoState, cwd: string, sessionId: string):
   return state.activeLanes[activeLaneKey(cwd, sessionId)] ?? state.activeLanes[sessionId];
 }
 
+function protocolArchiveKey(cwd: string, sessionId: string, protocolId: string): string {
+  return `${autonomyProtocolKey(cwd, sessionId)}:${protocolId}`;
+}
+
+function protocolShouldCompleteFromTool(protocol: AutonomyProtocol, toolName: string, result: Record<string, unknown> | undefined): boolean {
+  if (toolName === "agent_orchestrator" && result?.action === "close" && result.ok === true) return true;
+  return protocolReadyForCompletion(protocol);
+}
+
 async function hasActiveManifestForCwd(cwd: string): Promise<boolean> {
   const root = await gitRepoRoot(cwd).catch(() => cwd);
   let groupIds: string[] = [];
@@ -279,7 +295,9 @@ async function loadStateUnlocked(): Promise<ChocoState> {
       runtime: migrateLegacyMode(parsed),
       sessions: parsed.sessions && typeof parsed.sessions === "object" ? parsed.sessions : {},
       activeLanes: parsed.activeLanes && typeof parsed.activeLanes === "object" ? parsed.activeLanes as Record<string, ActiveLaneRuntimeState> : {},
-      autonomyProtocols: parsed.autonomyProtocols && typeof parsed.autonomyProtocols === "object" ? parsed.autonomyProtocols : {},
+      autonomyProtocols: parsed.autonomyProtocols && typeof parsed.autonomyProtocols === "object"
+        ? Object.fromEntries(Object.entries(parsed.autonomyProtocols).map(([key, protocol]) => [key, normalizeAutonomyProtocol(protocol as AutonomyProtocol)]))
+        : {},
       memories: Array.isArray(parsed.memories) ? parsed.memories : [],
       ledgers: parsed.ledgers && typeof parsed.ledgers === "object" ? parsed.ledgers : {},
       sourceRegistry: parsed.sourceRegistry?.sources ? parsed.sourceRegistry : createSourceRegistry(),
@@ -651,13 +669,20 @@ async function updateAutonomyProtocolForToolResult(
 ): Promise<void> {
   const satisfaction = protocolToolSatisfactionFromResult(toolName, event);
   if (!satisfaction || satisfaction.status === "ignored") return;
+  const details = objectInput(event.details);
+  const result = objectInput(details?.result) ?? details;
   await updateState((state) => {
     const key = autonomyProtocolKey(cwd, sessionId);
     const protocol = state.autonomyProtocols[key];
     if (!protocol || !protocol.requiredTools.includes(toolName)) return;
-    state.autonomyProtocols[key] = satisfaction.status === "satisfied"
+    let updated = satisfaction.status === "satisfied"
       ? markProtocolToolSatisfied(protocol, toolName, satisfaction.evidence)
       : markProtocolToolBlocked(protocol, toolName, satisfaction.evidence ?? `${toolName} ${satisfaction.status}`);
+    if (satisfaction.status === "satisfied" && protocolShouldCompleteFromTool(updated, toolName, result)) {
+      updated = completeAutonomyProtocol(updated);
+    }
+    state.autonomyProtocols[key] = updated;
+    state.autonomyProtocols = pruneAutonomyProtocols(state.autonomyProtocols);
   });
 }
 
@@ -714,7 +739,7 @@ async function autonomyProtocolCompletionBlock(review: StructuralGateReview, ctx
   const cwd = ctx.cwd || process.cwd();
   const sessionId = sessionIdFromContext(ctx);
   const protocol = (await loadState()).autonomyProtocols[autonomyProtocolKey(cwd, sessionId)];
-  if (!protocol || protocol.kind === "none") return undefined;
+  if (!protocol || protocol.kind === "none" || !protocolIsActive(protocol)) return undefined;
 
   const outcome = review.outcome ?? "complete";
   if (protocol.kind === "approval-boundary") {
@@ -885,6 +910,8 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
         updatedAt: nowIso(),
       };
       const activeLane = activeLaneFromState(state, cwd, sessionId);
+      const protocolKey = autonomyProtocolKey(cwd, sessionId);
+      const existingProtocol = state.autonomyProtocols[protocolKey];
       const route = routeAutonomyProtocol({
         prompt,
         cwd,
@@ -892,21 +919,31 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
         hasActiveManifest,
         activeLaneId: activeLane?.laneId,
         currentBranch,
+        currentProtocol: existingProtocol,
       });
       const initiallySatisfiedTools = route.protocolKind === "worktree-lane" && activeLane ? ["write_scope_guard"] : [];
-      const autonomyProtocol = createAutonomyProtocol({
-        kind: route.protocolKind,
-        sessionId,
-        cwd,
-        prompt,
-        requiredTools: route.requiredTools,
-        hardBoundary: route.hardBoundary,
-        activeGroupId: activeLane?.groupId,
-        activeLaneId: activeLane?.laneId,
-        initiallySatisfiedTools,
-        reason: route.reason,
-      });
-      state.autonomyProtocols[autonomyProtocolKey(cwd, sessionId)] = autonomyProtocol;
+      let autonomyProtocol: AutonomyProtocol;
+      if (route.resumeExisting && existingProtocol && protocolIsActive(existingProtocol)) {
+        autonomyProtocol = resumeAutonomyProtocol(existingProtocol, route.reason);
+      } else {
+        autonomyProtocol = createAutonomyProtocol({
+          kind: route.protocolKind,
+          sessionId,
+          cwd,
+          prompt,
+          requiredTools: route.requiredTools,
+          hardBoundary: route.hardBoundary,
+          activeGroupId: activeLane?.groupId,
+          activeLaneId: activeLane?.laneId,
+          initiallySatisfiedTools,
+          reason: route.reason,
+        });
+        if (existingProtocol && protocolIsActive(existingProtocol) && route.protocolKind !== "none") {
+          state.autonomyProtocols[protocolArchiveKey(cwd, sessionId, existingProtocol.id)] = markProtocolSuperseded(existingProtocol, autonomyProtocol.id);
+        }
+      }
+      state.autonomyProtocols[protocolKey] = autonomyProtocol;
+      state.autonomyProtocols = pruneAutonomyProtocols(state.autonomyProtocols);
       const ledger = getLedger(state, cwd, sessionId, prompt);
       return { workMode, effectiveWorkMode, executionIntensity, modeSequence: modeDecision.modeSequence, ledger, sourceRegistry: state.sourceRegistry, memories: state.memories, autonomyProtocol };
     });

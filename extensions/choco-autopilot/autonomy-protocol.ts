@@ -3,12 +3,15 @@ import { sessionScopedKey } from "./session-scope";
 
 export type AutonomyProtocolKind =
   | "none"
+  | "micro-coding"
   | "single-branch"
   | "coding"
   | "parallel-work"
   | "worktree-lane"
   | "integration"
   | "approval-boundary";
+
+export type AutonomyProtocolTaskStatus = "active" | "blocked" | "completed" | "superseded" | "abandoned";
 
 export interface BlockedProtocolTool {
   toolName: string;
@@ -30,6 +33,10 @@ export interface AutonomyProtocol {
   activeLaneId?: string;
   hardBoundary?: string;
   reason: string;
+  taskStatus: AutonomyProtocolTaskStatus;
+  completedAt?: string;
+  supersededAt?: string;
+  supersededBy?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -96,9 +103,75 @@ export function createAutonomyProtocol(input: CreateAutonomyProtocolInput): Auto
     activeLaneId: input.activeLaneId,
     hardBoundary: input.hardBoundary,
     reason: input.reason,
+    taskStatus: "active",
     createdAt: timestamp,
     updatedAt: timestamp,
   };
+}
+
+export function normalizeAutonomyProtocol(protocol: AutonomyProtocol): AutonomyProtocol {
+  return {
+    ...protocol,
+    version: 1,
+    taskStatus: protocol.taskStatus ?? "active",
+    blockedTools: protocol.blockedTools ?? [],
+    requiredTools: unique(protocol.requiredTools ?? []),
+    satisfiedTools: unique(protocol.satisfiedTools ?? []),
+  };
+}
+
+export function protocolIsActive(protocol: AutonomyProtocol | undefined): boolean {
+  return Boolean(protocol && (protocol.taskStatus === "active" || protocol.taskStatus === "blocked"));
+}
+
+export function resumeAutonomyProtocol(protocol: AutonomyProtocol, reason: string, now = new Date()): AutonomyProtocol {
+  const normalized = normalizeAutonomyProtocol(protocol);
+  return {
+    ...normalized,
+    taskStatus: normalized.blockedTools.length > 0 ? "blocked" : "active",
+    reason,
+    updatedAt: nowIso(now),
+  };
+}
+
+export function completeAutonomyProtocol(protocol: AutonomyProtocol, now = new Date()): AutonomyProtocol {
+  const completedAt = nowIso(now);
+  return {
+    ...normalizeAutonomyProtocol(protocol),
+    taskStatus: "completed",
+    completedAt,
+    updatedAt: completedAt,
+  };
+}
+
+export function markProtocolSuperseded(protocol: AutonomyProtocol, supersededBy: string, now = new Date()): AutonomyProtocol {
+  const supersededAt = nowIso(now);
+  return {
+    ...normalizeAutonomyProtocol(protocol),
+    taskStatus: "superseded",
+    supersededAt,
+    supersededBy,
+    updatedAt: supersededAt,
+  };
+}
+
+function protocolRetentionTime(protocol: AutonomyProtocol): string {
+  return protocol.completedAt ?? protocol.supersededAt ?? protocol.updatedAt ?? protocol.createdAt;
+}
+
+export function pruneAutonomyProtocols(
+  protocols: Record<string, AutonomyProtocol>,
+  maxRetainedCompletedOrSuperseded = 20,
+): Record<string, AutonomyProtocol> {
+  const activeEntries: Array<[string, AutonomyProtocol]> = [];
+  const retainedEntries: Array<[string, AutonomyProtocol]> = [];
+  for (const [key, value] of Object.entries(protocols)) {
+    const protocol = normalizeAutonomyProtocol(value);
+    if (protocolIsActive(protocol) || protocol.kind === "none") activeEntries.push([key, protocol]);
+    else retainedEntries.push([key, protocol]);
+  }
+  retainedEntries.sort((left, right) => protocolRetentionTime(right[1]).localeCompare(protocolRetentionTime(left[1])));
+  return Object.fromEntries([...activeEntries, ...retainedEntries.slice(0, maxRetainedCompletedOrSuperseded)]);
 }
 
 export function markProtocolToolSatisfied(
@@ -107,10 +180,13 @@ export function markProtocolToolSatisfied(
   _evidence?: string,
   now = new Date(),
 ): AutonomyProtocol {
+  const normalized = normalizeAutonomyProtocol(protocol);
+  const blockedTools = normalized.blockedTools.filter((tool) => tool.toolName !== toolName);
   return {
-    ...protocol,
-    satisfiedTools: unique([...protocol.satisfiedTools, toolName]),
-    blockedTools: protocol.blockedTools.filter((tool) => tool.toolName !== toolName),
+    ...normalized,
+    satisfiedTools: unique([...normalized.satisfiedTools, toolName]),
+    blockedTools,
+    taskStatus: blockedTools.length > 0 ? "blocked" : "active",
     updatedAt: nowIso(now),
   };
 }
@@ -122,13 +198,15 @@ export function markProtocolToolBlocked(
   now = new Date(),
 ): AutonomyProtocol {
   const updatedAt = nowIso(now);
+  const normalized = normalizeAutonomyProtocol(protocol);
   return {
-    ...protocol,
-    satisfiedTools: protocol.satisfiedTools.filter((tool) => tool !== toolName),
+    ...normalized,
+    satisfiedTools: normalized.satisfiedTools.filter((tool) => tool !== toolName),
     blockedTools: [
-      ...protocol.blockedTools.filter((tool) => tool.toolName !== toolName),
+      ...normalized.blockedTools.filter((tool) => tool.toolName !== toolName),
       { toolName, reason, updatedAt },
     ],
+    taskStatus: "blocked",
     updatedAt,
   };
 }
@@ -140,8 +218,10 @@ export function missingRequiredTools(protocol: AutonomyProtocol, options: Missin
 }
 
 export function protocolReadyForCompletion(protocol: AutonomyProtocol): boolean {
-  if (protocol.kind === "approval-boundary") return false;
-  return protocol.blockedTools.length === 0 && missingRequiredTools(protocol).length === 0;
+  const normalized = normalizeAutonomyProtocol(protocol);
+  if (normalized.kind === "approval-boundary") return false;
+  if (normalized.taskStatus === "superseded" || normalized.taskStatus === "abandoned") return false;
+  return normalized.blockedTools.length === 0 && missingRequiredTools(normalized).length === 0;
 }
 
 function objectValue(value: unknown): Record<string, unknown> | undefined {
@@ -231,12 +311,13 @@ export function summarizeAutonomyProtocol(protocol: AutonomyProtocol | undefined
   missing: string[];
   blocked: string[];
 } {
-  if (!protocol || protocol.kind === "none") return { protocol: "none", required: [], satisfied: [], missing: [], blocked: [] };
+  const normalized = protocol ? normalizeAutonomyProtocol(protocol) : undefined;
+  if (!normalized || normalized.kind === "none" || !protocolIsActive(normalized)) return { protocol: "none", required: [], satisfied: [], missing: [], blocked: [] };
   return {
-    protocol: protocol.kind,
-    required: protocol.requiredTools,
-    satisfied: protocol.satisfiedTools,
-    missing: missingRequiredTools(protocol),
-    blocked: protocol.blockedTools.map((tool) => `${tool.toolName}: ${tool.reason}`),
+    protocol: normalized.kind,
+    required: normalized.requiredTools,
+    satisfied: normalized.satisfiedTools,
+    missing: missingRequiredTools(normalized),
+    blocked: normalized.blockedTools.map((tool) => `${tool.toolName}: ${tool.reason}`),
   };
 }

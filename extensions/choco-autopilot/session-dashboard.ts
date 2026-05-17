@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { currentBranch, listWorktrees, statusSummary } from "./git-runtime";
+import { currentBranch, listWorktrees, repoRoot as gitRepoRoot, statusSummary } from "./git-runtime";
 import { summarizeAgentRunManifest, type AgentRunManifest } from "./agent-run-manifest";
 import { autonomyProtocolKey, summarizeAutonomyProtocol, type AutonomyProtocolKind } from "./autonomy-protocol";
 import { sessionIdFromContext, sessionScopedKey } from "./session-scope";
@@ -80,13 +80,18 @@ async function todoSummary(cwd: string, sessionId: string): Promise<string> {
   }
 }
 
+async function manifestScanRoot(cwd: string): Promise<string> {
+  return await gitRepoRoot(cwd).catch(() => cwd);
+}
+
 async function manifestSummaries(cwd: string): Promise<string[]> {
+  const root = await manifestScanRoot(cwd);
   try {
-    const groupIds = await readdir(join(cwd, ".pi", "agent-runs"));
+    const groupIds = await readdir(join(root, ".pi", "agent-runs"));
     const summaries: string[] = [];
     for (const groupId of groupIds) {
       try {
-        const manifest = JSON.parse(await readFile(join(cwd, ".pi", "agent-runs", groupId, "manifest.json"), "utf8")) as AgentRunManifest;
+        const manifest = JSON.parse(await readFile(join(root, ".pi", "agent-runs", groupId, "manifest.json"), "utf8")) as AgentRunManifest;
         summaries.push(summarizeAgentRunManifest(manifest).split("\n")[0]);
       } catch {
         summaries.push(`${groupId}: unreadable manifest`);

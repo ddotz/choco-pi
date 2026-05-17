@@ -31,7 +31,7 @@ describe("branch switch guard", () => {
   it("blocks unsafe git branch names before running git switch", async () => {
     const fixture = await createGitFixture();
     try {
-      for (const targetBranch of ["foo..bar", "foo@{bar", "bad branch", "feature/trailing.", "feature/"]) {
+      for (const targetBranch of ["foo..bar", "foo@{bar", "bad branch", "feature/trailing.", "feature/", "-bad", "feature/bad.lock"]) {
         const result = await runBranchSwitchGuard({ targetBranch }, { cwd: fixture.repoRoot });
         expect(result.ok).toBe(false);
         expect(result.action).toBe("blocked");
