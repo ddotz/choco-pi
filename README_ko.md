@@ -119,6 +119,8 @@ Execution intensity는 프로세스의 무게를 정하는 값입니다. 현재 
 | `agent_orchestrator` | `agent-orchestrator-tool.ts` | manifest 기반 병렬 agent run을 시작, dispatch, 상태 갱신, 요약, 종료합니다. |
 | `integration_verifier` | `integration-verifier-tool.ts` | manifest 기반 병렬 lane의 최종 통합 검증을 실행하고 완료 전 evidence를 제공합니다. |
 | `mode_scaffold` | `mode-scaffold-tool.ts` | 격리 work mode를 위한 planned 또는 implementation-stub 파일을 생성합니다. |
+
+Active lane write enforcement는 main extension hook에서 동작하며, bash post-diff scope violation도 기록합니다. 사용자-facing tool로 별도 노출하지 않습니다.
 | `reload_runtime` | `runtime-reload.ts` | Pi 런타임 리소스를 직접 reload하거나 tmux self-input fallback으로 reload합니다. |
 | `todo` | `todo-widget.ts` | 세션 또는 프로젝트 todo 파일을 관리합니다. |
 | `grep`, `find`, `multi_grep` | `fff-search/index.ts` | FFF 기반으로 파일과 내용을 검색합니다. |

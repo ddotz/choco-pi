@@ -11,6 +11,9 @@ describe("commit hygiene", () => {
   it("excludes superpowers runtime artifacts, private files, secrets, and unnecessary dotfiles", () => {
     expect(shouldIncludeInCommit("docs/superpowers/plans/temp.md")).toBe(false);
     expect(shouldIncludeInCommit(".superpowers/session.json")).toBe(false);
+    expect(shouldIncludeInCommit(".pi/agent-runs/group-a/manifest.json")).toBe(false);
+    expect(shouldIncludeInCommit(".pi/sessions/session-a/todos.json")).toBe(false);
+    expect(shouldIncludeInCommit(".pi/todos.json")).toBe(false);
     expect(shouldIncludeInCommit(".env")).toBe(false);
     expect(shouldIncludeInCommit("private-notes.md")).toBe(false);
     expect(shouldIncludeInCommit(".DS_Store")).toBe(false);
@@ -22,6 +25,7 @@ describe("commit hygiene", () => {
     expect(classifyCommitPath("docs/superpowers/plans/a.md").kind).toBe("superpowers-artifact");
     expect(classifyCommitPath(".env.local").kind).toBe("secret-or-private");
     expect(classifyCommitPath(".cache/tmp").kind).toBe("unnecessary-dotfile");
+    expect(classifyCommitPath(".pi/agent-runs/group-a/manifest.json").kind).toBe("generated-or-cache");
     expect(classifyCommitPath("src/index.ts").kind).toBe("allowed");
   });
 
@@ -59,6 +63,7 @@ describe("commit hygiene", () => {
 
     const guidance = buildCommitHygieneGuidance();
 
+    expect(guidance).toContain(".pi/agent-runs");
     expect(guidance).toContain("Commit and push autonomously");
     expect(guidance).toContain("Do not treat git push as deployment");
     expect(guidance).toContain("no bump");

@@ -1,3 +1,6 @@
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { StringEnum } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Container } from "@mariozechner/pi-tui";
@@ -96,6 +99,40 @@ function ensureTurn(state: DynamicSddState, sessionId = FALLBACK_SESSION_ID): Dy
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function agentDir(): string {
+  return process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent");
+}
+
+function specPersistenceEnabled(): boolean {
+  return Boolean(process.env.PI_CODING_AGENT_DIR) || process.env.NODE_ENV !== "test";
+}
+
+function persistedSpecPath(sessionId = FALLBACK_SESSION_ID): string {
+  return join(agentDir(), "choco-pi", "dynamic-sdd", `${dynamicSddSessionKey(sessionId)}.json`);
+}
+
+async function restorePersistedTurn(state: DynamicSddState, sessionId = FALLBACK_SESSION_ID): Promise<void> {
+  if (!specPersistenceEnabled()) return;
+  try {
+    const turn = JSON.parse(await readFile(persistedSpecPath(sessionId), "utf8")) as DynamicSddTurnState;
+    state.turns[dynamicSddSessionKey(sessionId)] = {
+      workingSpec: turn.workingSpec,
+      deltas: Array.isArray(turn.deltas) ? turn.deltas : [],
+      snapshots: Array.isArray(turn.snapshots) ? turn.snapshots : [],
+    };
+    state.current = state.turns[dynamicSddSessionKey(sessionId)];
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") await rm(persistedSpecPath(sessionId), { force: true });
+  }
+}
+
+async function persistTurn(turn: DynamicSddTurnState, sessionId = FALLBACK_SESSION_ID): Promise<void> {
+  if (!specPersistenceEnabled()) return;
+  const path = persistedSpecPath(sessionId);
+  await mkdir(join(path, ".."), { recursive: true });
+  await writeFile(path, `${JSON.stringify(turn, null, 2)}\n`, "utf8");
 }
 
 function normalizeItems(values: unknown): string[] {
@@ -300,7 +337,10 @@ export function createSpecGateTool(state: DynamicSddState): ToolDefinition<typeo
     parameters: SpecGateParams,
     renderShell: "self",
     async execute(_toolCallId: string, params: SpecGateToolInput, _signal: AbortSignal | undefined, _onUpdate: undefined, ctx: ExtensionContext) {
-      const result = recordSpecGateAction(state, params, sessionIdFromContext(ctx));
+      const sessionId = sessionIdFromContext(ctx);
+      await restorePersistedTurn(state, sessionId);
+      const result = recordSpecGateAction(state, params, sessionId);
+      await persistTurn(result.state, sessionId);
       return {
         content: [{ type: "text", text: result.text }],
         details: { ok: result.ok, reason: result.reason, state: result.state },
@@ -318,7 +358,8 @@ export function createSpecGateTool(state: DynamicSddState): ToolDefinition<typeo
 export function installDynamicSdd(pi: Pick<ExtensionAPI, "on" | "registerTool">): void {
   const state = createDynamicSddState();
   pi.registerTool(createSpecGateTool(state));
-  pi.on("before_agent_start", (_event, ctx) => {
+  pi.on("before_agent_start", async (_event, ctx) => {
     startDynamicSddTurn(state, sessionIdFromContext(ctx));
+    await restorePersistedTurn(state, sessionIdFromContext(ctx));
   });
 }

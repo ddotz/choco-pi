@@ -10,7 +10,7 @@ This README describes implemented behavior only. It is based on `package.json`, 
 
 ## Status
 
-- Current package version: `0.14.4`.
+- Current package version: `0.14.5`.
 - License field: `UNLICENSED`.
 - Package manager: `pnpm@10.29.3`.
 - Main peer runtime: `@earendil-works/pi-coding-agent`.
@@ -121,6 +121,8 @@ Execution intensity is a process-weight setting. The implemented values are `mic
 | `agent_orchestrator` | `agent-orchestrator-tool.ts` | Start, dispatch, update, summarize, and close manifest-backed parallel agent runs. |
 | `integration_verifier` | `integration-verifier-tool.ts` | Run final integration verification for manifest-backed parallel lanes before completion. |
 | `mode_scaffold` | `mode-scaffold-tool.ts` | Generate planned or implementation-stub files for isolated work modes. |
+
+Runtime lane enforcement also guards active-lane writes and records bash post-diff scope violations; it is installed through the main extension hook rather than exposed as a user-facing tool.
 | `reload_runtime` | `runtime-reload.ts` | Reload Pi runtime resources directly or through tmux self-input fallback. |
 | `todo` | `todo-widget.ts` | Manage session or project todo files. |
 | `grep`, `find`, `multi_grep` | `fff-search/index.ts` | Search files and content through FFF-backed tools. |

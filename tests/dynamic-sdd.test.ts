@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import chocoAutopilot from "../extensions/choco-autopilot/index";
 
@@ -193,6 +196,42 @@ describe("dynamic SDD spec_gate tool", () => {
     const listed = await tool.execute("3", { action: "list" }, undefined, undefined, { cwd: "/repo" });
     expect(listed.content[0].text).toContain("Persist specs across sessions later.");
     expect(listed.content[0].text).not.toContain("Scope:\n- spec_gate tool\n- persistent spec history");
+  });
+
+  it("restores a persisted working spec after extension reload", async () => {
+    const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
+    const previousNodeEnv = process.env.NODE_ENV;
+    const agentDir = await mkdtemp(join(tmpdir(), "choco-pi-sdd-persist-"));
+    process.env.PI_CODING_AGENT_DIR = agentDir;
+    process.env.NODE_ENV = "test";
+    try {
+      const firstTool = registeredTools().get("spec_gate")!;
+      await firstTool.execute(
+        "start",
+        {
+          action: "start",
+          objective: "Persist SDD",
+          scope: ["persisted spec"],
+          acceptanceCriteria: ["reload restores spec"],
+          testStrategy: ["vitest reload simulation"],
+        },
+        undefined,
+        undefined,
+        ctx("persist-session"),
+      );
+
+      const secondTool = registeredTools().get("spec_gate")!;
+      const listed = await secondTool.execute("list", { action: "list" }, undefined, undefined, ctx("persist-session"));
+
+      expect(listed.content[0].text).toContain("Persist SDD");
+      expect(listed.content[0].text).toContain("reload restores spec");
+    } finally {
+      if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+      else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
+      if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previousNodeEnv;
+      await rm(agentDir, { recursive: true, force: true });
+    }
   });
 
   it("keeps working specs isolated by Pi session id", async () => {
