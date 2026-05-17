@@ -30,6 +30,14 @@ function installLegacyBlankLineFilterPatch(): void {
   Reflect.deleteProperty(prototype, Symbol.for("choco.focus-rendering.result-renderer-patch-version"));
 }
 
+function installStaleVersionSevenOverwidePatch(): void {
+  const prototype = ToolExecutionComponent.prototype;
+  prototype.render = function staleVersionSevenRender(width: number): string[] {
+    return ["", `stale-overwide-${"x".repeat(width + 20)}`];
+  };
+  Reflect.set(prototype, Symbol.for("choco.focus-rendering.render-patch-version"), 7);
+}
+
 async function setupFocusExtension(): Promise<{
   handlers: Map<string, EventHandler[]>;
 }> {
@@ -73,6 +81,32 @@ beforeAll(() => {
 });
 
 describe("focus rendering", () => {
+  it("upgrades stale version-7 focus patches on reload so old render closures cannot survive", async () => {
+    installStaleVersionSevenOverwidePatch();
+    await setupFocusExtension();
+
+    const width = 40;
+    const visibleTool = {
+      name: "visible",
+      label: "Visible",
+      description: "visible tool",
+      parameters: Type.Object({}),
+      async execute() {
+        return { content: [], details: undefined };
+      },
+      renderCall() {
+        return new Text(`visible-${"x".repeat(80)}`, 0, 0);
+      },
+    };
+
+    const visibleBlock = new ToolExecutionComponent("visible", "visible-stale-version", {}, {}, visibleTool, ui() as never, "/repo");
+    const lines = visibleBlock.render(width);
+
+    expect(lines.join("\n")).not.toContain("stale-overwide");
+    expect(lines.some((line) => line.includes("visible"))).toBe(true);
+    expect(lines.every((line) => visibleWidth(line) <= width)).toBe(true);
+  });
+
   it("upgrades legacy focus patches on reload so visible tool blocks keep one external spacer and regain inner padding", async () => {
     installLegacyBlankLineFilterPatch();
     await setupFocusExtension();
@@ -290,6 +324,37 @@ describe("focus rendering", () => {
     const lines = block.render(width).flatMap((line) => line.split("\n"));
 
     expect(lines.some((line) => line.includes("Found 2 occurrences"))).toBe(true);
+    expect(lines.every((line) => visibleWidth(line) <= width)).toBe(true);
+  });
+
+  it("caps every tool execution line after custom renderers run", async () => {
+    await setupFocusExtension();
+
+    const width = 40;
+    const overwideLine = `custom-renderer-${"x".repeat(80)}`;
+    expect(visibleWidth(overwideLine)).toBeGreaterThan(width);
+
+    const overwideTool = {
+      name: "overwide",
+      label: "Overwide",
+      description: "emits an overwide custom TUI line",
+      parameters: Type.Object({}),
+      renderShell: "self" as const,
+      renderCall() {
+        return {
+          render: () => [overwideLine],
+          invalidate: () => {},
+        };
+      },
+      async execute() {
+        return { content: [], details: undefined };
+      },
+    };
+
+    const block = new ToolExecutionComponent("overwide", "overwide-1", {}, {}, overwideTool, ui() as never, "/repo");
+    const lines = block.render(width).flatMap((line) => line.split("\n"));
+
+    expect(lines.some((line) => line.includes("custom-renderer"))).toBe(true);
     expect(lines.every((line) => visibleWidth(line) <= width)).toBe(true);
   });
 

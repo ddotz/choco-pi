@@ -2,7 +2,7 @@ import { existsSync, realpathSync } from "node:fs";
 import { sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { ExtensionAPI, Theme, ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth } from "@mariozechner/pi-tui";
+import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 const ESC = String.fromCharCode(27);
 const ANSI_PATTERN = new RegExp(`${ESC}\\[[0-?]*[ -/]*[@-~]`, "g");
@@ -11,7 +11,7 @@ const RENDER_PATCH_VERSION_KEY = Symbol.for("choco.focus-rendering.render-patch-
 const RESULT_RENDERER_PATCH_VERSION_KEY = Symbol.for("choco.focus-rendering.result-renderer-patch-version");
 const UPDATE_DISPLAY_PATCH_VERSION_KEY = Symbol.for("choco.focus-rendering.update-display-patch-version");
 const INTERNAL_SPACER_COMPONENT = Symbol.for("choco.focus-rendering.internal-spacer-component");
-const RENDER_PATCH_VERSION = 7;
+const RENDER_PATCH_VERSION = 8;
 
 type RenderableComponent = {
   render(width: number): string[];
@@ -181,7 +181,7 @@ class FocusResultComponent implements RenderableComponent {
 
     const lines = formatFocusResultLines(this.state.result, this.state.theme, this.state.isError);
     for (const line of innerLines.filter(isRendererFooterLine)) appendUniqueLine(lines, this.state.theme.fg("muted", line));
-    return lines.map((line) => truncateToWidth(line, width));
+    return capRenderedLines(lines, width);
   }
 }
 
@@ -248,6 +248,16 @@ function normalizeToolBlockLines(lines: string[]): string[] {
   return ["", ...contentLines];
 }
 
+function capRenderedLine(line: string, width: number): string {
+  const safeWidth = Math.max(0, Math.floor(width));
+  if (safeWidth === 0) return "";
+  return visibleWidth(line) > safeWidth ? truncateToWidth(line, safeWidth) : line;
+}
+
+function capRenderedLines(lines: string[], width: number): string[] {
+  return lines.flatMap((line) => line.split("\n")).map((line) => capRenderedLine(line, width));
+}
+
 function patchToolExecutionPrototype(prototype: ToolExecutionPrototype, basePrototype?: ToolExecutionPrototype): boolean {
   let patched = false;
 
@@ -264,7 +274,7 @@ function patchToolExecutionPrototype(prototype: ToolExecutionPrototype, baseProt
   if (Reflect.get(prototype, RENDER_PATCH_VERSION_KEY) !== RENDER_PATCH_VERSION) {
     const baseRender = basePrototype?.render ?? prototype.render;
     prototype.render = function renderWithSingleExternalToolSpacer(this: ToolExecutionPrototype, width: number): string[] {
-      return normalizeToolBlockLines(baseRender.call(this, width));
+      return capRenderedLines(normalizeToolBlockLines(baseRender.call(this, width)), width);
     };
     Reflect.set(prototype, RENDER_PATCH_VERSION_KEY, RENDER_PATCH_VERSION);
     patched = true;
