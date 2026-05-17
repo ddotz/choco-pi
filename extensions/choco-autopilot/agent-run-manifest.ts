@@ -34,6 +34,7 @@ export interface AgentLaneManifest {
   blockedByLaneIds: string[];
   status: AgentLaneStatus;
   verificationCommands: string[];
+  verificationEvidence?: string;
   changedFiles: string[];
   writable: boolean;
   lastCommit?: string;

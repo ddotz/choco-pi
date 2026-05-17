@@ -61,6 +61,23 @@ describe("agent orchestrator", () => {
     expect(result.blockers.join("\n")).toContain("serial lane cannot be dispatched as a parallel handoff");
   });
 
+  it("marks dispatched lanes running so repeated dispatch does not duplicate handoffs", async () => {
+    const root = await tempRepoRoot();
+    const plan = planParallelWorkAreas({ items: [{ id: "review", description: "Review docs", files: ["README.md"], write: false }] });
+    await runAgentOrchestrator({ action: "start", repoRoot: root, groupId: "group-a", baseRef: "main", plan });
+
+    const first = await runAgentOrchestrator({ action: "dispatch", repoRoot: root, groupId: "group-a" });
+    const second = await runAgentOrchestrator({ action: "dispatch", repoRoot: root, groupId: "group-a" });
+    const manifest = await loadAgentRunManifest(root, "group-a");
+
+    expect(first.ok).toBe(true);
+    expect(first.handoffPrompts).toHaveLength(1);
+    expect(manifest.status).toBe("running");
+    expect(manifest.lanes[0].status).toBe("running");
+    expect(second.ok).toBe(true);
+    expect(second.handoffPrompts).toEqual([]);
+  });
+
   it("dispatches read-only lanes with a handoff prompt", async () => {
     const root = await tempRepoRoot();
     const plan = planParallelWorkAreas({ items: [{ id: "review", description: "Review docs", files: ["README.md"], write: false }] });
@@ -101,5 +118,6 @@ describe("agent orchestrator", () => {
     expect(blocked.blockers.join("\n")).toContain("evidence or verificationCommands is required");
     expect(verified.ok).toBe(true);
     expect(manifest.lanes[0].status).toBe("verified");
+    expect(manifest.lanes[0].verificationEvidence).toBe("pnpm test passed");
   });
 });

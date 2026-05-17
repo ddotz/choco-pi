@@ -6,8 +6,9 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { loadAgentRunManifest, updateAgentRunManifest, type AgentRunManifest } from "./agent-run-manifest";
 import { classifyApprovalBoundaryCommand, formatApprovalBoundaryBlock } from "./approval-boundary";
-import { execGit, statusSummary } from "./git-runtime";
+import { execGit, listWorktrees, statusSummary } from "./git-runtime";
 import { normalizeGroupId, safeJoinWithin } from "./safe-identifiers";
+import { normalizeWorktreePath, pathExists } from "./worktree-runtime";
 
 const execAsync = promisify(exec);
 
@@ -79,9 +80,30 @@ async function addPreflightBlockers(result: IntegrationVerifierResult, manifest:
   }
 }
 
+function verificationCommandBlocker(command: string): string | undefined {
+  const trimmed = command.trim();
+  if (!trimmed) return "verification command is empty.";
+  const boundary = classifyApprovalBoundaryCommand(trimmed);
+  if (boundary) return formatApprovalBoundaryBlock(boundary);
+  if (/[;&|`$<>]/.test(trimmed)) return "verification command is not allowlisted: shell metacharacters are blocked.";
+  const tokens = trimmed.split(/\s+/);
+  const safeToken = (token: string) => /^[A-Za-z0-9_@%+=:,./~:-]+$/.test(token) && token !== "." && token !== "..";
+  if (!tokens.every(safeToken)) return "verification command is not allowlisted: unsupported token.";
+  if (tokens[0] === "git" && tokens.length === 3 && tokens[1] === "status" && tokens[2] === "--short") return undefined;
+  if (tokens[0] === "git" && tokens.length === 3 && tokens[1] === "diff" && tokens[2] === "--check") return undefined;
+  if (tokens[0] === "pnpm") {
+    let index = 1;
+    if (tokens[index] === "--dir" && tokens[index + 1]) index += 2;
+    const allowedScripts = new Set(["version:check", "lint", "typecheck", "test", "check"]);
+    if (tokens[index] === "run" && allowedScripts.has(tokens[index + 1] ?? "")) return undefined;
+    if (tokens[index] === "test") return undefined;
+  }
+  return "verification command is not allowlisted.";
+}
+
 async function runVerificationCommand(command: string, cwd: string): Promise<IntegrationVerifierResult["verificationResults"][number]> {
-  const boundary = classifyApprovalBoundaryCommand(command);
-  if (boundary) return { command, status: "blocked", evidence: formatApprovalBoundaryBlock(boundary) };
+  const blocker = verificationCommandBlocker(command);
+  if (blocker) return { command, status: "blocked", evidence: blocker };
   try {
     const output = await execAsync(command, { cwd, shell: "/bin/bash", timeout: 120_000 });
     return { command, status: "passed", evidence: `${output.stdout}${output.stderr}`.trim().slice(0, 1000) };
@@ -91,10 +113,39 @@ async function runVerificationCommand(command: string, cwd: string): Promise<Int
   }
 }
 
+async function removeExistingIntegrationPath(manifest: AgentRunManifest, result: IntegrationVerifierResult): Promise<boolean> {
+  const path = result.integrationWorktreePath!;
+  const normalized = normalizeWorktreePath(path);
+  const registered = (await listWorktrees(manifest.repoRoot)).find((worktree) => normalizeWorktreePath(worktree.path) === normalized);
+  if (registered) {
+    let dirty = true;
+    try {
+      dirty = (await statusSummary(path)).dirty;
+    } catch (error) {
+      result.blockers.push(`integration worktree status check failed: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+    if (dirty) {
+      result.blockers.push(`dirty integration worktree exists: ${path}`);
+      return false;
+    }
+    const args = ["worktree", "remove", path];
+    result.commands.push(["git", ...args].join(" "));
+    const removed = await execGit(manifest.repoRoot, args);
+    if (removed.code !== 0) {
+      result.blockers.push(`integration worktree remove failed: ${removed.stderr.trim() || removed.stdout.trim() || removed.code}`);
+      return false;
+    }
+    return true;
+  }
+  if (await pathExists(path)) await rm(path, { recursive: true, force: true });
+  return true;
+}
+
 async function createIntegrationWorktree(params: IntegrationVerifierParams, manifest: AgentRunManifest, result: IntegrationVerifierResult): Promise<boolean> {
   const baseRef = params.baseRef || manifest.baseRef || "HEAD";
   const path = result.integrationWorktreePath!;
-  await rm(path, { recursive: true, force: true });
+  if (!await removeExistingIntegrationPath(manifest, result)) return false;
   await mkdir(dirname(path), { recursive: true });
   const args = ["worktree", "add", "-B", result.integrationBranch!, path, baseRef];
   result.commands.push(["git", ...args].join(" "));

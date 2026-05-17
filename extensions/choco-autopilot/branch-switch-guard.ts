@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { currentBranch, execGit, hasBranch, listWorktrees, repoRoot as gitRepoRoot, statusSummary } from "./git-runtime";
+import { assertSafeBranchName } from "./safe-identifiers";
 
 export interface BranchSwitchGuardParams {
   repoRoot?: string;
@@ -53,10 +54,6 @@ function normalizePath(path: string): string {
   return path.replace(/\\+/g, "/").replace(/\/+$/, "");
 }
 
-function isUnsafeBranchName(branch: string): boolean {
-  return !branch.trim() || branch.trim().startsWith("-") || branch.includes("\0");
-}
-
 function blockedResult(base: Omit<BranchSwitchGuardResult, "ok" | "action">): BranchSwitchGuardResult {
   return { ...base, ok: false, action: "blocked" };
 }
@@ -74,21 +71,21 @@ export async function runBranchSwitchGuard(
   context: BranchSwitchGuardContext = {},
 ): Promise<BranchSwitchGuardResult> {
   const cwd = params.repoRoot?.trim() || context.cwd || process.cwd();
-  const targetBranch = params.targetBranch.trim();
   const commands: string[] = [];
   const blockers: string[] = [];
   const occupiedBy: BranchSwitchGuardResult["occupiedBy"] = [];
   let detachedOtherWorktree = false;
-
-  if (isUnsafeBranchName(targetBranch)) {
-    const fallbackRoot = cwd;
+  let targetBranch: string;
+  try {
+    targetBranch = assertSafeBranchName(params.targetBranch, "targetBranch");
+  } catch (error) {
     return blockedResult({
-      repoRoot: fallbackRoot,
+      repoRoot: cwd,
       cwd,
-      targetBranch,
+      targetBranch: params.targetBranch.trim(),
       occupiedBy,
       detachedOtherWorktree,
-      blockers: ["targetBranch must be a non-empty branch name and must not start with '-'."],
+      blockers: [error instanceof Error ? error.message : String(error)],
       commands,
     });
   }

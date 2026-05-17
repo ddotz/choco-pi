@@ -2,6 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { updateAgentLaneStatus } from "./agent-run-manifest";
 import { currentBranch, execGit, hasBranch, listWorktrees, repoRoot as gitRepoRoot, statusSummary, type GitWorktreeInfo } from "./git-runtime";
+import { assertSafeBranchName } from "./safe-identifiers";
 import { normalizeWorktreePath, pathExists, resolveWorktreePlan } from "./worktree-runtime";
 
 export type WorktreeManageAction = "plan" | "create" | "list" | "status" | "handoff" | "merge_ready" | "remove";
@@ -126,6 +127,13 @@ export async function runWorktreeManage(
     homeDir: context.homeDir,
   });
   const blockers = [...rootBlockers, ...missingPlanBlockers(input.action, plan.branchName, plan.path)];
+  if (plan.branchName) {
+    try {
+      plan.branchName = assertSafeBranchName(plan.branchName, "branchName");
+    } catch (error) {
+      blockers.push(error instanceof Error ? error.message : String(error));
+    }
+  }
   const commands: string[] = [];
   const base = (): Omit<WorktreeManageResult, "ok"> => ({
     action: input.action,

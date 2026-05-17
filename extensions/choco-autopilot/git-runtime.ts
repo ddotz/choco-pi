@@ -28,7 +28,11 @@ export interface GitStatusSummary {
 
 export interface GitExecOptions {
   env?: NodeJS.ProcessEnv;
+  timeoutMs?: number;
+  signal?: AbortSignal;
 }
+
+const DEFAULT_GIT_TIMEOUT_MS = 30_000;
 
 export async function execGit(cwd: string, args: string[], options: GitExecOptions = {}): Promise<GitExecResult> {
   const command = ["git", ...args];
@@ -40,6 +44,22 @@ export async function execGit(cwd: string, args: string[], options: GitExecOptio
     });
     let stdout = "";
     let stderr = "";
+    let settled = false;
+    let timer: NodeJS.Timeout | undefined;
+
+    const finish = (result: GitExecResult): void => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      options.signal?.removeEventListener("abort", onAbort);
+      resolve(result);
+    };
+
+    const onAbort = (): void => {
+      child.kill("SIGTERM");
+      finish({ code: 130, stdout, stderr: stderr || "git command aborted", command });
+    };
+
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => {
@@ -49,11 +69,26 @@ export async function execGit(cwd: string, args: string[], options: GitExecOptio
       stderr += chunk;
     });
     child.on("error", (error) => {
-      resolve({ code: 127, stdout, stderr: stderr || error.message, command });
+      finish({ code: 127, stdout, stderr: stderr || error.message, command });
     });
     child.on("close", (code) => {
-      resolve({ code: code ?? 1, stdout, stderr, command });
+      finish({ code: code ?? 1, stdout, stderr, command });
     });
+
+    if (options.signal?.aborted) {
+      onAbort();
+      return;
+    }
+    options.signal?.addEventListener("abort", onAbort, { once: true });
+
+    const timeoutMs = options.timeoutMs ?? DEFAULT_GIT_TIMEOUT_MS;
+    if (Number.isFinite(timeoutMs) && timeoutMs > 0) {
+      timer = setTimeout(() => {
+        child.kill("SIGTERM");
+        const suffix = `git command timed out after ${timeoutMs}ms`;
+        finish({ code: 124, stdout, stderr: stderr ? `${stderr.trimEnd()}\n${suffix}` : suffix, command });
+      }, timeoutMs);
+    }
   });
 }
 

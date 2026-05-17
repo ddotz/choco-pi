@@ -12,6 +12,8 @@ import {
 } from "./agent-run-manifest";
 import type { ParallelWorkAreaPlan } from "./worktree-planner";
 
+const FALLBACK_ACTIVE_SESSION_ID = "session-default";
+
 export type AgentOrchestratorAction =
   | "start"
   | "dispatch"
@@ -20,6 +22,8 @@ export type AgentOrchestratorAction =
   | "mark_blocked"
   | "mark_failed"
   | "mark_verified"
+  | "activate_lane"
+  | "deactivate_lane"
   | "summarize"
   | "close";
 
@@ -47,8 +51,24 @@ export interface AgentOrchestratorResult {
   manifest?: AgentRunManifest;
 }
 
+export interface ActiveLaneContext {
+  groupId: string;
+  laneId: string;
+  repoRoot: string;
+  ownedFiles: string[];
+  ownedDomains: string[];
+  executionStrategy: AgentLaneManifest["executionStrategy"];
+  readOnly: boolean;
+}
+
+export interface ActiveLaneStore {
+  activate(sessionId: string, context: ActiveLaneContext): Promise<void>;
+  deactivate(sessionId: string): Promise<void>;
+}
+
 interface AgentOrchestratorContext {
   cwd?: string;
+  sessionId?: string;
 }
 
 const AgentOrchestratorParamsSchema = Type.Object({
@@ -60,6 +80,8 @@ const AgentOrchestratorParamsSchema = Type.Object({
     Type.Literal("mark_blocked"),
     Type.Literal("mark_failed"),
     Type.Literal("mark_verified"),
+    Type.Literal("activate_lane"),
+    Type.Literal("deactivate_lane"),
     Type.Literal("summarize"),
     Type.Literal("close"),
   ]),
@@ -124,7 +146,23 @@ function resultBase(input: AgentOrchestratorParams, root: string): AgentOrchestr
   return { ok: false, action: input.action, groupId: input.groupId, repoRoot: root, blockers: [], handoffPrompts: [] };
 }
 
-export async function runAgentOrchestrator(input: AgentOrchestratorParams, context: AgentOrchestratorContext = {}): Promise<AgentOrchestratorResult> {
+function activeLaneContext(manifest: AgentRunManifest, lane: AgentLaneManifest): ActiveLaneContext {
+  return {
+    groupId: manifest.groupId,
+    laneId: lane.id,
+    repoRoot: manifest.repoRoot,
+    ownedFiles: lane.ownedFiles,
+    ownedDomains: lane.ownedDomains,
+    executionStrategy: lane.executionStrategy,
+    readOnly: !laneIsWritable(lane),
+  };
+}
+
+export async function runAgentOrchestrator(
+  input: AgentOrchestratorParams,
+  context: AgentOrchestratorContext = {},
+  activeLaneStore?: ActiveLaneStore,
+): Promise<AgentOrchestratorResult> {
   const root = rootFrom(input, context);
   const result = resultBase(input, root);
 
@@ -132,6 +170,12 @@ export async function runAgentOrchestrator(input: AgentOrchestratorParams, conte
     if (!input.plan) return { ...result, blockers: ["plan is required for start; pass the parallel_work_plan result."] };
     const manifest = await createAgentRunManifest({ repoRoot: root, groupId: input.groupId, baseRef: input.baseRef, plan: input.plan });
     return { ...result, ok: true, groupId: manifest.groupId, manifest, summary: summarizeAgentRunManifest(manifest) };
+  }
+
+  if (input.action === "deactivate_lane") {
+    if (!activeLaneStore) return { ...result, blockers: ["active lane store is unavailable."] };
+    await activeLaneStore.deactivate(context.sessionId ?? FALLBACK_ACTIVE_SESSION_ID);
+    return { ...result, ok: true, summary: "active lane deactivated" };
   }
 
   const manifest = await requireManifest(input, context);
@@ -151,6 +195,7 @@ export async function runAgentOrchestrator(input: AgentOrchestratorParams, conte
   if (input.action === "dispatch") {
     const blockers: string[] = [];
     const prompts: string[] = [];
+    const dispatchableLaneIds: string[] = [];
     for (const lane of manifest.lanes.filter((candidate) => candidate.status === "planned" || candidate.status === "created")) {
       if (lane.executionStrategy === "serial") {
         blockers.push(`${lane.id}: serial lane cannot be dispatched as a parallel handoff.`);
@@ -165,15 +210,30 @@ export async function runAgentOrchestrator(input: AgentOrchestratorParams, conte
         continue;
       }
       prompts.push(handoffPrompt(manifest, lane));
+      dispatchableLaneIds.push(lane.id);
     }
     if (blockers.length > 0) return { ...result, blockers, manifest };
     await updateAgentRunManifest(manifest.repoRoot, manifest.groupId, (draft) => {
-      draft.status = "dispatching";
+      draft.status = "running";
+      for (const lane of draft.lanes) {
+        if (dispatchableLaneIds.includes(lane.id)) {
+          lane.status = "running";
+          lane.updatedAt = new Date().toISOString();
+        }
+      }
     });
     return { ...result, ok: true, manifest: await loadAgentRunManifest(manifest.repoRoot, manifest.groupId), handoffPrompts: prompts };
   }
 
   if (!input.laneId) return { ...result, blockers: ["laneId is required for lane update actions."], manifest };
+
+  if (input.action === "activate_lane") {
+    if (!activeLaneStore) return { ...result, blockers: ["active lane store is unavailable."], manifest };
+    const lane = manifest.lanes.find((candidate) => candidate.id === input.laneId);
+    if (!lane) return { ...result, blockers: [`Unknown lane id: ${input.laneId}`], manifest };
+    await activeLaneStore.activate(context.sessionId ?? FALLBACK_ACTIVE_SESSION_ID, activeLaneContext(manifest, lane));
+    return { ...result, ok: true, manifest, summary: `active lane ${lane.id} activated` };
+  }
 
   const statusByAction: Partial<Record<AgentOrchestratorAction, AgentLaneStatus>> = {
     mark_running: "running",
@@ -188,6 +248,7 @@ export async function runAgentOrchestrator(input: AgentOrchestratorParams, conte
   }
   const patch: Partial<AgentLaneManifest> = {};
   if (input.verificationCommands) patch.verificationCommands = input.verificationCommands;
+  if (input.evidence?.trim()) patch.verificationEvidence = input.evidence.trim();
   if (input.error) patch.lastError = input.error;
   const updated = await updateAgentLaneStatus(manifest.repoRoot, manifest.groupId, input.laneId, status, patch);
   return { ...result, ok: true, manifest: updated, summary: summarizeAgentRunManifest(updated) };
@@ -203,7 +264,12 @@ export function formatAgentOrchestratorResult(result: AgentOrchestratorResult): 
   return lines.join("\n");
 }
 
-export function registerAgentOrchestratorTool(pi: ExtensionAPI): void {
+function sessionIdFromContext(ctx: unknown): string | undefined {
+  const value = ctx as { sessionId?: string; sessionManager?: { getSessionId?: () => string } } | undefined;
+  return value?.sessionId ?? value?.sessionManager?.getSessionId?.();
+}
+
+export function registerAgentOrchestratorTool(pi: ExtensionAPI, activeLaneStore?: ActiveLaneStore): void {
   pi.registerTool({
     name: "agent_orchestrator",
     label: "Agent orchestrator",
@@ -216,7 +282,7 @@ export function registerAgentOrchestratorTool(pi: ExtensionAPI): void {
     ],
     parameters: AgentOrchestratorParamsSchema,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx?: { cwd?: string }) {
-      const result = await runAgentOrchestrator(params as AgentOrchestratorParams, { cwd: ctx?.cwd });
+      const result = await runAgentOrchestrator(params as AgentOrchestratorParams, { cwd: ctx?.cwd, sessionId: sessionIdFromContext(ctx) }, activeLaneStore);
       return {
         content: [{ type: "text", text: formatAgentOrchestratorResult(result) }],
         details: { result },

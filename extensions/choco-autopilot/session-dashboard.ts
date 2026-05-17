@@ -78,7 +78,28 @@ async function worktreeSummaries(cwd: string): Promise<string[]> {
   }
 }
 
-export function registerSessionDashboardCommand(pi: Pick<ExtensionAPI, "registerCommand">): void {
+interface DashboardModeState {
+  runtime?: { workMode?: string; executionIntensity?: string };
+  sessions?: Record<string, { effectiveWorkMode?: string; executionIntensity?: string }>;
+}
+
+type DashboardStateReader = () => Promise<DashboardModeState>;
+
+async function modeSummary(readState: DashboardStateReader | undefined, sessionId: string): Promise<string> {
+  if (!readState) return "default";
+  try {
+    const state = await readState();
+    const persistent = state.runtime?.workMode ?? "default";
+    const session = state.sessions?.[sessionId];
+    const effective = session?.effectiveWorkMode ?? persistent;
+    const intensity = session?.executionIntensity ?? state.runtime?.executionIntensity ?? "standard";
+    return effective === persistent ? `${persistent}/${intensity}` : `${persistent}->${effective}/${intensity}`;
+  } catch {
+    return "default";
+  }
+}
+
+export function registerSessionDashboardCommand(pi: Pick<ExtensionAPI, "registerCommand">, readState?: DashboardStateReader): void {
   pi.registerCommand("sessions", {
     description: "Show session, branch, todo, ledger, manifest, and worktree status",
     handler: async (_args: string, ctx: ExtensionCommandContext) => {
@@ -88,7 +109,7 @@ export function registerSessionDashboardCommand(pi: Pick<ExtensionAPI, "register
         sessionId,
         cwd,
         branch: await currentBranch(cwd).catch(() => null),
-        mode: "default",
+        mode: await modeSummary(readState, sessionId),
         todos: await todoSummary(cwd, sessionId),
         ledger: "see /ledger for detailed context ledger",
         manifests: await manifestSummaries(cwd),

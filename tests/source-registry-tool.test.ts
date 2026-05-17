@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import chocoAutopilot from "../extensions/choco-autopilot/index";
+import chocoAutopilot, { updateState } from "../extensions/choco-autopilot/index";
 
 interface RegisteredTool {
   name: string;
@@ -32,7 +32,7 @@ async function useTempAgentDir(): Promise<void> {
   process.env.PI_CODING_AGENT_DIR = tempAgentDir;
 }
 
-function registeredHarness(): { tools: Map<string, RegisteredTool>; commands: Map<string, RegisteredCommand> } {
+function registeredHarness(exec = vi.fn()): { tools: Map<string, RegisteredTool>; commands: Map<string, RegisteredCommand> } {
   const tools = new Map<string, RegisteredTool>();
   const commands = new Map<string, RegisteredCommand>();
   chocoAutopilot({
@@ -45,10 +45,22 @@ function registeredHarness(): { tools: Map<string, RegisteredTool>; commands: Ma
     },
     sendUserMessage: vi.fn(),
     sendMessage: vi.fn(),
-    exec: vi.fn(),
+    exec,
     getFlag: vi.fn(),
   } as never);
   return { tools, commands };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForExec(exec: ReturnType<typeof vi.fn>): Promise<void> {
+  for (let index = 0; index < 50; index += 1) {
+    if (exec.mock.calls.length > 0) return;
+    await sleep(10);
+  }
+  throw new Error("exec was not called");
 }
 
 function registeredTools(): Map<string, RegisteredTool> {
@@ -107,6 +119,28 @@ describe("source registry tool", () => {
       id: "github-example-missing",
       review: "Should not silently succeed.",
     }, undefined, undefined, { cwd: "/repo" })).rejects.toThrow("Unknown source id");
+  });
+
+  it("does not hold the choco state lock while external source checks are running", async () => {
+    await useTempAgentDir();
+    let releaseExec: ((value: { code: number; stdout: string; stderr: string }) => void) | undefined;
+    const exec = vi.fn(() => new Promise<{ code: number; stdout: string; stderr: string }>((resolve) => {
+      releaseExec = resolve;
+    }));
+    const { tools } = registeredHarness(exec);
+    const tool = tools.get("source_registry")!;
+    await tool.execute("add", { action: "add", url: "https://github.com/example/upstream-utility" }, undefined, undefined, { cwd: "/repo" });
+
+    const checkPromise = tool.execute("check", { action: "check", target: "all" }, undefined, undefined, { cwd: "/repo" });
+    await waitForExec(exec);
+    const updatePromise = updateState((state) => {
+      state.memories.push({ id: "decision-test", kind: "decision", text: "state lock stayed free", createdAt: "2026-05-17T00:00:00.000Z" });
+      return "updated";
+    });
+
+    await expect(Promise.race([updatePromise, sleep(150).then(() => "blocked")])).resolves.toBe("updated");
+    releaseExec?.({ code: 0, stdout: "abc123\tHEAD\n", stderr: "" });
+    await checkPromise;
   });
 
   it("reports unknown source ids through the /source command instead of claiming success", async () => {

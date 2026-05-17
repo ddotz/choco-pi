@@ -50,6 +50,25 @@ describe("worktree_manage tool", () => {
     }
   });
 
+  it("blocks unsafe branch names before creating a worktree", async () => {
+    const fixture = await createGitFixture();
+    const path = await tempWorktreePath();
+    try {
+      const result = await runWorktreeManage({
+        action: "create",
+        repoRoot: fixture.repoRoot,
+        branchName: "feature/bad..branch",
+        path,
+      }, { cwd: fixture.repoRoot });
+
+      expect(result.ok).toBe(false);
+      expect(result.blockers.join("\n")).toContain("branchName");
+      expect(result.commands).toEqual([]);
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("creates, lists, reports status for, and removes a clean worktree", async () => {
     const fixture = await createGitFixture();
     const path = await tempWorktreePath();
@@ -98,13 +117,15 @@ describe("worktree_manage tool", () => {
         baseRef: "main",
         path,
       }, { cwd: fixture.repoRoot });
+      const manifestAfterCreate = await loadAgentRunManifest(fixture.repoRoot, "group-a");
       const dispatched = await runAgentOrchestrator({ action: "dispatch", repoRoot: fixture.repoRoot, groupId: "group-a" });
-      const manifest = await loadAgentRunManifest(fixture.repoRoot, "group-a");
+      const manifestAfterDispatch = await loadAgentRunManifest(fixture.repoRoot, "group-a");
 
       expect(created.ok).toBe(true);
-      expect(manifest.lanes[0]).toMatchObject({ status: "created", worktreePath: path, branchName: "session/test/manifest-link" });
+      expect(manifestAfterCreate.lanes[0]).toMatchObject({ status: "created", worktreePath: path, branchName: "session/test/manifest-link" });
       expect(dispatched.ok).toBe(true);
       expect(dispatched.handoffPrompts.join("\n")).toContain(path);
+      expect(manifestAfterDispatch.lanes[0].status).toBe("running");
     } finally {
       await fixture.cleanup();
     }

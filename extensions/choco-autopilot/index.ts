@@ -39,7 +39,7 @@ import {
   type RuntimeState,
   type WorkMode,
 } from "./mode";
-import { registerAgentOrchestratorTool } from "./agent-orchestrator-tool";
+import { registerAgentOrchestratorTool, type ActiveLaneContext } from "./agent-orchestrator-tool";
 import { registerBranchSwitchGuardTool } from "./branch-switch-guard";
 import { registerParallelWorkPlanTool } from "./parallel-work-plan-tool";
 import {
@@ -124,9 +124,10 @@ export interface SessionRuntimeState {
 }
 
 export interface ChocoState {
-  version: 4;
+  version: 5;
   runtime: RuntimeState;
   sessions: Record<string, SessionRuntimeState>;
+  activeLanes: Record<string, ActiveLaneContext & { activatedAt: string }>;
   memories: StoredMemory[];
   ledgers: Record<string, ContextLedger>;
   sourceRegistry: SourceRegistry;
@@ -134,7 +135,7 @@ export interface ChocoState {
   autoUpdate: AutoUpdateState;
 }
 
-const STATE_VERSION = 4 as const;
+const STATE_VERSION = 5 as const;
 const WEB_REPAIR_PROMPT_MARKER = "내부 web-analysis 품질 보강이 필요합니다.";
 const ADOPTION_REPAIR_PROMPT_MARKER = "내부 adoption-analysis 품질 보강이 필요합니다.";
 const CODING_REPAIR_PROMPT_MARKER = "내부 coding 품질 보강이 필요합니다.";
@@ -200,6 +201,7 @@ function emptyState(): ChocoState {
     version: STATE_VERSION,
     runtime: createRuntimeState(DEFAULT_WORK_MODE, DEFAULT_EXECUTION_INTENSITY),
     sessions: {},
+    activeLanes: {},
     memories: [],
     ledgers: {},
     sourceRegistry: createSourceRegistry(),
@@ -227,6 +229,7 @@ async function loadStateUnlocked(): Promise<ChocoState> {
       version: STATE_VERSION,
       runtime: migrateLegacyMode(parsed),
       sessions: parsed.sessions && typeof parsed.sessions === "object" ? parsed.sessions : {},
+      activeLanes: parsed.activeLanes && typeof parsed.activeLanes === "object" ? parsed.activeLanes : {},
       memories: Array.isArray(parsed.memories) ? parsed.memories : [],
       ledgers: parsed.ledgers && typeof parsed.ledgers === "object" ? parsed.ledgers : {},
       sourceRegistry: parsed.sourceRegistry?.sources ? parsed.sourceRegistry : createSourceRegistry(),
@@ -399,6 +402,15 @@ async function selectWorkMode(state: ChocoState, ctx: ExtensionCommandContext): 
   await setWorkMode(workMode, ctx);
 }
 
+interface SourceCheckOutcome {
+  id: string;
+  label: string;
+  checkedAt: Date;
+  ok: boolean;
+  message: string;
+  ref?: string;
+}
+
 async function checkSource(pi: ExtensionAPI, source: ExternalSource): Promise<{ id: string; ok: boolean; message: string; ref?: string }> {
   const remote = gitRemoteUrlForSource(source);
   if (!remote) {
@@ -414,30 +426,46 @@ async function checkSource(pi: ExtensionAPI, source: ExternalSource): Promise<{ 
   return { id: source.id, ok: true, message: `HEAD ${ref.slice(0, 12)}`, ref };
 }
 
-async function checkSources(pi: ExtensionAPI, state: ChocoState, sources: ExternalSource[]): Promise<string[]> {
-  const messages: string[] = [];
+async function checkSources(pi: ExtensionAPI, sources: ExternalSource[]): Promise<SourceCheckOutcome[]> {
+  const outcomes: SourceCheckOutcome[] = [];
   for (const source of sources) {
     const checkedAt = new Date();
     try {
       const result = await checkSource(pi, source);
-      state.sourceRegistry = updateSourceCheckResult(state.sourceRegistry, source.id, {
+      outcomes.push({
+        id: source.id,
+        label: source.label,
         checkedAt,
-        upstreamRef: result.ref,
         ok: result.ok,
-        error: result.ok ? undefined : result.message,
+        message: result.message,
+        ref: result.ref,
       });
-      messages.push(`${source.label}: ${result.message}`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      state.sourceRegistry = updateSourceCheckResult(state.sourceRegistry, source.id, {
+      outcomes.push({
+        id: source.id,
+        label: source.label,
         checkedAt,
         ok: false,
-        error: message,
+        message: error instanceof Error ? error.message : String(error),
       });
-      messages.push(`${source.label}: ${message}`);
     }
   }
-  return messages;
+  return outcomes;
+}
+
+function applySourceCheckOutcomes(registry: SourceRegistry, outcomes: SourceCheckOutcome[]): { registry: SourceRegistry; messages: string[] } {
+  let updated = registry;
+  const messages: string[] = [];
+  for (const outcome of outcomes) {
+    updated = updateSourceCheckResult(updated, outcome.id, {
+      checkedAt: outcome.checkedAt,
+      upstreamRef: outcome.ref,
+      ok: outcome.ok,
+      error: outcome.ok ? undefined : outcome.message,
+    });
+    messages.push(`${outcome.label}: ${outcome.message}`);
+  }
+  return { registry: updated, messages };
 }
 
 function selectSourcesForCheck(registry: SourceRegistry, target: string): ExternalSource[] {
@@ -522,10 +550,11 @@ function registerSourceRegistryTool(pi: ExtensionAPI): void {
       const target = input.target || input.id || "due";
       const selected = selectSourcesForCheck(readonlyState.sourceRegistry, target);
       if (selected.length === 0) return { content: [{ type: "text", text: `No sources selected for check: ${target}` }], details: readonlyDetails() };
-      const { messages, registry } = await updateState(async (state) => {
-        const checked = selectSourcesForCheck(state.sourceRegistry, target);
-        const messages = await checkSources(pi, state, checked);
-        return { messages, registry: state.sourceRegistry };
+      const outcomes = await checkSources(pi, selected);
+      const { messages, registry } = await updateState((state) => {
+        const applied = applySourceCheckOutcomes(state.sourceRegistry, outcomes);
+        state.sourceRegistry = applied.registry;
+        return applied;
       });
       return { content: [{ type: "text", text: messages.join("\n") }], details: { action: input.action, state: registry } };
     },
@@ -583,16 +612,39 @@ async function updateLedgerForToolResult(
   });
 }
 
+async function activeLaneContextFromState(ctx: { cwd?: string } | undefined): Promise<ActiveLaneContext | undefined> {
+  const sessionId = sessionIdFromContext(ctx);
+  const state = await loadState();
+  return state.activeLanes[sessionId];
+}
+
+async function activeLaneContextFor(ctx: { cwd?: string } | undefined): Promise<ActiveLaneContext | undefined> {
+  return await activeLaneContextFromState(ctx) ?? activeLaneContextFromEnv();
+}
+
+const activeLaneStore = {
+  async activate(sessionId: string, context: ActiveLaneContext): Promise<void> {
+    await updateState((state) => {
+      state.activeLanes[sessionId] = { ...context, activatedAt: nowIso() };
+    });
+  },
+  async deactivate(sessionId: string): Promise<void> {
+    await updateState((state) => {
+      delete state.activeLanes[sessionId];
+    });
+  },
+};
+
 export default function chocoAutopilot(pi: ExtensionAPI) {
   installStructuralGate(pi);
   installDynamicSdd(pi);
   registerRuntimeReload(pi);
-  registerSessionDashboardCommand(pi);
+  registerSessionDashboardCommand(pi, loadState);
   registerSourceRegistryTool(pi);
   registerBranchSwitchGuardTool(pi);
   registerParallelWorkPlanTool(pi);
   registerWorktreeManageTool(pi);
-  registerAgentOrchestratorTool(pi);
+  registerAgentOrchestratorTool(pi, activeLaneStore);
   registerIntegrationVerifierTool(pi);
   registerModeScaffoldTool(pi);
   const dogfoodCases = createActiveDogfoodCaseState();
@@ -610,7 +662,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
   pi.on("tool_call", async (event, ctx) => {
     const decision = classifyApprovalBoundaryToolCall(event.toolName, event.input);
     if (decision) return { block: true, reason: formatApprovalBoundaryBlock(decision) };
-    const activeLane = activeLaneContextFromEnv();
+    const activeLane = await activeLaneContextFor(ctx);
     const scopeDecision = guardToolCallWriteScope(activeLane, event.toolName, event.input);
     if (!scopeDecision.allowed) {
       if (activeLane) await recordWriteScopeViolation(activeLane, scopeDecision.reason);
@@ -626,7 +678,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
   });
 
   pi.on("tool_result", async (event, ctx) => {
-    const activeLane = activeLaneContextFromEnv();
+    const activeLane = await activeLaneContextFor(ctx);
     if (activeLane && event.toolName === "bash") {
       const toolCallId = typeof (event as { toolCallId?: unknown }).toolCallId === "string" ? (event as { toolCallId: string }).toolCallId : "bash";
       const before = bashScopeSnapshots.get(toolCallId) ?? [];
@@ -654,11 +706,9 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
       .filter((source) => source.kind === "github")
       .slice(0, 5);
     if (dueGithubSources.length > 0) {
-      state = await updateState(async (draft) => {
-        const selected = sourcesDueForWeeklyCheck(draft.sourceRegistry)
-          .filter((source) => source.kind === "github")
-          .slice(0, 5);
-        await checkSources(pi, draft, selected);
+      const outcomes = await checkSources(pi, dueGithubSources);
+      state = await updateState((draft) => {
+        draft.sourceRegistry = applySourceCheckOutcomes(draft.sourceRegistry, outcomes).registry;
         return draft;
       });
     }
@@ -690,6 +740,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
     codingRepairStates.delete(sessionId);
     reportRepairStates.delete(sessionId);
     designRepairStates.delete(sessionId);
+    await activeLaneStore.deactivate(sessionId);
     if (ctx.hasUI) ctx.ui.setStatus("mode", undefined);
   });
 
@@ -1121,9 +1172,11 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
           ctx.ui.notify(`No sources selected for check: ${target}`, "warning");
           return;
         }
-        const messages = await updateState(async (draft) => {
-          const selected = selectSourcesForCheck(draft.sourceRegistry, target);
-          return await checkSources(pi, draft, selected);
+        const outcomes = await checkSources(pi, selected);
+        const messages = await updateState((draft) => {
+          const applied = applySourceCheckOutcomes(draft.sourceRegistry, outcomes);
+          draft.sourceRegistry = applied.registry;
+          return applied.messages;
         });
         ctx.ui.notify(messages.join("\n"), "info");
         return;

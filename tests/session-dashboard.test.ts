@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import chocoAutopilot from "../extensions/choco-autopilot/index";
+import chocoAutopilot, { updateState } from "../extensions/choco-autopilot/index";
 import { formatSessionDashboard } from "../extensions/choco-autopilot/session-dashboard";
 import { createPiExtensionFixture } from "./helpers/pi-extension-fixture";
 
@@ -34,6 +34,33 @@ describe("session dashboard", () => {
     await commands.get("sessions")!.handler("", { cwd: "/repo", ui: { notify }, sessionManager: { getSessionId: () => "s1" } });
 
     expect(notify).toHaveBeenCalledWith(expect.stringContaining("session: s1"), "info");
+  });
+
+  it("reports the actual persistent/effective mode from choco state", async () => {
+    const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
+    const agentDir = await mkdtemp(join(tmpdir(), "choco-pi-sessions-state-"));
+    process.env.PI_CODING_AGENT_DIR = agentDir;
+    try {
+      const { commands } = createPiExtensionFixture(chocoAutopilot);
+      const notify = vi.fn();
+      await updateState((state) => {
+        state.runtime = { workMode: "default", executionIntensity: "standard", updatedAt: "2026-05-17T00:00:00.000Z" };
+        state.sessions.s1 = {
+          effectiveWorkMode: "coding",
+          automaticMode: true,
+          executionIntensity: "deep",
+          updatedAt: "2026-05-17T00:00:00.000Z",
+        };
+      });
+
+      await commands.get("sessions")!.handler("", { cwd: agentDir, ui: { notify }, sessionManager: { getSessionId: () => "s1" } });
+
+      expect(notify).toHaveBeenCalledWith(expect.stringContaining("mode: default->coding/deep"), "info");
+    } finally {
+      if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+      else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
+      await rm(agentDir, { recursive: true, force: true });
+    }
   });
 
   it("summarizes the real todo tool state schema", async () => {

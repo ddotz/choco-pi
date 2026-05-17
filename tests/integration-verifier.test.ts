@@ -1,3 +1,5 @@
+import { mkdir } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createAgentRunManifest, loadAgentRunManifest, updateAgentLaneStatus } from "../extensions/choco-autopilot/agent-run-manifest";
 import { runIntegrationVerifier } from "../extensions/choco-autopilot/integration-verifier-tool";
@@ -91,6 +93,48 @@ describe("integration verifier", () => {
     }
   });
 
+  it("blocks dirty registered integration worktrees instead of deleting them", async () => {
+    const fixture = await createGitFixture();
+    try {
+      const integrationPath = join(fixture.repoRoot, ".pi", "integration", "group-a");
+      await mkdir(dirname(integrationPath), { recursive: true });
+      await fixture.runGit(["worktree", "add", "-b", "integration/group-a", integrationPath, "main"]);
+      await fixture.dirtyFile("dirty-integration.txt", integrationPath);
+      const plan = planParallelWorkAreas({ items: [{ id: "review", description: "Review", files: ["README.md"], write: false }] });
+      await createAgentRunManifest({ repoRoot: fixture.repoRoot, groupId: "group-a", baseRef: "main", plan });
+      await updateAgentLaneStatus(fixture.repoRoot, "group-a", "lane-1", "running");
+      await updateAgentLaneStatus(fixture.repoRoot, "group-a", "lane-1", "verified");
+
+      const result = await runIntegrationVerifier({ groupId: "group-a", repoRoot: fixture.repoRoot, verificationCommands: ["git status --short"] });
+
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe("blocked");
+      expect(result.blockers.join("\n")).toContain("dirty integration worktree exists");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("removes clean registered integration worktrees through git worktree remove", async () => {
+    const fixture = await createGitFixture();
+    try {
+      const integrationPath = join(fixture.repoRoot, ".pi", "integration", "group-a");
+      await mkdir(dirname(integrationPath), { recursive: true });
+      await fixture.runGit(["worktree", "add", "-b", "integration/group-a", integrationPath, "main"]);
+      const plan = planParallelWorkAreas({ items: [{ id: "review", description: "Review", files: ["README.md"], write: false }] });
+      await createAgentRunManifest({ repoRoot: fixture.repoRoot, groupId: "group-a", baseRef: "main", plan });
+      await updateAgentLaneStatus(fixture.repoRoot, "group-a", "lane-1", "running");
+      await updateAgentLaneStatus(fixture.repoRoot, "group-a", "lane-1", "verified");
+
+      const result = await runIntegrationVerifier({ groupId: "group-a", repoRoot: fixture.repoRoot, verificationCommands: ["git status --short"] });
+
+      expect(result.ok).toBe(true);
+      expect(result.commands).toContain(`git worktree remove ${integrationPath}`);
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("runs verification commands and marks the manifest integrated", async () => {
     const fixture = await createGitFixture();
     try {
@@ -116,7 +160,7 @@ describe("integration verifier", () => {
     }
   });
 
-  it("reports failed verification commands", async () => {
+  it("blocks non-allowlisted verification commands", async () => {
     const fixture = await createGitFixture();
     try {
       const plan = planParallelWorkAreas({ items: [{ id: "review", description: "Review", files: ["README.md"], write: false }] });
@@ -127,8 +171,9 @@ describe("integration verifier", () => {
       const result = await runIntegrationVerifier({ groupId: "group-a", repoRoot: fixture.repoRoot, verificationCommands: ["exit 7"] });
 
       expect(result.ok).toBe(false);
-      expect(result.status).toBe("failed");
-      expect(result.verificationResults[0]).toMatchObject({ command: "exit 7", status: "failed" });
+      expect(result.status).toBe("blocked");
+      expect(result.verificationResults[0]).toMatchObject({ command: "exit 7", status: "blocked" });
+      expect(result.verificationResults[0].evidence).toContain("not allowlisted");
     } finally {
       await fixture.cleanup();
     }

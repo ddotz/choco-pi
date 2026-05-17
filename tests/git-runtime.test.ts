@@ -24,6 +24,18 @@ describe("git runtime helper", () => {
     }
   });
 
+  it("times out hung git commands with a structured result", async () => {
+    const fixture = await createGitFixture();
+    try {
+      const result = await execGit(fixture.repoRoot, ["-c", "alias.pause=!sleep 1", "pause"], { timeoutMs: 10 });
+
+      expect(result.code).toBe(124);
+      expect(result.stderr).toContain("timed out");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("summarizes branch and dirty status including staged, unstaged, and untracked files", async () => {
     const fixture = await createGitFixture();
     try {
