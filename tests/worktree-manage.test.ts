@@ -79,6 +79,34 @@ describe("worktree_manage tool", () => {
     }
   });
 
+  it("treats an existing registered worktree path as idempotent when allowExisting is set", async () => {
+    const fixture = await createGitFixture();
+    const path = await tempWorktreePath();
+    try {
+      await runWorktreeManage({
+        action: "create",
+        repoRoot: fixture.repoRoot,
+        branchName: "session/test/idempotent",
+        baseRef: "main",
+        path,
+      }, { cwd: fixture.repoRoot });
+
+      const result = await runWorktreeManage({
+        action: "create",
+        repoRoot: fixture.repoRoot,
+        branchName: "session/test/idempotent",
+        path,
+        allowExisting: true,
+      }, { cwd: fixture.repoRoot });
+
+      expect(result.ok).toBe(true);
+      expect(result.blockers).toEqual([]);
+      expect(result.commands).toEqual([]);
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("blocks create when the target path exists unless allowExisting is set", async () => {
     const fixture = await createGitFixture();
     const existingPath = join(fixture.repoRoot, "existing-path");

@@ -172,10 +172,9 @@ export async function runAgentOrchestrator(input: AgentOrchestratorParams, conte
   if (input.action === "mark_verified" && !input.evidence?.trim() && (!input.verificationCommands || input.verificationCommands.length === 0)) {
     return { ...result, blockers: ["evidence or verificationCommands is required before marking a lane verified."], manifest };
   }
-  const patch: Partial<AgentLaneManifest> = {
-    verificationCommands: input.verificationCommands,
-    lastError: input.error,
-  };
+  const patch: Partial<AgentLaneManifest> = {};
+  if (input.verificationCommands) patch.verificationCommands = input.verificationCommands;
+  if (input.error) patch.lastError = input.error;
   const updated = await updateAgentLaneStatus(manifest.repoRoot, manifest.groupId, input.laneId, status, patch);
   return { ...result, ok: true, manifest: updated, summary: summarizeAgentRunManifest(updated) };
 }

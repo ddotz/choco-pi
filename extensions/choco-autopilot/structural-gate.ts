@@ -451,9 +451,7 @@ export function createLoopTransitionTool(state: StructuralGateState): ToolDefini
   };
 }
 
-async function activeParallelManifestIntegrationBlock(cwd: string, review: StructuralGateReview): Promise<string | undefined> {
-  const evidence = `${review.verificationEvidence}\n${review.runtimeFit}\n${review.completionBoundary}`;
-  if (/integration_verifier|integration evidence|integration.*passed|통합.*검증/i.test(evidence)) return undefined;
+async function activeParallelManifestIntegrationBlock(cwd: string, _review: StructuralGateReview): Promise<string | undefined> {
   let entries: string[] = [];
   try {
     entries = await readdir(join(cwd, ".pi", "agent-runs"));

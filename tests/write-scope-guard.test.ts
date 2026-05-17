@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { guardWritePath, type ActiveLaneContext } from "../extensions/choco-autopilot/write-scope-guard";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { createAgentRunManifest, loadAgentRunManifest, updateAgentLaneStatus } from "../extensions/choco-autopilot/agent-run-manifest";
+import { guardWritePath, recordWriteScopeViolation, type ActiveLaneContext } from "../extensions/choco-autopilot/write-scope-guard";
+import { planParallelWorkAreas } from "../extensions/choco-autopilot/worktree-planner";
 
 function lane(overrides: Partial<ActiveLaneContext> = {}): ActiveLaneContext {
   return {
@@ -12,6 +17,18 @@ function lane(overrides: Partial<ActiveLaneContext> = {}): ActiveLaneContext {
     readOnly: false,
     ...overrides,
   };
+}
+
+let tempDir: string | undefined;
+
+afterEach(async () => {
+  if (tempDir) await rm(tempDir, { recursive: true, force: true });
+  tempDir = undefined;
+});
+
+async function tempRepoRoot(): Promise<string> {
+  tempDir = await mkdtemp(join(tmpdir(), "choco-pi-write-scope-"));
+  return tempDir;
 }
 
 describe("write scope guard", () => {
@@ -39,5 +56,17 @@ describe("write scope guard", () => {
 
   it("allows glob-owned files", () => {
     expect(guardWritePath(lane({ ownedFiles: ["tests/*.test.ts"] }), "/repo/tests/foo.test.ts")).toMatchObject({ allowed: true });
+  });
+
+  it("records write-scope violations on the lane manifest", async () => {
+    const repoRoot = await tempRepoRoot();
+    const plan = planParallelWorkAreas({ items: [{ id: "lane", description: "Edit tests", files: ["tests"] }] });
+    await createAgentRunManifest({ repoRoot, groupId: "group-a", baseRef: "main", plan });
+    await updateAgentLaneStatus(repoRoot, "group-a", "lane-1", "running");
+
+    await recordWriteScopeViolation({ ...lane({ repoRoot }), groupId: "group-a", laneId: "lane-1" }, "outside write");
+    const manifest = await loadAgentRunManifest(repoRoot, "group-a");
+
+    expect(manifest.lanes[0]).toMatchObject({ status: "blocked", lastError: "outside write" });
   });
 });

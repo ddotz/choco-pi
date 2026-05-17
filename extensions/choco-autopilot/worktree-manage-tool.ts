@@ -164,12 +164,16 @@ export async function runWorktreeManage(
   const targetPath = plan.path!;
   const targetBranch = plan.branchName!;
   const worktrees = await listWorktrees(root);
+  const normalizedTargetPath = normalizeWorktreePath(targetPath);
   const occupied = worktrees.find((worktree) => worktree.branch === targetBranch);
-  if (occupied) blockers.push(`branch is already checked out in worktree: ${occupied.path}`);
+  const existingRegistered = await registeredWorktreeForPath(root, targetPath);
+  if (occupied && normalizeWorktreePath(occupied.path) !== normalizedTargetPath) blockers.push(`branch is already checked out in worktree: ${occupied.path}`);
 
   if (await pathExists(targetPath)) {
     if (!input.allowExisting) blockers.push(`path already exists: ${targetPath}`);
-    else if (!await registeredWorktreeForPath(root, targetPath)) blockers.push(`existing path is not a registered git worktree: ${targetPath}`);
+    else if (!existingRegistered) blockers.push(`existing path is not a registered git worktree: ${targetPath}`);
+    else if (existingRegistered.branch !== targetBranch) blockers.push(`existing registered worktree is on ${existingRegistered.branch ?? "detached"}, not ${targetBranch}`);
+    else if (blockers.length === 0) return { ...base(), ok: true };
   }
 
   const branchExists = await hasBranch(root, targetBranch);

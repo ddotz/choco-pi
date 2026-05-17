@@ -89,4 +89,29 @@ describe("structural gate integration evidence", () => {
     expect((result.message.content[0] as { type: "text"; text: string }).text).toBe("");
     expect(sendMessage).toHaveBeenCalled();
   });
+
+  it("does not accept textual integration_verifier claims when the manifest lacks integration evidence", async () => {
+    const root = await tempRepoRoot();
+    const plan = planParallelWorkAreas({ items: [{ id: "a", description: "A", files: ["a.ts"] }, { id: "b", description: "B", files: ["b.ts"] }] });
+    await createAgentRunManifest({ repoRoot: root, groupId: "group-a", baseRef: "main", plan });
+    await updateAgentLaneStatus(root, "group-a", "lane-1", "running");
+    await updateAgentLaneStatus(root, "group-a", "lane-1", "verified");
+    await updateAgentLaneStatus(root, "group-a", "lane-2", "running");
+    await updateAgentLaneStatus(root, "group-a", "lane-2", "verified");
+    const { handlers, tools } = setupAutopilot();
+    await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "병렬 구현 완료해", systemPrompt: "base", systemPromptOptions: {} }, root);
+
+    const gateResult = await tools.get("structural_gate")!.execute("gate-1", {
+      acceptanceFit: "Parallel work done.",
+      runtimeFit: "Lane tests passed.",
+      failureModes: "Integration may be missing.",
+      verificationEvidence: "integration_verifier passed according to text only.",
+      loopGovernance: "Transitions stayed planned.",
+      completionBoundary: "Ready to stop.",
+      confidence: "High",
+      readyToComplete: true,
+    }, undefined, undefined, { cwd: root });
+
+    expect(gateResult.details).toMatchObject({ ok: false, reason: expect.stringContaining("integration_verifier") });
+  });
 });

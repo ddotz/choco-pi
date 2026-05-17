@@ -1,4 +1,5 @@
 import { relative, resolve } from "node:path";
+import { updateAgentLaneStatus } from "./agent-run-manifest";
 import { execGit } from "./git-runtime";
 
 export interface ActiveLaneContext {
@@ -96,6 +97,10 @@ export function detectBashScopeViolations(
   return violations.length === 0
     ? { allowed: true, violations: [] }
     : { allowed: false, violations, reason: `bash modified files outside active lane write scope: ${violations.join(", ")}` };
+}
+
+export async function recordWriteScopeViolation(context: ActiveLaneContext, reason: string): Promise<void> {
+  await updateAgentLaneStatus(context.repoRoot, context.groupId, context.laneId, "blocked", { lastError: reason });
 }
 
 export async function snapshotGitChangedFiles(repoRoot: string): Promise<string[]> {

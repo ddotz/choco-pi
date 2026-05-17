@@ -62,6 +62,19 @@ describe("agent orchestrator", () => {
     expect(result.handoffPrompts.join("\n")).toContain("Review docs");
   });
 
+  it("preserves existing lane verification commands when a later update omits them", async () => {
+    const root = await tempRepoRoot();
+    const plan = planParallelWorkAreas({ items: [{ id: "review", description: "Review docs", files: ["README.md"], write: false }] });
+    await runAgentOrchestrator({ action: "start", repoRoot: root, groupId: "group-a", baseRef: "main", plan });
+    await updateAgentLaneStatus(root, "group-a", "lane-1", "created", { verificationCommands: ["pnpm test"] });
+
+    const result = await runAgentOrchestrator({ action: "mark_running", repoRoot: root, groupId: "group-a", laneId: "lane-1" });
+    const manifest = await loadAgentRunManifest(root, "group-a");
+
+    expect(result.ok).toBe(true);
+    expect(manifest.lanes[0].verificationCommands).toEqual(["pnpm test"]);
+  });
+
   it("requires evidence before marking a lane verified", async () => {
     const root = await tempRepoRoot();
     const plan = planParallelWorkAreas({ items: [{ id: "review", description: "Review docs", files: ["README.md"], write: false }] });

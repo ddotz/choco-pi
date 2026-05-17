@@ -46,6 +46,7 @@ import {
   activeLaneContextFromEnv,
   detectBashScopeViolations,
   guardToolCallWriteScope,
+  recordWriteScopeViolation,
   snapshotGitChangedFiles,
 } from "./write-scope-guard";
 import { registerWorktreeManageTool } from "./worktree-manage-tool";
@@ -588,7 +589,10 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
     if (decision) return { block: true, reason: formatApprovalBoundaryBlock(decision) };
     const activeLane = activeLaneContextFromEnv();
     const scopeDecision = guardToolCallWriteScope(activeLane, event.toolName, event.input);
-    if (!scopeDecision.allowed) return { block: true, reason: scopeDecision.reason };
+    if (!scopeDecision.allowed) {
+      if (activeLane) await recordWriteScopeViolation(activeLane, scopeDecision.reason);
+      return { block: true, reason: scopeDecision.reason };
+    }
     if (activeLane && event.toolName === "bash") {
       const toolCallId = typeof (event as { toolCallId?: unknown }).toolCallId === "string" ? (event as { toolCallId: string }).toolCallId : "bash";
       bashScopeSnapshots.set(toolCallId, await snapshotGitChangedFiles(ctx.cwd || process.cwd()));
@@ -607,6 +611,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
       const after = await snapshotGitChangedFiles(ctx.cwd || process.cwd());
       const decision = detectBashScopeViolations(activeLane, before, after);
       if (!decision.allowed) {
+        await recordWriteScopeViolation(activeLane, decision.reason ?? "bash write scope violation");
         await pi.sendMessage?.({
           customType: "choco.write_scope_violation",
           display: false,
