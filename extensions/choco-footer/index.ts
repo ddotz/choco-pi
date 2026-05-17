@@ -53,6 +53,31 @@ export interface FooterProjectMetadata {
   version: string | undefined;
 }
 
+function cleanShellVersionValue(value: string): string | undefined {
+  const defaultMatch = /\$\{VERSION:-([^}]+)\}/.exec(value);
+  const raw = defaultMatch?.[1] ?? value;
+  const cleaned = raw.trim().replace(/^['"]|['"]$/g, "").trim();
+  return cleaned || undefined;
+}
+
+export function parseAppMetadataVersion(content: string): string | undefined {
+  for (const line of content.split(/\r?\n/)) {
+    const match = /^\s*(?:export\s+)?VERSION\s*=\s*(.+?)\s*(?:#.*)?$/.exec(line);
+    if (!match) continue;
+    return cleanShellVersionValue(match[1]);
+  }
+  return undefined;
+}
+
+function readAppMetadataVersion(current: string): string | undefined {
+  const metadataPath = join(current, "script", "app_metadata.sh");
+  try {
+    return existsSync(metadataPath) ? parseAppMetadataVersion(readFileSync(metadataPath, "utf8")) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function readProjectPackageVersion(cwd: string): string | undefined {
   let current = resolve(cwd);
 
@@ -66,6 +91,9 @@ export function readProjectPackageVersion(cwd: string): string | undefined {
     } catch {
       return undefined;
     }
+
+    const appMetadataVersion = readAppMetadataVersion(current);
+    if (appMetadataVersion) return appMetadataVersion;
 
     const parent = dirname(current);
     if (parent === current) return undefined;
@@ -105,19 +133,99 @@ function readCodexFastModeEnabled(): boolean {
   }
 }
 
-function readGitBranchCommand(cwd: string, args: string[]): string | null {
+function readGitCommand(cwd: string, args: string[]): string | null {
   const result = spawnSync("git", ["-C", cwd, ...args], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
     timeout: GIT_BRANCH_FALLBACK_TIMEOUT_MS,
   });
   if (result.status !== 0) return null;
-  const branch = typeof result.stdout === "string" ? result.stdout.trim() : "";
+  const output = typeof result.stdout === "string" ? result.stdout.trim() : "";
+  return output || null;
+}
+
+function readGitBranchCommand(cwd: string, args: string[]): string | null {
+  const branch = readGitCommand(cwd, args);
   return branch && branch !== "HEAD" ? branch : null;
 }
 
 export function readGitBranchFallback(cwd: string): string | null {
   return readGitBranchCommand(cwd, ["symbolic-ref", "--short", "HEAD"]) ?? readGitBranchCommand(cwd, ["rev-parse", "--abbrev-ref", "HEAD"]);
+}
+
+export function readGitRootFallback(path: string): string | null {
+  let current = resolve(path);
+  while (true) {
+    const root = readGitCommand(current, ["rev-parse", "--show-toplevel"]);
+    if (root) return root;
+    const parent = dirname(current);
+    if (parent === current) return null;
+    current = parent;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function unquoteShellToken(value: string): string {
+  const trimmed = value.trim();
+  return trimmed.replace(/^['"]|['"]$/g, "");
+}
+
+function resolveCandidatePath(cwd: string, path: string): string | undefined {
+  const normalized = unquoteShellToken(path);
+  if (!normalized || normalized.startsWith("-") || /[$`*?[\]{}]/.test(normalized)) return undefined;
+  if (normalized === "~") return homedir();
+  if (normalized.startsWith("~/")) return resolve(homedir(), normalized.slice(2));
+  return resolve(cwd, normalized);
+}
+
+function pushResolvedPath(candidates: string[], cwd: string, path: unknown): void {
+  if (typeof path !== "string") return;
+  const resolved = resolveCandidatePath(cwd, path);
+  if (resolved) candidates.push(resolved);
+}
+
+function pushBashPathCandidates(candidates: string[], cwd: string, command: string): void {
+  const token = "((?:\\\"[^\\\"]+\\\")|(?:'[^']+')|(?:[^\\s;&|]+))";
+  const patterns = [new RegExp(`(?:^|[;&|]\\s*)git\\s+-C\\s+${token}`, "g"), new RegExp(`(?:^|[;&|]\\s*)cd\\s+${token}`, "g")];
+  for (const pattern of patterns) {
+    for (const match of command.matchAll(pattern)) pushResolvedPath(candidates, cwd, match[1]);
+  }
+}
+
+export function resolveToolCallPathCandidates(sessionCwd: string, toolName: string, input: unknown): string[] {
+  const candidates: string[] = [];
+  if (!isRecord(input)) return candidates;
+
+  if (toolName === "bash" && typeof input.command === "string") pushBashPathCandidates(candidates, sessionCwd, input.command);
+  pushResolvedPath(candidates, sessionCwd, input.path);
+  return candidates;
+}
+
+export class ActiveWorktreeCwdTracker {
+  private readonly activeBySessionId = new Map<string, string>();
+
+  constructor(private readonly resolveGitRoot: (path: string) => string | null = readGitRootFallback) {}
+
+  get(sessionId: string, sessionCwd: string): string {
+    return this.activeBySessionId.get(normalizeSessionId(sessionId)) ?? sessionCwd;
+  }
+
+  clear(sessionId: string): void {
+    this.activeBySessionId.delete(normalizeSessionId(sessionId));
+  }
+
+  updateFromToolCall(sessionId: string, sessionCwd: string, toolName: string, input: unknown): string | null {
+    for (const candidate of resolveToolCallPathCandidates(sessionCwd, toolName, input)) {
+      const root = this.resolveGitRoot(candidate);
+      if (!root) continue;
+      this.activeBySessionId.set(normalizeSessionId(sessionId), root);
+      return root;
+    }
+    return null;
+  }
 }
 
 export function readFooterProjectMetadata(cwd: string): FooterProjectMetadata {
@@ -559,6 +667,7 @@ function renderStyledFooterLines(data: FooterRenderData, theme: Theme, width: nu
 
 function collectFooterData(
   ctx: ExtensionContext,
+  footerCwd: string,
   projectMetadata: FooterProjectMetadata,
   thinkingLevel: string,
   codexCache: CodexRateLimitCache,
@@ -567,8 +676,7 @@ function collectFooterData(
 ): FooterRenderData {
   const model = ctx.model as MinimalModel | undefined;
   const providerKind = detectProviderKind(model);
-  const cwd = ctx.sessionManager.getCwd() || ctx.cwd;
-  const todo = readTodoLabel(cwd, ctx.sessionManager.getSessionId());
+  const todo = readTodoLabel(footerCwd, ctx.sessionManager.getSessionId());
   const sessionStats = collectSessionStats(ctx);
   const context = contextStats(ctx);
 
@@ -583,7 +691,7 @@ function collectFooterData(
     modelLabel: formatModelLabel(model),
     providerKind,
     branch: projectMetadata.branch,
-    cwd: formatPath(cwd),
+    cwd: formatPath(footerCwd),
     thinkingLevel,
     rateLimitText: formatRateLimits(rateLimitSnapshot),
     rateLimitSnapshot,
@@ -602,6 +710,7 @@ function collectFooterData(
 export default function chocoFooterExtension(pi: ExtensionAPI) {
   const codexCache = new CodexRateLimitCache();
   const gitBranchFallbackCache = new GitBranchFallbackCache();
+  const activeWorktreeCwdTracker = new ActiveWorktreeCwdTracker();
   const renderCallbacks = new Set<() => void>();
   let codexFastModeEnabled = readCodexFastModeEnabled();
   let fastModeUnsubscribed = false;
@@ -641,12 +750,13 @@ export default function chocoFooterExtension(pi: ExtensionAPI) {
           const baseThinkingLevel = pi.getThinkingLevel();
           const model = ctx.model as MinimalModel | undefined;
           const thinkingLabel = codexFastModeEnabled && detectProviderKind(model) === "codex" ? `${baseThinkingLevel} fast` : baseThinkingLevel;
-          const cwd = ctx.sessionManager.getCwd() || ctx.cwd;
+          const sessionCwd = ctx.sessionManager.getCwd() || ctx.cwd;
+          const footerCwd = activeWorktreeCwdTracker.get(ctx.sessionManager.getSessionId(), sessionCwd);
           const projectMetadata = {
-            branch: gitBranchFallbackCache.get(cwd),
-            version: readProjectPackageVersion(cwd),
+            branch: gitBranchFallbackCache.get(footerCwd),
+            version: readProjectPackageVersion(footerCwd),
           };
-          const data = collectFooterData(ctx, projectMetadata, thinkingLabel, codexCache, requestRenderAll, runState);
+          const data = collectFooterData(ctx, footerCwd, projectMetadata, thinkingLabel, codexCache, requestRenderAll, runState);
           return renderStyledFooterLines(data, theme, width);
         },
       };
@@ -664,8 +774,14 @@ export default function chocoFooterExtension(pi: ExtensionAPI) {
       unsubscribeFastMode();
       fastModeUnsubscribed = true;
     }
+    activeWorktreeCwdTracker.clear(ctx.sessionManager.getSessionId());
     setRunState("session_shutdown");
     if (ctx.hasUI) ctx.ui.setFooter(undefined);
+  });
+
+  pi.on("tool_call", (event, ctx) => {
+    const sessionCwd = ctx.sessionManager.getCwd() || ctx.cwd;
+    if (activeWorktreeCwdTracker.updateFromToolCall(ctx.sessionManager.getSessionId(), sessionCwd, event.toolName, event.input)) requestRenderAll();
   });
 
   pi.on("model_select", () => requestRenderAll());
