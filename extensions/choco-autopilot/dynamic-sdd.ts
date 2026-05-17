@@ -113,18 +113,18 @@ function persistedSpecPath(sessionId = FALLBACK_SESSION_ID): string {
   return join(agentDir(), "choco-pi", "dynamic-sdd", `${dynamicSddSessionKey(sessionId)}.json`);
 }
 
-async function restorePersistedTurn(state: DynamicSddState, sessionId = FALLBACK_SESSION_ID): Promise<void> {
-  if (!specPersistenceEnabled()) return;
+async function readPersistedTurn(sessionId = FALLBACK_SESSION_ID): Promise<DynamicSddTurnState | undefined> {
+  if (!specPersistenceEnabled()) return undefined;
   try {
     const turn = JSON.parse(await readFile(persistedSpecPath(sessionId), "utf8")) as DynamicSddTurnState;
-    state.turns[dynamicSddSessionKey(sessionId)] = {
+    return {
       workingSpec: turn.workingSpec,
       deltas: Array.isArray(turn.deltas) ? turn.deltas : [],
       snapshots: Array.isArray(turn.snapshots) ? turn.snapshots : [],
     };
-    state.current = state.turns[dynamicSddSessionKey(sessionId)];
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") await rm(persistedSpecPath(sessionId), { force: true });
+    return undefined;
   }
 }
 
@@ -338,7 +338,16 @@ export function createSpecGateTool(state: DynamicSddState): ToolDefinition<typeo
     renderShell: "self",
     async execute(_toolCallId: string, params: SpecGateToolInput, _signal: AbortSignal | undefined, _onUpdate: undefined, ctx: ExtensionContext) {
       const sessionId = sessionIdFromContext(ctx);
-      await restorePersistedTurn(state, sessionId);
+      const turn = ensureTurn(state, sessionId);
+      if (params.action === "list" && !turn.workingSpec) {
+        const persisted = await readPersistedTurn(sessionId);
+        if (persisted) {
+          return {
+            content: [{ type: "text", text: formatSpecGateState(persisted) }],
+            details: { ok: true, state: persisted },
+          };
+        }
+      }
       const result = recordSpecGateAction(state, params, sessionId);
       await persistTurn(result.state, sessionId);
       return {
@@ -358,8 +367,7 @@ export function createSpecGateTool(state: DynamicSddState): ToolDefinition<typeo
 export function installDynamicSdd(pi: Pick<ExtensionAPI, "on" | "registerTool">): void {
   const state = createDynamicSddState();
   pi.registerTool(createSpecGateTool(state));
-  pi.on("before_agent_start", async (_event, ctx) => {
+  pi.on("before_agent_start", (_event, ctx) => {
     startDynamicSddTurn(state, sessionIdFromContext(ctx));
-    await restorePersistedTurn(state, sessionIdFromContext(ctx));
   });
 }

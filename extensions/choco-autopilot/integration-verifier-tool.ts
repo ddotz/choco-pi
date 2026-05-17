@@ -1,11 +1,13 @@
 import { exec } from "node:child_process";
 import { mkdir, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, resolve } from "node:path";
 import { promisify } from "node:util";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { loadAgentRunManifest, updateAgentRunManifest, type AgentRunManifest } from "./agent-run-manifest";
+import { classifyApprovalBoundaryCommand, formatApprovalBoundaryBlock } from "./approval-boundary";
 import { execGit, statusSummary } from "./git-runtime";
+import { normalizeGroupId, safeJoinWithin } from "./safe-identifiers";
 
 const execAsync = promisify(exec);
 
@@ -43,14 +45,14 @@ const IntegrationVerifierParamsSchema = Type.Object({
   dryRun: Type.Optional(Type.Boolean()),
 });
 
-function baseResult(params: IntegrationVerifierParams, manifest: AgentRunManifest): IntegrationVerifierResult {
-  const integrationBranch = `integration/${params.groupId}`;
+function baseResult(params: IntegrationVerifierParams, manifest: AgentRunManifest, groupId: string, repoRoot: string): IntegrationVerifierResult {
+  const integrationBranch = `integration/${groupId}`;
   return {
     ok: false,
     status: "blocked",
-    groupId: params.groupId,
+    groupId,
     integrationBranch,
-    integrationWorktreePath: join(manifest.repoRoot, ".pi", "integration", params.groupId),
+    integrationWorktreePath: safeJoinWithin(repoRoot, ".pi", "integration", groupId),
     blockers: [],
     conflicts: [],
     verificationResults: [],
@@ -58,10 +60,18 @@ function baseResult(params: IntegrationVerifierParams, manifest: AgentRunManifes
   };
 }
 
+function laneRequiresBranch(lane: AgentRunManifest["lanes"][number]): boolean {
+  const writable = lane.writable ?? (lane.ownedFiles.length > 0 || lane.ownedDomains.length > 0);
+  return lane.executionStrategy === "worktree" && lane.status !== "integrated" && (writable || Boolean(lane.worktreePath));
+}
+
 async function addPreflightBlockers(result: IntegrationVerifierResult, manifest: AgentRunManifest): Promise<void> {
   for (const lane of manifest.lanes) {
     if (lane.status !== "verified" && lane.status !== "ready-to-integrate" && lane.status !== "integrated") {
       result.blockers.push(`unverified lane: ${lane.id} [${lane.status}]`);
+    }
+    if (laneRequiresBranch(lane) && !lane.branchName) {
+      result.blockers.push(`verified worktree lane lacks branchName: ${lane.id}`);
     }
     if (lane.worktreePath && (await statusSummary(lane.worktreePath)).dirty) {
       result.blockers.push(`dirty lane worktree: ${lane.id} ${lane.worktreePath}`);
@@ -70,6 +80,8 @@ async function addPreflightBlockers(result: IntegrationVerifierResult, manifest:
 }
 
 async function runVerificationCommand(command: string, cwd: string): Promise<IntegrationVerifierResult["verificationResults"][number]> {
+  const boundary = classifyApprovalBoundaryCommand(command);
+  if (boundary) return { command, status: "blocked", evidence: formatApprovalBoundaryBlock(boundary) };
   try {
     const output = await execAsync(command, { cwd, shell: "/bin/bash", timeout: 120_000 });
     return { command, status: "passed", evidence: `${output.stdout}${output.stderr}`.trim().slice(0, 1000) };
@@ -83,7 +95,7 @@ async function createIntegrationWorktree(params: IntegrationVerifierParams, mani
   const baseRef = params.baseRef || manifest.baseRef || "HEAD";
   const path = result.integrationWorktreePath!;
   await rm(path, { recursive: true, force: true });
-  await mkdir(join(path, ".."), { recursive: true });
+  await mkdir(dirname(path), { recursive: true });
   const args = ["worktree", "add", "-B", result.integrationBranch!, path, baseRef];
   result.commands.push(["git", ...args].join(" "));
   const created = await execGit(manifest.repoRoot, args);
@@ -110,8 +122,24 @@ async function applyLaneBranches(manifest: AgentRunManifest, result: Integration
 
 export async function runIntegrationVerifier(params: IntegrationVerifierParams): Promise<IntegrationVerifierResult> {
   const repoRoot = params.repoRoot || process.cwd();
-  const manifest = await loadAgentRunManifest(repoRoot, params.groupId);
-  const result = baseResult(params, manifest);
+  let groupId: string;
+  try {
+    groupId = normalizeGroupId(params.groupId);
+  } catch (error) {
+    return {
+      ok: false,
+      status: "blocked",
+      groupId: params.groupId,
+      blockers: [error instanceof Error ? error.message : String(error)],
+      conflicts: [],
+      verificationResults: [],
+      commands: [],
+    };
+  }
+  const manifest = await loadAgentRunManifest(repoRoot, groupId);
+  const result = baseResult(params, manifest, groupId, repoRoot);
+  if (resolve(manifest.repoRoot) !== resolve(repoRoot)) result.blockers.push(`manifest repoRoot mismatch: ${manifest.repoRoot}`);
+  if (params.strategy && params.strategy !== "merge") result.blockers.push("only merge strategy is supported by integration_verifier.");
   await addPreflightBlockers(result, manifest);
   if (result.blockers.length > 0) return result;
   if (params.dryRun) return { ...result, ok: true, status: "dry-run" };
@@ -121,6 +149,7 @@ export async function runIntegrationVerifier(params: IntegrationVerifierParams):
 
   const commands = params.verificationCommands?.length ? params.verificationCommands : ["git status --short"];
   for (const command of commands) result.verificationResults.push(await runVerificationCommand(command, result.integrationWorktreePath!));
+  if (result.verificationResults.some((verification) => verification.status === "blocked")) return { ...result, status: "blocked" };
   if (result.verificationResults.some((verification) => verification.status !== "passed")) return { ...result, status: "failed" };
 
   await updateAgentRunManifest(manifest.repoRoot, manifest.groupId, (draft) => {

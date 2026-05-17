@@ -89,16 +89,21 @@ function decision(kind: ApprovalBoundaryKind, reason: string): ApprovalBoundaryD
   return { kind, reason };
 }
 
+export function classifyApprovalBoundaryCommand(command: string): ApprovalBoundaryDecision | undefined {
+  const normalized = command.trim();
+  if (!normalized) return undefined;
+  if (matchAny(normalized, DEPLOYMENT_PATTERNS)) return decision("deployment", "Production deployment or package publishing requires explicit user approval.");
+  if (matchAny(normalized, PAYMENT_PATTERNS)) return decision("payment", "Payment or billing actions require explicit user approval.");
+  if (matchAny(normalized, SECRET_OR_ACCOUNT_COMMAND_PATTERNS)) return decision("secret-or-account", "Secret or account changes require explicit user approval.");
+  if (matchAny(normalized, LARGE_DELETE_PATTERNS)) return decision("large-delete", "Large or destructive deletion requires explicit user approval.");
+  if (matchAny(normalized, EXTERNAL_TRANSFER_PATTERNS)) return decision("external-data-transfer", "External private-data transfer requires explicit user approval.");
+  if (matchAny(normalized, IRREVERSIBLE_PATTERNS)) return decision("irreversible", "Irreversible local operation requires explicit user approval.");
+  return undefined;
+}
+
 export function classifyApprovalBoundaryToolCall(toolName: string, input: unknown): ApprovalBoundaryDecision | undefined {
   const command = normalizedCommand(input);
-  if (toolName === "bash" && command) {
-    if (matchAny(command, DEPLOYMENT_PATTERNS)) return decision("deployment", "Production deployment or package publishing requires explicit user approval.");
-    if (matchAny(command, PAYMENT_PATTERNS)) return decision("payment", "Payment or billing actions require explicit user approval.");
-    if (matchAny(command, SECRET_OR_ACCOUNT_COMMAND_PATTERNS)) return decision("secret-or-account", "Secret or account changes require explicit user approval.");
-    if (matchAny(command, LARGE_DELETE_PATTERNS)) return decision("large-delete", "Large or destructive deletion requires explicit user approval.");
-    if (matchAny(command, EXTERNAL_TRANSFER_PATTERNS)) return decision("external-data-transfer", "External private-data transfer requires explicit user approval.");
-    if (matchAny(command, IRREVERSIBLE_PATTERNS)) return decision("irreversible", "Irreversible local operation requires explicit user approval.");
-  }
+  if (toolName === "bash" && command) return classifyApprovalBoundaryCommand(command);
 
   if (toolName === "write" || toolName === "edit") {
     const path = normalizedPath(input);

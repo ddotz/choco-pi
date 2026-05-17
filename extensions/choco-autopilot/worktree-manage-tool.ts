@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { updateAgentLaneStatus } from "./agent-run-manifest";
 import { currentBranch, execGit, hasBranch, listWorktrees, repoRoot as gitRepoRoot, statusSummary, type GitWorktreeInfo } from "./git-runtime";
 import { normalizeWorktreePath, pathExists, resolveWorktreePlan } from "./worktree-runtime";
 
@@ -101,6 +102,16 @@ async function registeredWorktreeForPath(root: string, path: string): Promise<Gi
   return (await listWorktrees(root)).find((worktree) => normalizeWorktreePath(worktree.path) === normalized);
 }
 
+async function attachWorktreeToManifest(input: WorktreeManageParams, root: string, branchName: string, path: string): Promise<string | undefined> {
+  if (!input.groupId || !input.laneId) return undefined;
+  try {
+    await updateAgentLaneStatus(root, input.groupId, input.laneId, "created", { branchName, worktreePath: path });
+    return undefined;
+  } catch (error) {
+    return `manifest lane update failed: ${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
 export async function runWorktreeManage(
   input: WorktreeManageParams,
   context: WorktreeManageContext = {},
@@ -173,7 +184,14 @@ export async function runWorktreeManage(
     if (!input.allowExisting) blockers.push(`path already exists: ${targetPath}`);
     else if (!existingRegistered) blockers.push(`existing path is not a registered git worktree: ${targetPath}`);
     else if (existingRegistered.branch !== targetBranch) blockers.push(`existing registered worktree is on ${existingRegistered.branch ?? "detached"}, not ${targetBranch}`);
-    else if (blockers.length === 0) return { ...base(), ok: true };
+    else if (blockers.length === 0) {
+      const manifestBlocker = await attachWorktreeToManifest(input, root, targetBranch, targetPath);
+      if (manifestBlocker) {
+        blockers.push(manifestBlocker);
+        return blocked(base());
+      }
+      return { ...base(), ok: true };
+    }
   }
 
   const branchExists = await hasBranch(root, targetBranch);
@@ -187,6 +205,11 @@ export async function runWorktreeManage(
   const created = await execGit(root, createArgs);
   if (created.code !== 0) {
     blockers.push(`git worktree add failed: ${created.stderr.trim() || created.stdout.trim() || created.code}`);
+    return blocked(base());
+  }
+  const manifestBlocker = await attachWorktreeToManifest(input, root, targetBranch, targetPath);
+  if (manifestBlocker) {
+    blockers.push(manifestBlocker);
     return blocked(base());
   }
   return { ...base(), ok: true };

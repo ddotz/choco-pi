@@ -19,10 +19,17 @@ function ctx(sessionId: string): { cwd: string; sessionManager: { getSessionId: 
   return { cwd: "/repo", sessionManager: { getSessionId: () => sessionId } };
 }
 
+type EventHandler = (event: Record<string, unknown>, ctx: Record<string, unknown>) => unknown | Promise<unknown>;
+
 function registeredTools(): Map<string, RegisteredTool> {
+  return registeredRuntime().tools;
+}
+
+function registeredRuntime(): { tools: Map<string, RegisteredTool>; handlers: Map<string, EventHandler[]> } {
   const tools = new Map<string, RegisteredTool>();
+  const handlers = new Map<string, EventHandler[]>();
   chocoAutopilot({
-    on: vi.fn(),
+    on: (event: string, handler: EventHandler) => handlers.set(event, [...(handlers.get(event) ?? []), handler]),
     registerCommand: vi.fn(),
     registerTool: (definition: RegisteredTool) => {
       tools.set(definition.name, definition);
@@ -32,7 +39,13 @@ function registeredTools(): Map<string, RegisteredTool> {
     exec: vi.fn(),
     getFlag: vi.fn(),
   } as never);
-  return tools;
+  return { tools, handlers };
+}
+
+async function emitBeforeAgentStart(handlers: Map<string, EventHandler[]>, sessionId: string): Promise<void> {
+  for (const handler of handlers.get("before_agent_start") ?? []) {
+    await handler({ type: "before_agent_start", prompt: "new unrelated task", systemPrompt: "base", systemPromptOptions: {} }, ctx(sessionId));
+  }
 }
 
 describe("dynamic SDD spec_gate tool", () => {
@@ -198,7 +211,7 @@ describe("dynamic SDD spec_gate tool", () => {
     expect(listed.content[0].text).not.toContain("Scope:\n- spec_gate tool\n- persistent spec history");
   });
 
-  it("restores a persisted working spec after extension reload", async () => {
+  it("shows persisted specs on list but does not reactivate them for unrelated new turns", async () => {
     const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
     const previousNodeEnv = process.env.NODE_ENV;
     const agentDir = await mkdtemp(join(tmpdir(), "choco-pi-sdd-persist-"));
@@ -212,7 +225,7 @@ describe("dynamic SDD spec_gate tool", () => {
           action: "start",
           objective: "Persist SDD",
           scope: ["persisted spec"],
-          acceptanceCriteria: ["reload restores spec"],
+          acceptanceCriteria: ["list shows persisted spec"],
           testStrategy: ["vitest reload simulation"],
         },
         undefined,
@@ -220,11 +233,20 @@ describe("dynamic SDD spec_gate tool", () => {
         ctx("persist-session"),
       );
 
-      const secondTool = registeredTools().get("spec_gate")!;
-      const listed = await secondTool.execute("list", { action: "list" }, undefined, undefined, ctx("persist-session"));
+      const secondRuntime = registeredRuntime();
+      await emitBeforeAgentStart(secondRuntime.handlers, "persist-session");
+      const listed = await secondRuntime.tools.get("spec_gate")!.execute("list", { action: "list" }, undefined, undefined, ctx("persist-session"));
+      const delta = await secondRuntime.tools.get("spec_gate")!.execute(
+        "delta",
+        { action: "delta", delta: "Should not attach to stale spec.", deltaHandling: "in-scope" },
+        undefined,
+        undefined,
+        ctx("persist-session"),
+      );
 
       expect(listed.content[0].text).toContain("Persist SDD");
-      expect(listed.content[0].text).toContain("reload restores spec");
+      expect(listed.content[0].text).toContain("list shows persisted spec");
+      expect(delta.details).toMatchObject({ ok: false, reason: expect.stringContaining("start") });
     } finally {
       if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
       else process.env.PI_CODING_AGENT_DIR = previousAgentDir;

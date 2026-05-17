@@ -114,7 +114,7 @@ import {
   type WorkModeRegistry,
 } from "./work-mode-registry";
 
-interface SessionRuntimeState {
+export interface SessionRuntimeState {
   effectiveWorkMode: WorkMode;
   effectiveModeSequence?: WorkMode[];
   suggestedWorkMode?: WorkMode;
@@ -123,7 +123,7 @@ interface SessionRuntimeState {
   updatedAt: string;
 }
 
-interface ChocoState {
+export interface ChocoState {
   version: 4;
   runtime: RuntimeState;
   sessions: Record<string, SessionRuntimeState>;
@@ -219,7 +219,7 @@ function ledgerKey(cwd: string, sessionId: string): string {
   return sessionScopedKey(cwd || process.cwd(), sessionId);
 }
 
-async function loadState(): Promise<ChocoState> {
+async function loadStateUnlocked(): Promise<ChocoState> {
   try {
     const raw = await readFile(statePath(), "utf8");
     const parsed = JSON.parse(raw) as Partial<ChocoState> & { mode?: { mode?: string } };
@@ -239,13 +239,25 @@ async function loadState(): Promise<ChocoState> {
   }
 }
 
-async function saveState(state: ChocoState): Promise<void> {
+async function saveStateUnlocked(state: ChocoState): Promise<void> {
   const path = statePath();
-  await withFileLock(path, async () => {
-    await mkdir(join(agentDir(), "choco-pi"), { recursive: true });
-    const tmpPath = `${path}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`;
-    await writeFile(tmpPath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
-    await rename(tmpPath, path);
+  await mkdir(join(agentDir(), "choco-pi"), { recursive: true });
+  const tmpPath = `${path}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`;
+  await writeFile(tmpPath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+  await rename(tmpPath, path);
+}
+
+export async function loadState(): Promise<ChocoState> {
+  return await loadStateUnlocked();
+}
+
+export async function updateState<T>(operation: (state: ChocoState) => T | Promise<T>): Promise<T> {
+  const path = statePath();
+  return await withFileLock(path, async () => {
+    const state = await loadStateUnlocked();
+    const result = await operation(state);
+    await saveStateUnlocked(state);
+    return result;
   });
 }
 
@@ -343,20 +355,20 @@ function hasSourceId(registry: SourceRegistry, id: string): boolean {
 }
 
 async function setWorkMode(workMode: WorkMode, ctx: ExtensionCommandContext): Promise<void> {
-  const state = await loadState();
   if (!isWorkModeImplemented(workMode)) {
     ctx.ui.notify(`Work mode '${workMode}' is planned but not implemented. Staying in default mode.`, "warning");
     return;
   }
-  state.runtime = createRuntimeState(workMode, state.runtime.executionIntensity);
-  await saveState(state);
+  await updateState((state) => {
+    state.runtime = createRuntimeState(workMode, state.runtime.executionIntensity);
+  });
   ctx.ui.notify(`mode: ${workMode}`, "info");
 }
 
 async function setExecutionIntensity(executionIntensity: ExecutionIntensity, ctx: ExtensionCommandContext): Promise<void> {
-  const state = await loadState();
-  state.runtime = createRuntimeState(state.runtime.workMode, executionIntensity);
-  await saveState(state);
+  await updateState((state) => {
+    state.runtime = createRuntimeState(state.runtime.workMode, executionIntensity);
+  });
   ctx.ui.notify(`intensity: ${executionIntensity}`, "info");
 }
 
@@ -451,60 +463,71 @@ function registerSourceRegistryTool(pi: ExtensionAPI): void {
     renderShell: "self",
     async execute(_toolCallId, params) {
       const input = params as SourceRegistryToolParams;
-      const state = await loadState();
-      const details = () => ({ action: input.action, state: state.sourceRegistry });
+      const readonlyState = await loadState();
+      const readonlyDetails = () => ({ action: input.action, state: readonlyState.sourceRegistry });
 
       if (input.action === "list") {
-        return { content: [{ type: "text", text: formatSources(state.sourceRegistry) }], details: details() };
+        return { content: [{ type: "text", text: formatSources(readonlyState.sourceRegistry) }], details: readonlyDetails() };
       }
       if (input.action === "due") {
-        return { content: [{ type: "text", text: summarizeDueSources(state.sourceRegistry) }], details: details() };
+        return { content: [{ type: "text", text: summarizeDueSources(readonlyState.sourceRegistry) }], details: readonlyDetails() };
       }
       if (input.action === "changed") {
-        return { content: [{ type: "text", text: summarizeChangedSources(state.sourceRegistry) }], details: details() };
+        return { content: [{ type: "text", text: summarizeChangedSources(readonlyState.sourceRegistry) }], details: readonlyDetails() };
       }
       if (input.action === "add") {
         if (!input.url?.trim()) throw new Error("Source URL is required");
         const source = createExternalSource(input.url, { rationale: input.rationale });
-        state.sourceRegistry = upsertExternalSource(state.sourceRegistry, source);
-        await saveState(state);
-        return { content: [{ type: "text", text: `Tracked external source: ${source.id}` }], details: details() };
+        const registry = await updateState((state) => {
+          state.sourceRegistry = upsertExternalSource(state.sourceRegistry, source);
+          return state.sourceRegistry;
+        });
+        return { content: [{ type: "text", text: `Tracked external source: ${source.id}` }], details: { action: input.action, state: registry } };
       }
       if (input.action === "watch") {
         const id = requireSourceId(input.id);
-        state.sourceRegistry = markSourceWatching(state.sourceRegistry, id, input.review || "Watching for future adoption analysis.", {
-          adoptionDepth: input.adoptionDepth,
-          scopeRationale: input.scopeRationale,
-          clearChangedFlag: input.clearChangedFlag,
+        const registry = await updateState((state) => {
+          state.sourceRegistry = markSourceWatching(state.sourceRegistry, id, input.review || "Watching for future adoption analysis.", {
+            adoptionDepth: input.adoptionDepth,
+            scopeRationale: input.scopeRationale,
+            clearChangedFlag: input.clearChangedFlag,
+          });
+          return state.sourceRegistry;
         });
-        await saveState(state);
-        return { content: [{ type: "text", text: `Marked watching: ${id}` }], details: details() };
+        return { content: [{ type: "text", text: `Marked watching: ${id}` }], details: { action: input.action, state: registry } };
       }
       if (input.action === "adopt") {
         const id = requireSourceId(input.id);
-        state.sourceRegistry = markSourceAdopted(state.sourceRegistry, id, input.review || "Adopted for choco-pi.", {
-          adoptionDepth: input.adoptionDepth,
-          adoptedItems: input.adoptedItems,
-          rejectedItems: input.rejectedItems,
-          scopeRationale: input.scopeRationale,
-          clearChangedFlag: input.clearChangedFlag,
+        const registry = await updateState((state) => {
+          state.sourceRegistry = markSourceAdopted(state.sourceRegistry, id, input.review || "Adopted for choco-pi.", {
+            adoptionDepth: input.adoptionDepth,
+            adoptedItems: input.adoptedItems,
+            rejectedItems: input.rejectedItems,
+            scopeRationale: input.scopeRationale,
+            clearChangedFlag: input.clearChangedFlag,
+          });
+          return state.sourceRegistry;
         });
-        await saveState(state);
-        return { content: [{ type: "text", text: `Marked adopted: ${id}` }], details: details() };
+        return { content: [{ type: "text", text: `Marked adopted: ${id}` }], details: { action: input.action, state: registry } };
       }
       if (input.action === "reject") {
         const id = requireSourceId(input.id);
-        state.sourceRegistry = markSourceRejected(state.sourceRegistry, id, input.review || "Rejected for choco-pi.");
-        await saveState(state);
-        return { content: [{ type: "text", text: `Marked rejected: ${id}` }], details: details() };
+        const registry = await updateState((state) => {
+          state.sourceRegistry = markSourceRejected(state.sourceRegistry, id, input.review || "Rejected for choco-pi.");
+          return state.sourceRegistry;
+        });
+        return { content: [{ type: "text", text: `Marked rejected: ${id}` }], details: { action: input.action, state: registry } };
       }
 
       const target = input.target || input.id || "due";
-      const selected = selectSourcesForCheck(state.sourceRegistry, target);
-      if (selected.length === 0) return { content: [{ type: "text", text: `No sources selected for check: ${target}` }], details: details() };
-      const messages = await checkSources(pi, state, selected);
-      await saveState(state);
-      return { content: [{ type: "text", text: messages.join("\n") }], details: details() };
+      const selected = selectSourcesForCheck(readonlyState.sourceRegistry, target);
+      if (selected.length === 0) return { content: [{ type: "text", text: `No sources selected for check: ${target}` }], details: readonlyDetails() };
+      const { messages, registry } = await updateState(async (state) => {
+        const checked = selectSourcesForCheck(state.sourceRegistry, target);
+        const messages = await checkSources(pi, state, checked);
+        return { messages, registry: state.sourceRegistry };
+      });
+      return { content: [{ type: "text", text: messages.join("\n") }], details: { action: input.action, state: registry } };
     },
   });
 }
@@ -534,11 +557,11 @@ async function updateLedgerForToolCall(cwd: string, sessionId: string, toolName:
   if (toolName !== "write" && toolName !== "edit") return;
   const path = toolInputPath(input);
   if (!path) return;
-  const state = await loadState();
-  const key = ledgerKey(cwd, sessionId);
-  const ledger = getLedger(state, cwd, sessionId);
-  state.ledgers[key] = recordChangedFile(ledger, path);
-  await saveState(state);
+  await updateState((state) => {
+    const key = ledgerKey(cwd, sessionId);
+    const ledger = getLedger(state, cwd, sessionId);
+    state.ledgers[key] = recordChangedFile(ledger, path);
+  });
 }
 
 async function updateLedgerForToolResult(
@@ -553,11 +576,11 @@ async function updateLedgerForToolResult(
   const command = verificationCommandFromInput(input);
   if (!command) return;
   const status: VerificationStatus = isError ? "failed" : "passed";
-  const state = await loadState();
-  const key = ledgerKey(cwd, sessionId);
-  const ledger = getLedger(state, cwd, sessionId);
-  state.ledgers[key] = recordVerification(ledger, command, status, textContentPreview(content));
-  await saveState(state);
+  await updateState((state) => {
+    const key = ledgerKey(cwd, sessionId);
+    const ledger = getLedger(state, cwd, sessionId);
+    state.ledgers[key] = recordVerification(ledger, command, status, textContentPreview(content));
+  });
 }
 
 export default function chocoAutopilot(pi: ExtensionAPI) {
@@ -625,21 +648,28 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
 
   pi.on("session_start", async (event, ctx) => {
     await cleanupDogfoodCaseRetention(createDogfoodStore(dogfoodRootPath()));
-    const state = await loadState();
+    let state = await loadState();
     const sessionId = sessionIdFromContext(ctx);
     const dueGithubSources = sourcesDueForWeeklyCheck(state.sourceRegistry)
       .filter((source) => source.kind === "github")
       .slice(0, 5);
     if (dueGithubSources.length > 0) {
-      await checkSources(pi, state, dueGithubSources);
-      await saveState(state);
+      state = await updateState(async (draft) => {
+        const selected = sourcesDueForWeeklyCheck(draft.sourceRegistry)
+          .filter((source) => source.kind === "github")
+          .slice(0, 5);
+        await checkSources(pi, draft, selected);
+        return draft;
+      });
     }
     if (ctx.hasUI && event.reason === "startup" && shouldRunAutoUpdate(state.autoUpdate)) {
       const result = await runChocoPiUpdate(pi, { trigger: "auto", packageRoot: chocoPiPackageRoot() });
       const checkedAt = nowIso();
-      state.autoUpdate.lastCheckedAt = checkedAt;
-      state.autoUpdate.lastResult = summarizeAutoUpdateResult(result, checkedAt);
-      await saveState(state);
+      state = await updateState((draft) => {
+        draft.autoUpdate.lastCheckedAt = checkedAt;
+        draft.autoUpdate.lastResult = summarizeAutoUpdateResult(result, checkedAt);
+        return draft;
+      });
       const formatted = formatAutoUpdateResult(result);
       if (formatted.message) ctx.ui.notify(formatted.message, formatted.level);
       if (result.status === "updated") pi.sendUserMessage("/reload-runtime", { deliverAs: "followUp" });
@@ -664,7 +694,6 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
   });
 
   pi.on("before_agent_start", async (event, ctx) => {
-    const state = await loadState();
     const cwd = ctx.cwd || process.cwd();
     const sessionId = sessionIdFromContext(ctx);
     const prompt = event.prompt ?? "";
@@ -675,31 +704,41 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
     if (!prompt.includes(DESIGN_REPAIR_PROMPT_MARKER)) repairStateFor(designRepairStates, sessionId).repairQueued = false;
     const suggestedWorkModes = inferPlannedWorkModes(prompt);
     const suggestedWorkMode = suggestedWorkModes.at(-1) ?? inferPlannedWorkMode(prompt);
-    const modeDecision = resolveEffectiveWorkMode({
-      persistentMode: state.runtime.workMode,
-      suggestedMode: suggestedWorkMode,
-      suggestedModes: suggestedWorkModes,
-    });
-    const workMode = state.runtime.workMode;
-    const effectiveWorkMode = modeDecision.effectiveMode;
-    const executionIntensity = maxIntensity(
-      state.runtime.executionIntensity,
-      classifyExecutionIntensity(prompt),
-    );
-    state.sessions[sessionId] = {
+    const {
+      workMode,
       effectiveWorkMode,
-      effectiveModeSequence: modeDecision.modeSequence,
-      suggestedWorkMode,
-      automaticMode: modeDecision.automatic,
       executionIntensity,
-      updatedAt: nowIso(),
-    };
-    const ledger = getLedger(state, cwd, sessionId, prompt);
-    await saveState(state);
+      modeSequence,
+      ledger,
+      sourceRegistry,
+      memories,
+    } = await updateState((state) => {
+      const modeDecision = resolveEffectiveWorkMode({
+        persistentMode: state.runtime.workMode,
+        suggestedMode: suggestedWorkMode,
+        suggestedModes: suggestedWorkModes,
+      });
+      const workMode = state.runtime.workMode;
+      const effectiveWorkMode = modeDecision.effectiveMode;
+      const executionIntensity = maxIntensity(
+        state.runtime.executionIntensity,
+        classifyExecutionIntensity(prompt),
+      );
+      state.sessions[sessionId] = {
+        effectiveWorkMode,
+        effectiveModeSequence: modeDecision.modeSequence,
+        suggestedWorkMode,
+        automaticMode: modeDecision.automatic,
+        executionIntensity,
+        updatedAt: nowIso(),
+      };
+      const ledger = getLedger(state, cwd, sessionId, prompt);
+      return { workMode, effectiveWorkMode, executionIntensity, modeSequence: modeDecision.modeSequence, ledger, sourceRegistry: state.sourceRegistry, memories: state.memories };
+    });
 
     const ledgerSummary = summarizeLedger(ledger, { maxItemsPerSection: 4 });
-    const changed = summarizeChangedSources(state.sourceRegistry);
-    const due = summarizeDueSources(state.sourceRegistry);
+    const changed = summarizeChangedSources(sourceRegistry);
+    const due = summarizeDueSources(sourceRegistry);
     const dueSourceSummary = [changed, due].filter((line) => !line.startsWith("No ")).join("\n\n");
 
     const scope = await resolveDogfoodScope({
@@ -721,13 +760,13 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
       systemPrompt: `${event.systemPrompt}\n\n${buildAutopilotSystemPrompt({
         workMode,
         effectiveWorkMode,
-        modeSequence: modeDecision.modeSequence,
+        modeSequence,
         executionIntensity,
         cwd,
         ledgerSummary,
         dueSourceSummary: dueSourceSummary || undefined,
         suggestedWorkMode,
-        globalMemorySummary: scope.kind === "global" && scope.memoryMode === "readonly" ? formatMemories(state.memories) : undefined,
+        globalMemorySummary: scope.kind === "global" && scope.memoryMode === "readonly" ? formatMemories(memories) : undefined,
       })}`,
     };
   });
@@ -841,8 +880,9 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
       if (command === "auto") {
         const value = rest[0] ?? "status";
         if (value === "on" || value === "off") {
-          state.autoUpdate.enabled = value === "on";
-          await saveState(state);
+          await updateState((draft) => {
+            draft.autoUpdate.enabled = value === "on";
+          });
           ctx.ui.notify(`auto-update: ${value}`, "info");
           return;
         }
@@ -869,9 +909,10 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
 
       const result = await runChocoPiUpdate(pi, { trigger: "manual", packageRoot: chocoPiPackageRoot() });
       const checkedAt = nowIso();
-      state.autoUpdate.lastCheckedAt = checkedAt;
-      state.autoUpdate.lastResult = summarizeAutoUpdateResult(result, checkedAt);
-      await saveState(state);
+      await updateState((draft) => {
+        draft.autoUpdate.lastCheckedAt = checkedAt;
+        draft.autoUpdate.lastResult = summarizeAutoUpdateResult(result, checkedAt);
+      });
       const formatted = formatManualUpdateResult(result);
       ctx.ui.notify(formatted.message, formatted.level);
 
@@ -910,13 +951,15 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
         }
         try {
           const description = descriptionParts.join(" ");
-          state.workModeRegistry = addCustomWorkMode(state.workModeRegistry, {
-            id,
-            description,
+          const mode = await updateState(async (draft) => {
+            draft.workModeRegistry = addCustomWorkMode(draft.workModeRegistry, {
+              id,
+              description,
+            });
+            const mode = findWorkMode(draft.workModeRegistry, id);
+            if (mode) await writeCustomModeFile(mode.id, mode.folder, description);
+            return mode;
           });
-          const mode = findWorkMode(state.workModeRegistry, id);
-          if (mode) await writeCustomModeFile(mode.id, mode.folder, description);
-          await saveState(state);
           ctx.ui.notify(`Added planned work mode: ${id}${mode ? ` (${mode.instructionFile})` : ""}`, "info");
         } catch (error) {
           ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
@@ -931,10 +974,11 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
           return;
         }
         try {
-          const existing = findWorkMode(state.workModeRegistry, id);
-          state.workModeRegistry = removeCustomWorkMode(state.workModeRegistry, id);
-          if (existing?.custom) await removeCustomModeFile(existing.folder);
-          await saveState(state);
+          await updateState(async (draft) => {
+            const existing = findWorkMode(draft.workModeRegistry, id);
+            draft.workModeRegistry = removeCustomWorkMode(draft.workModeRegistry, id);
+            if (existing?.custom) await removeCustomModeFile(existing.folder);
+          });
           ctx.ui.notify(`Removed custom work mode: ${id}`, "info");
         } catch (error) {
           ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
@@ -1012,8 +1056,9 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
           return;
         }
         const source = createExternalSource(url, { rationale: rationaleParts.join(" ") || undefined });
-        state.sourceRegistry = upsertExternalSource(state.sourceRegistry, source);
-        await saveState(state);
+        await updateState((draft) => {
+          draft.sourceRegistry = upsertExternalSource(draft.sourceRegistry, source);
+        });
         ctx.ui.notify(`Tracked external source: ${source.id}`, "info");
         return;
       }
@@ -1028,8 +1073,9 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
           ctx.ui.notify(`Unknown source id: ${id}`, "error");
           return;
         }
-        state.sourceRegistry = markSourceWatching(state.sourceRegistry, id, reviewParts.join(" ") || "Watching for future adoption analysis.");
-        await saveState(state);
+        await updateState((draft) => {
+          draft.sourceRegistry = markSourceWatching(draft.sourceRegistry, id, reviewParts.join(" ") || "Watching for future adoption analysis.");
+        });
         ctx.ui.notify(`Marked watching: ${id}`, "info");
         return;
       }
@@ -1044,8 +1090,9 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
           ctx.ui.notify(`Unknown source id: ${id}`, "error");
           return;
         }
-        state.sourceRegistry = markSourceAdopted(state.sourceRegistry, id, reviewParts.join(" ") || "Adopted for choco-pi.");
-        await saveState(state);
+        await updateState((draft) => {
+          draft.sourceRegistry = markSourceAdopted(draft.sourceRegistry, id, reviewParts.join(" ") || "Adopted for choco-pi.");
+        });
         ctx.ui.notify(`Marked adopted: ${id}`, "info");
         return;
       }
@@ -1060,8 +1107,9 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
           ctx.ui.notify(`Unknown source id: ${id}`, "error");
           return;
         }
-        state.sourceRegistry = markSourceRejected(state.sourceRegistry, id, reviewParts.join(" ") || "Rejected for choco-pi.");
-        await saveState(state);
+        await updateState((draft) => {
+          draft.sourceRegistry = markSourceRejected(draft.sourceRegistry, id, reviewParts.join(" ") || "Rejected for choco-pi.");
+        });
         ctx.ui.notify(`Marked rejected: ${id}`, "info");
         return;
       }
@@ -1073,8 +1121,10 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
           ctx.ui.notify(`No sources selected for check: ${target}`, "warning");
           return;
         }
-        const messages = await checkSources(pi, state, selected);
-        await saveState(state);
+        const messages = await updateState(async (draft) => {
+          const selected = selectSourcesForCheck(draft.sourceRegistry, target);
+          return await checkSources(pi, draft, selected);
+        });
         ctx.ui.notify(messages.join("\n"), "info");
         return;
       }
@@ -1111,8 +1161,9 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
         return;
       }
 
-      state.memories.push(memory);
-      await saveState(state);
+      await updateState((draft) => {
+        draft.memories.push(memory);
+      });
       ctx.ui.notify(`Saved memory: ${memory.kind}`, "info");
     },
   });
@@ -1120,20 +1171,19 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
   pi.registerCommand("ledger", {
     description: "Show the compact Context Ledger for the current workspace",
     handler: async (args: string, ctx: ExtensionCommandContext) => {
-      const state = await loadState();
       const cwd = ctx.cwd || process.cwd();
       const sessionId = sessionIdFromContext(ctx);
       const key = ledgerKey(cwd, sessionId);
 
       if (args.trim() === "reset") {
-        delete state.ledgers[key];
-        await saveState(state);
+        await updateState((draft) => {
+          delete draft.ledgers[key];
+        });
         ctx.ui.notify("Reset Context Ledger for this session/workspace.", "info");
         return;
       }
 
-      const ledger = getLedger(state, cwd, sessionId);
-      await saveState(state);
+      const ledger = await updateState((draft) => getLedger(draft, cwd, sessionId));
       ctx.ui.notify(summarizeLedger(ledger, { maxItemsPerSection: 8 }), "info");
     },
   });

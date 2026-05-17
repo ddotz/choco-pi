@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname } from "node:path";
+import { normalizeGroupId, normalizeLaneId, safeJoinWithin } from "./safe-identifiers";
 import { withFileLock } from "./state-lock";
 import type { LaneExecutionStrategy, ParallelStrategy, ParallelWorkAreaPlan } from "./worktree-planner";
 
@@ -34,6 +35,7 @@ export interface AgentLaneManifest {
   status: AgentLaneStatus;
   verificationCommands: string[];
   changedFiles: string[];
+  writable: boolean;
   lastCommit?: string;
   lastError?: string;
   updatedAt: string;
@@ -64,12 +66,12 @@ function nowIso(): string {
 }
 
 export function agentRunManifestPath(repoRoot: string, groupId: string): string {
-  return join(repoRoot, ".pi", "agent-runs", groupId, "manifest.json");
+  return safeJoinWithin(repoRoot, ".pi", "agent-runs", normalizeGroupId(groupId), "manifest.json");
 }
 
 async function saveManifestUnlocked(manifest: AgentRunManifest): Promise<void> {
   const path = agentRunManifestPath(manifest.repoRoot, manifest.groupId);
-  await mkdir(join(manifest.repoRoot, ".pi", "agent-runs", manifest.groupId), { recursive: true });
+  await mkdir(dirname(path), { recursive: true });
   const tmp = `${path}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`;
   await writeFile(tmp, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
   await rename(tmp, path);
@@ -81,17 +83,18 @@ export async function saveAgentRunManifest(manifest: AgentRunManifest): Promise<
 }
 
 export async function loadAgentRunManifest(repoRoot: string, groupId: string): Promise<AgentRunManifest> {
+  const normalizedGroupId = normalizeGroupId(groupId);
   try {
-    return JSON.parse(await readFile(agentRunManifestPath(repoRoot, groupId), "utf8")) as AgentRunManifest;
+    return JSON.parse(await readFile(agentRunManifestPath(repoRoot, normalizedGroupId), "utf8")) as AgentRunManifest;
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to load agent run manifest ${groupId}: ${detail}`);
+    throw new Error(`Failed to load agent run manifest ${normalizedGroupId}: ${detail}`);
   }
 }
 
 export async function createAgentRunManifest(input: CreateAgentRunManifestInput): Promise<AgentRunManifest> {
   const timestamp = nowIso();
-  const groupId = input.groupId ?? `run-${timestamp.replace(/[^0-9]/g, "").slice(0, 14)}`;
+  const groupId = normalizeGroupId(input.groupId ?? `run-${timestamp.replace(/[^0-9]/g, "").slice(0, 14)}`);
   const manifest: AgentRunManifest = {
     version: 1,
     groupId,
@@ -113,6 +116,7 @@ export async function createAgentRunManifest(input: CreateAgentRunManifestInput)
       status: "planned",
       verificationCommands: [],
       changedFiles: [],
+      writable: lane.writable,
       updatedAt: timestamp,
     })),
   };
@@ -131,11 +135,13 @@ export async function updateAgentLaneStatus(
   status: AgentLaneStatus,
   patch: LanePatch = {},
 ): Promise<AgentRunManifest> {
-  const path = agentRunManifestPath(repoRoot, groupId);
+  const normalizedGroupId = normalizeGroupId(groupId);
+  const normalizedLaneId = normalizeLaneId(laneId);
+  const path = agentRunManifestPath(repoRoot, normalizedGroupId);
   return await withFileLock(path, async () => {
-    const manifest = await loadAgentRunManifest(repoRoot, groupId);
-    const lane = manifest.lanes.find((candidate) => candidate.id === laneId);
-    if (!lane) throw new Error(`Unknown lane id: ${laneId}`);
+    const manifest = await loadAgentRunManifest(repoRoot, normalizedGroupId);
+    const lane = manifest.lanes.find((candidate) => candidate.id === normalizedLaneId);
+    if (!lane) throw new Error(`Unknown lane id: ${normalizedLaneId}`);
     assertLaneTransition(lane.status, status);
     Object.assign(lane, patch, { status, updatedAt: nowIso() });
     manifest.updatedAt = nowIso();
@@ -149,9 +155,10 @@ export async function updateAgentRunManifest(
   groupId: string,
   update: (manifest: AgentRunManifest) => void,
 ): Promise<AgentRunManifest> {
-  const path = agentRunManifestPath(repoRoot, groupId);
+  const normalizedGroupId = normalizeGroupId(groupId);
+  const path = agentRunManifestPath(repoRoot, normalizedGroupId);
   return await withFileLock(path, async () => {
-    const manifest = await loadAgentRunManifest(repoRoot, groupId);
+    const manifest = await loadAgentRunManifest(repoRoot, normalizedGroupId);
     update(manifest);
     manifest.updatedAt = nowIso();
     await saveManifestUnlocked(manifest);

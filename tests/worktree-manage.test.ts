@@ -3,8 +3,11 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import chocoAutopilot from "../extensions/choco-autopilot/index";
+import { runAgentOrchestrator } from "../extensions/choco-autopilot/agent-orchestrator-tool";
+import { loadAgentRunManifest } from "../extensions/choco-autopilot/agent-run-manifest";
 import { runWorktreeManage } from "../extensions/choco-autopilot/worktree-manage-tool";
 import { currentBranch } from "../extensions/choco-autopilot/git-runtime";
+import { planParallelWorkAreas } from "../extensions/choco-autopilot/worktree-planner";
 import { createGitFixture } from "./helpers/git-fixture";
 import { createPiExtensionFixture } from "./helpers/pi-extension-fixture";
 
@@ -74,6 +77,34 @@ describe("worktree_manage tool", () => {
       const removed = await runWorktreeManage({ action: "remove", repoRoot: fixture.repoRoot, path }, { cwd: fixture.repoRoot });
       expect(removed.ok).toBe(true);
       expect(removed.commands).toContain(`git worktree remove ${path}`);
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("attaches created worktree details to the target manifest lane", async () => {
+    const fixture = await createGitFixture();
+    const path = await tempWorktreePath();
+    try {
+      const plan = planParallelWorkAreas({ items: [{ id: "runtime", description: "Edit runtime", files: ["src/runtime.ts"] }] });
+      await runAgentOrchestrator({ action: "start", repoRoot: fixture.repoRoot, groupId: "group-a", baseRef: "main", plan });
+
+      const created = await runWorktreeManage({
+        action: "create",
+        repoRoot: fixture.repoRoot,
+        groupId: "group-a",
+        laneId: "lane-1",
+        branchName: "session/test/manifest-link",
+        baseRef: "main",
+        path,
+      }, { cwd: fixture.repoRoot });
+      const dispatched = await runAgentOrchestrator({ action: "dispatch", repoRoot: fixture.repoRoot, groupId: "group-a" });
+      const manifest = await loadAgentRunManifest(fixture.repoRoot, "group-a");
+
+      expect(created.ok).toBe(true);
+      expect(manifest.lanes[0]).toMatchObject({ status: "created", worktreePath: path, branchName: "session/test/manifest-link" });
+      expect(dispatched.ok).toBe(true);
+      expect(dispatched.handoffPrompts.join("\n")).toContain(path);
     } finally {
       await fixture.cleanup();
     }

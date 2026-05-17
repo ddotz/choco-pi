@@ -58,6 +58,13 @@ describe("write scope guard", () => {
     expect(guardWritePath(lane({ ownedFiles: ["tests/*.test.ts"] }), "/repo/tests/foo.test.ts")).toMatchObject({ allowed: true });
   });
 
+  it("blocks repo-outside absolute paths even when the lane owns the repo root", () => {
+    const result = guardWritePath(lane({ ownedFiles: ["."] }), "/outside/secrets.txt");
+
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toContain("outside repository root");
+  });
+
   it("records write-scope violations on the lane manifest", async () => {
     const repoRoot = await tempRepoRoot();
     const plan = planParallelWorkAreas({ items: [{ id: "lane", description: "Edit tests", files: ["tests"] }] });

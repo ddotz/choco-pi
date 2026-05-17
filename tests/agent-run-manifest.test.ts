@@ -1,8 +1,9 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  agentRunManifestPath,
   createAgentRunManifest,
   loadAgentRunManifest,
   summarizeAgentRunManifest,
@@ -42,6 +43,15 @@ describe("agent run manifest", () => {
     expect(loaded.lanes.map((lane) => lane.id)).toEqual(["lane-1", "lane-2"]);
     expect(summary).toContain("group-a");
     expect(summary).toContain("lane-1");
+  });
+
+  it("rejects group ids that would escape the repo-local manifest root", async () => {
+    const root = await tempRepoRoot();
+
+    expect(() => agentRunManifestPath(root, "../../outside")).toThrow("groupId");
+    const manifestPath = agentRunManifestPath(root, "group-a");
+    const relativePath = relative(resolve(root, ".pi", "agent-runs"), manifestPath);
+    expect(relativePath.startsWith(`..${sep}`)).toBe(false);
   });
 
   it("rejects invalid lane transitions", async () => {

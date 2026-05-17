@@ -35,7 +35,8 @@ export function formatSessionDashboard(input: SessionDashboardInput): string {
 async function todoSummary(cwd: string, sessionId: string): Promise<string> {
   const path = join(cwd, ".pi", "sessions", sessionId, "todos.json");
   try {
-    const todos = JSON.parse(await readFile(path, "utf8")) as Array<{ status?: string }>;
+    const parsed = JSON.parse(await readFile(path, "utf8")) as { todos?: Array<{ status?: string }> } | Array<{ status?: string }>;
+    const todos = Array.isArray(parsed) ? parsed : Array.isArray(parsed.todos) ? parsed.todos : [];
     const active = todos.filter((todo) => todo.status === "in_progress").length;
     const pending = todos.filter((todo) => todo.status === "pending").length;
     const done = todos.filter((todo) => todo.status === "done").length;

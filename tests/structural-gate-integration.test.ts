@@ -1,11 +1,12 @@
 import type { AssistantMessage } from "@mariozechner/pi-ai";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAgentRunManifest, updateAgentLaneStatus } from "../extensions/choco-autopilot/agent-run-manifest";
 import chocoAutopilot from "../extensions/choco-autopilot/index";
 import { planParallelWorkAreas } from "../extensions/choco-autopilot/worktree-planner";
+import { createGitFixture } from "./helpers/git-fixture";
 
 interface RegisteredTool {
   name: string;
@@ -88,6 +89,37 @@ describe("structural gate integration evidence", () => {
     const result = await emitFirst(handlers, "message_end", { type: "message_end", message: assistantMessage("완료했습니다.") }, root) as { message: AssistantMessage };
     expect((result.message.content[0] as { type: "text"; text: string }).text).toBe("");
     expect(sendMessage).toHaveBeenCalled();
+  });
+
+  it("detects root manifests even when the Pi cwd is a repository subdirectory", async () => {
+    const fixture = await createGitFixture();
+    try {
+      const subdir = join(fixture.repoRoot, "src");
+      await mkdir(subdir, { recursive: true });
+      const plan = planParallelWorkAreas({ items: [{ id: "a", description: "A", files: ["a.ts"] }, { id: "b", description: "B", files: ["b.ts"] }] });
+      await createAgentRunManifest({ repoRoot: fixture.repoRoot, groupId: "group-a", baseRef: "main", plan });
+      await updateAgentLaneStatus(fixture.repoRoot, "group-a", "lane-1", "running");
+      await updateAgentLaneStatus(fixture.repoRoot, "group-a", "lane-1", "verified");
+      await updateAgentLaneStatus(fixture.repoRoot, "group-a", "lane-2", "running");
+      await updateAgentLaneStatus(fixture.repoRoot, "group-a", "lane-2", "verified");
+      const { handlers, tools } = setupAutopilot();
+      await emitFirst(handlers, "before_agent_start", { type: "before_agent_start", prompt: "병렬 구현 완료해", systemPrompt: "base", systemPromptOptions: {} }, subdir);
+
+      const gateResult = await tools.get("structural_gate")!.execute("gate-1", {
+        acceptanceFit: "Parallel work done.",
+        runtimeFit: "Lane tests passed.",
+        failureModes: "Integration may be missing.",
+        verificationEvidence: "Lane-local tests passed.",
+        loopGovernance: "Transitions stayed planned.",
+        completionBoundary: "Ready to stop.",
+        confidence: "High",
+        readyToComplete: true,
+      }, undefined, undefined, { cwd: subdir });
+
+      expect(gateResult.details).toMatchObject({ ok: false, reason: expect.stringContaining("integration_verifier") });
+    } finally {
+      await fixture.cleanup();
+    }
   });
 
   it("does not accept textual integration_verifier claims when the manifest lacks integration evidence", async () => {

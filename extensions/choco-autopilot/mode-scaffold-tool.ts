@@ -1,5 +1,6 @@
 import { access, mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { safeJoinWithin } from "./safe-identifiers";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
@@ -44,8 +45,8 @@ async function exists(path: string): Promise<boolean> {
 }
 
 async function writeScaffoldFile(repoRoot: string, relativePath: string, content: string): Promise<void> {
-  const absolute = join(repoRoot, relativePath);
-  await mkdir(join(absolute, ".."), { recursive: true });
+  const absolute = safeJoinWithin(repoRoot, relativePath);
+  await mkdir(dirname(absolute), { recursive: true });
   await writeFile(absolute, content, "utf8");
 }
 

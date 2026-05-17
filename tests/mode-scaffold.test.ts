@@ -46,6 +46,15 @@ describe("mode scaffold", () => {
     ]));
   });
 
+  it("keeps generated files inside the requested repo root", async () => {
+    const repoRoot = await root();
+
+    const result = await runModeScaffold({ modeId: "safe-mode", description: "safe", dryRun: true }, { repoRoot: join(repoRoot, "../repo/../repo") });
+
+    expect(result.ok).toBe(true);
+    expect(result.files.every((file) => !file.includes(".."))).toBe(true);
+  });
+
   it("blocks invalid ids, existing modes, and dry-runs without writing files", async () => {
     const repoRoot = await root();
 

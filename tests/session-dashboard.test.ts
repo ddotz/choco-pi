@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import chocoAutopilot from "../extensions/choco-autopilot/index";
 import { formatSessionDashboard } from "../extensions/choco-autopilot/session-dashboard";
@@ -31,5 +34,30 @@ describe("session dashboard", () => {
     await commands.get("sessions")!.handler("", { cwd: "/repo", ui: { notify }, sessionManager: { getSessionId: () => "s1" } });
 
     expect(notify).toHaveBeenCalledWith(expect.stringContaining("session: s1"), "info");
+  });
+
+  it("summarizes the real todo tool state schema", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "choco-pi-sessions-"));
+    try {
+      const { commands } = createPiExtensionFixture(chocoAutopilot);
+      const notify = vi.fn();
+      const todoDir = join(cwd, ".pi", "sessions", "s1");
+      await mkdir(todoDir, { recursive: true });
+      await writeFile(join(todoDir, "todos.json"), JSON.stringify({
+        version: 1,
+        nextId: 4,
+        todos: [
+          { id: 1, text: "active", status: "in_progress" },
+          { id: 2, text: "pending", status: "pending" },
+          { id: 3, text: "done", status: "done" },
+        ],
+      }), "utf8");
+
+      await commands.get("sessions")!.handler("", { cwd, ui: { notify }, sessionManager: { getSessionId: () => "s1" } });
+
+      expect(notify).toHaveBeenCalledWith(expect.stringContaining("todos: 1 active / 1 pending / 1 done"), "info");
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
   });
 });

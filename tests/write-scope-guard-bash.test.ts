@@ -26,10 +26,11 @@ describe("write scope guard bash post-diff", () => {
     expect(result.violations).toEqual(["src/outside.ts"]);
   });
 
-  it("only checks files newly changed after bash execution", () => {
+  it("blocks bash when outside-scope files are already dirty before execution", () => {
     const result = detectBashScopeViolations(lane, ["src/outside.ts"], ["src/outside.ts", "src/owned.ts"]);
 
-    expect(result.allowed).toBe(true);
-    expect(result.violations).toEqual([]);
+    expect(result.allowed).toBe(false);
+    expect(result.violations).toEqual(["src/outside.ts"]);
+    expect(result.reason).toContain("outside-scope dirty files exist before bash");
   });
 });

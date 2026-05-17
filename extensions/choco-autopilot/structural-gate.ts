@@ -5,6 +5,7 @@ import type { ExtensionAPI, ExtensionContext, ToolDefinition } from "@earendil-w
 import { Container } from "@mariozechner/pi-tui";
 import type { Static } from "typebox";
 import { FALLBACK_SESSION_ID, normalizeSessionId, sessionIdFromContext } from "../session-identity";
+import { repoRoot as gitRepoRoot } from "./git-runtime";
 import {
   clearRepairState,
   GUARD_REPAIR_STATUS_TEXT,
@@ -452,16 +453,17 @@ export function createLoopTransitionTool(state: StructuralGateState): ToolDefini
 }
 
 async function activeParallelManifestIntegrationBlock(cwd: string, _review: StructuralGateReview): Promise<string | undefined> {
+  const root = await gitRepoRoot(cwd).catch(() => cwd);
   let entries: string[] = [];
   try {
-    entries = await readdir(join(cwd, ".pi", "agent-runs"));
+    entries = await readdir(join(root, ".pi", "agent-runs"));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     return "active parallel manifest check failed; run integration_verifier or resolve manifest state before completion";
   }
   for (const groupId of entries) {
     try {
-      const raw = await readFile(join(cwd, ".pi", "agent-runs", groupId, "manifest.json"), "utf8");
+      const raw = await readFile(join(root, ".pi", "agent-runs", groupId, "manifest.json"), "utf8");
       const manifest = JSON.parse(raw) as { status?: string; lanes?: unknown[]; integrationEvidence?: string };
       const active = manifest.status !== "integrated" && manifest.status !== "closed";
       if (active && (manifest.lanes?.length ?? 0) > 1 && !manifest.integrationEvidence) {

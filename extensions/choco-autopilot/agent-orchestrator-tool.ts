@@ -75,7 +75,7 @@ const AgentOrchestratorParamsSchema = Type.Object({
 });
 
 function laneIsWritable(lane: AgentLaneManifest): boolean {
-  return lane.ownedFiles.length > 0 || lane.ownedDomains.length > 0;
+  return lane.writable ?? (lane.ownedFiles.length > 0 || lane.ownedDomains.length > 0);
 }
 
 function laneDependenciesVerified(lane: AgentLaneManifest, manifest: AgentRunManifest): boolean {
@@ -86,6 +86,15 @@ function laneDependenciesVerified(lane: AgentLaneManifest, manifest: AgentRunMan
 }
 
 function handoffPrompt(manifest: AgentRunManifest, lane: AgentLaneManifest): string {
+  const activeLaneContext = JSON.stringify({
+    groupId: manifest.groupId,
+    laneId: lane.id,
+    repoRoot: manifest.repoRoot,
+    ownedFiles: lane.ownedFiles,
+    ownedDomains: lane.ownedDomains,
+    executionStrategy: lane.executionStrategy,
+    readOnly: !laneIsWritable(lane),
+  });
   return [
     "# choco-pi agent lane handoff",
     `groupId: ${manifest.groupId}`,
@@ -98,6 +107,7 @@ function handoffPrompt(manifest: AgentRunManifest, lane: AgentLaneManifest): str
     `descriptions: ${lane.descriptions.join("; ")}`,
     `ownedFiles: ${lane.ownedFiles.join(", ") || "none"}`,
     `ownedDomains: ${lane.ownedDomains.join(", ") || "none"}`,
+    `export CHOCO_PI_ACTIVE_LANE_CONTEXT='${activeLaneContext}'`,
   ].join("\n");
 }
 
@@ -142,6 +152,10 @@ export async function runAgentOrchestrator(input: AgentOrchestratorParams, conte
     const blockers: string[] = [];
     const prompts: string[] = [];
     for (const lane of manifest.lanes.filter((candidate) => candidate.status === "planned" || candidate.status === "created")) {
+      if (lane.executionStrategy === "serial") {
+        blockers.push(`${lane.id}: serial lane cannot be dispatched as a parallel handoff.`);
+        continue;
+      }
       if (!laneDependenciesVerified(lane, manifest)) {
         blockers.push(`${lane.id}: dependency lanes are not verified.`);
         continue;

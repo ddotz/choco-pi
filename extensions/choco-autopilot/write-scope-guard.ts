@@ -1,4 +1,4 @@
-import { relative, resolve } from "node:path";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { updateAgentLaneStatus } from "./agent-run-manifest";
 import { execGit } from "./git-runtime";
 
@@ -28,9 +28,12 @@ function normalizePath(path: string): string {
   return path.replace(/^@/, "").replace(/\\+/g, "/").replace(/^\.\/+/, "").replace(/\/+/g, "/").replace(/\/$/, "");
 }
 
-function relativeToRepo(context: ActiveLaneContext, path: string): string {
-  const absolute = path.startsWith("/") ? path : resolve(context.repoRoot, path);
-  return normalizePath(relative(context.repoRoot, absolute));
+function relativeToRepo(context: ActiveLaneContext, path: string): string | undefined {
+  const repoRoot = resolve(context.repoRoot);
+  const absolute = path.startsWith("/") ? resolve(path) : resolve(repoRoot, path);
+  const relativePath = relative(repoRoot, absolute);
+  if (relativePath === ".." || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) return undefined;
+  return normalizePath(relativePath || ".");
 }
 
 function globToRegExp(glob: string): RegExp {
@@ -64,6 +67,7 @@ function scopeMatches(scope: string, relativePath: string): boolean {
 export function guardWritePath(context: ActiveLaneContext | undefined, path: string): WriteScopeDecision {
   if (!context) return { allowed: true, reason: "no active lane" };
   const relativePath = relativeToRepo(context, path);
+  if (!relativePath) return { allowed: false, reason: `outside repository root for ${context.laneId}: ${path}` };
   if (context.readOnly) return { allowed: false, reason: `read-only lane ${context.laneId} cannot write files`, path: relativePath };
   if (context.ownedFiles.some((scope) => scopeMatches(scope, relativePath))) return { allowed: true, reason: "within active lane write scope", path: relativePath };
   return { allowed: false, reason: `outside active lane write scope for ${context.laneId}: ${relativePath}`, path: relativePath };
@@ -91,7 +95,16 @@ export function detectBashScopeViolations(
   afterChangedFiles: string[],
 ): BashScopeDecision {
   if (!context) return { allowed: true, violations: [] };
-  const before = new Set(beforeChangedFiles.map(normalizePath));
+  const beforePaths = beforeChangedFiles.map(normalizePath);
+  const outsideBefore = beforePaths.filter((file) => !guardWritePath(context, file).allowed);
+  if (outsideBefore.length > 0) {
+    return {
+      allowed: false,
+      violations: outsideBefore,
+      reason: `outside-scope dirty files exist before bash; cannot safely attribute bash changes: ${outsideBefore.join(", ")}`,
+    };
+  }
+  const before = new Set(beforePaths);
   const newlyChanged = afterChangedFiles.map(normalizePath).filter((file) => !before.has(file));
   const violations = newlyChanged.filter((file) => !guardWritePath(context, file).allowed);
   return violations.length === 0

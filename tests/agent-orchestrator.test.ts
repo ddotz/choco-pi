@@ -50,6 +50,17 @@ describe("agent orchestrator", () => {
     expect(result.blockers.join("\n")).toContain("writable lane requires worktreePath before dispatch");
   });
 
+  it("blocks serial lanes from parallel handoff dispatch", async () => {
+    const root = await tempRepoRoot();
+    const plan = planParallelWorkAreas({ items: [{ id: "unknown", description: "Unknown writable scope" }] });
+    await runAgentOrchestrator({ action: "start", repoRoot: root, groupId: "group-a", baseRef: "main", plan });
+
+    const result = await runAgentOrchestrator({ action: "dispatch", repoRoot: root, groupId: "group-a" });
+
+    expect(result.ok).toBe(false);
+    expect(result.blockers.join("\n")).toContain("serial lane cannot be dispatched as a parallel handoff");
+  });
+
   it("dispatches read-only lanes with a handoff prompt", async () => {
     const root = await tempRepoRoot();
     const plan = planParallelWorkAreas({ items: [{ id: "review", description: "Review docs", files: ["README.md"], write: false }] });
@@ -60,6 +71,7 @@ describe("agent orchestrator", () => {
     expect(result.ok).toBe(true);
     expect(result.handoffPrompts.join("\n")).toContain("lane-1");
     expect(result.handoffPrompts.join("\n")).toContain("Review docs");
+    expect(result.handoffPrompts.join("\n")).toContain("CHOCO_PI_ACTIVE_LANE_CONTEXT");
   });
 
   it("preserves existing lane verification commands when a later update omits them", async () => {
