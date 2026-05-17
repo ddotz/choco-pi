@@ -104,7 +104,7 @@ describe("external source registry", () => {
     expect(summary).toContain("weekly update check");
   });
 
-  it("records upstream refs and flags changed sources for follow-up analysis", () => {
+  it("treats the first successful upstream ref check as a baseline instead of a change", () => {
     let registry = createSourceRegistry();
     const source = createExternalSource("https://github.com/example/upstream-utility", {
       now: new Date("2026-05-01T00:00:00Z"),
@@ -116,13 +116,13 @@ describe("external source registry", () => {
       upstreamRef: "abc123",
       ok: true,
     });
-    expect(registry.sources[0].changedSinceLastCheck).toBe(true);
+    expect(registry.sources[0].changedSinceLastCheck).toBe(false);
 
     registry = updateSourceCheckResult(registry, source.id, {
       checkedAt: new Date("2026-05-15T00:00:00Z"),
-      upstreamRef: "abc123",
+      upstreamRef: "def456",
       ok: true,
     });
-    expect(registry.sources[0].changedSinceLastCheck).toBe(false);
+    expect(registry.sources[0].changedSinceLastCheck).toBe(true);
   });
 });

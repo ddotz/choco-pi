@@ -554,6 +554,8 @@ export function buildWorktreeGuidance(): string {
     "- After parallel_work_plan, use agent_orchestrator start to store a durable manifest and dispatch lanes only after dependencies and worktree requirements are satisfied.",
     "- Active lane write scope is runtime-guarded; read-only lanes and writes outside owned files/globs/directories are blocked or recorded as violations.",
     "- Before completing manifest-backed parallel work, run integration_verifier and include final integration evidence in structural_gate.",
+    "- Use /sessions to inspect session/cwd/branch/todo/manifest/worktree status when multi-session state is unclear.",
+    "- Use mode_scaffold for custom work-mode boilerplate while preserving mode isolation.",
     "- Default local worktree root: ~/.config/superpowers/worktrees/<project>/<session>-<task>.",
     "- Keep each session's todos and ledger scoped to that session; use project-shared todos only when explicitly requested.",
     "- Do not delete worktrees or branches without an explicit irreversible-action approval boundary.",

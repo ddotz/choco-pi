@@ -224,7 +224,8 @@ export function updateSourceCheckResult(registry: SourceRegistry, id: string, re
     ...registry,
     sources: registry.sources.map((source) => {
       if (source.id !== id) return source;
-      const changed = result.ok && result.upstreamRef !== undefined && result.upstreamRef !== source.lastKnownRef;
+      const hasBaseline = Boolean(source.lastKnownRef);
+      const changed = result.ok && result.upstreamRef !== undefined && hasBaseline && result.upstreamRef !== source.lastKnownRef;
       return {
         ...source,
         lastCheckedAt: result.checkedAt.toISOString(),

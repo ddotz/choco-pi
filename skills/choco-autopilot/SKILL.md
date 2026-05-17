@@ -86,6 +86,8 @@ Use `/mode` as the canonical work-mode command. Run `/mode` with no arguments to
 - After `parallel_work_plan`, use `agent_orchestrator start` to persist the lane manifest, then dispatch only lanes whose dependencies and worktree requirements are satisfied.
 - Active lanes are guarded by write-scope checks; read-only lanes and writes outside owned files/globs/dirs are blocked or recorded as violations.
 - Before completing manifest-backed parallel work, run `integration_verifier` and include its evidence in `structural_gate`.
+- Use `/sessions` to inspect session/cwd/branch/todo/manifest/worktree status when multi-session state is unclear.
+- Use `mode_scaffold` for custom work-mode boilerplate while preserving mode isolation.
 - Use the default hybrid parallel strategy: writable lanes run in isolated worktrees, read-only lanes may use spawned agents, and shared/integration lanes stay serial.
 - Prefer isolated git worktrees for parallel/multi-session work. Todo and ledger state are session-scoped by default; use project-shared todos only when explicitly needed.
 

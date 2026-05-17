@@ -28,7 +28,21 @@ type ReloadRuntimeAPI = Pick<ExtensionAPI, "exec" | "on" | "registerCommand" | "
 const RELOAD_RUNTIME_CONTINUE_ARG = "--continue";
 const RELOAD_RUNTIME_CONTINUE_COMMAND = `/${RELOAD_RUNTIME_COMMAND_NAME} ${RELOAD_RUNTIME_CONTINUE_ARG}`;
 const RELOAD_RESUME_MARKER_FILE = "reload-runtime-resume.json";
+const RELOAD_CONTINUITY_MARKER_FILE = "reload-runtime-continuity.json";
 const RELOAD_RESUME_MARKER_MAX_AGE_MS = 2 * 60 * 1000;
+const RELOAD_CONTINUITY_MARKER_MAX_AGE_MS = 5 * 60 * 1000;
+
+export interface ReloadContinuityState {
+  version: 1;
+  sessionScopeKey: string;
+  turnId: string;
+  activeManifestGroupId?: string;
+  activeLaneId?: string;
+  workingSpec?: unknown;
+  pendingStructuralGate?: boolean;
+  activeTodoIds: number[];
+  createdAt: string;
+}
 
 function reloadFromToolContext(ctx: ExtensionContext): (() => Promise<void>) | undefined {
   const maybeReload = (ctx as ExtensionContext & { reload?: unknown }).reload;
@@ -53,6 +67,10 @@ function reloadResumeMarkerPath(): string {
   return join(reloadResumeMarkerDir(), RELOAD_RESUME_MARKER_FILE);
 }
 
+function reloadContinuityMarkerPath(customAgentDir = agentDir()): string {
+  return join(customAgentDir, "choco-pi", RELOAD_CONTINUITY_MARKER_FILE);
+}
+
 function shouldResumeAfterReload(args: string): boolean {
   return args.trim().split(/\s+/).includes(RELOAD_RUNTIME_CONTINUE_ARG);
 }
@@ -68,6 +86,30 @@ async function writeReloadResumeMarker(): Promise<void> {
 
 async function clearReloadResumeMarker(): Promise<void> {
   await rm(reloadResumeMarkerPath(), { force: true });
+}
+
+export async function writeReloadContinuityState(state: ReloadContinuityState, customAgentDir = agentDir()): Promise<void> {
+  const path = reloadContinuityMarkerPath(customAgentDir);
+  await mkdir(join(path, ".."), { recursive: true });
+  await writeFile(path, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+}
+
+export async function claimReloadContinuityState(
+  sessionScopeKey: string,
+  customAgentDir = agentDir(),
+  maxAgeMs = RELOAD_CONTINUITY_MARKER_MAX_AGE_MS,
+): Promise<ReloadContinuityState | undefined> {
+  const path = reloadContinuityMarkerPath(customAgentDir);
+  try {
+    const parsed = JSON.parse(await readFile(path, "utf8")) as ReloadContinuityState;
+    await rm(path, { force: true });
+    if (parsed.sessionScopeKey !== sessionScopeKey) return undefined;
+    if (Date.now() - new Date(parsed.createdAt).getTime() > maxAgeMs) return undefined;
+    return parsed;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") await rm(path, { force: true });
+    return undefined;
+  }
 }
 
 async function claimReloadResumeMarker(): Promise<boolean> {
