@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { Container, Text } from "@mariozechner/pi-tui";
+import { Container, Text, visibleWidth } from "@mariozechner/pi-tui";
 import { ToolExecutionComponent } from "../node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/components/tool-execution.js";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { setThemeInstance } from "../node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/theme/theme.js";
@@ -274,6 +274,23 @@ describe("focus rendering", () => {
 
     expect(setWorkingVisible).toHaveBeenCalledWith(false);
     expect(setWorkingVisible).toHaveBeenCalledTimes(2);
+  });
+
+  it("truncates compact error result lines to the render width", async () => {
+    await setupFocusExtension();
+
+    const width = 184;
+    const overwideError =
+      "Found 2 occurrences of edits[3] in /Users/hyuns/code/choco-pi/extensions/choco-autopilot/agent-run-manifest.ts. Each oldText must be unique. Please provide more context to make it unique.";
+    expect(visibleWidth(overwideError)).toBeGreaterThan(width);
+
+    const block = new ToolExecutionComponent("edit", "edit-1", { path: "extensions/choco-autopilot/agent-run-manifest.ts", edits: [] }, {}, undefined, ui() as never, "/repo");
+    block.updateResult({ content: [{ type: "text", text: overwideError }], details: undefined, isError: true }, false);
+
+    const lines = block.render(width).flatMap((line) => line.split("\n"));
+
+    expect(lines.some((line) => line.includes("Found 2 occurrences"))).toBe(true);
+    expect(lines.every((line) => visibleWidth(line) <= width)).toBe(true);
   });
 
   it("keeps one external spacer for visible tool boxes while hiding fully empty todo-style blocks", async () => {

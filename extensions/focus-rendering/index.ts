@@ -2,6 +2,7 @@ import { existsSync, realpathSync } from "node:fs";
 import { sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { ExtensionAPI, Theme, ToolDefinition } from "@earendil-works/pi-coding-agent";
+import { truncateToWidth } from "@mariozechner/pi-tui";
 
 const ESC = String.fromCharCode(27);
 const ANSI_PATTERN = new RegExp(`${ESC}\\[[0-?]*[ -/]*[@-~]`, "g");
@@ -180,7 +181,7 @@ class FocusResultComponent implements RenderableComponent {
 
     const lines = formatFocusResultLines(this.state.result, this.state.theme, this.state.isError);
     for (const line of innerLines.filter(isRendererFooterLine)) appendUniqueLine(lines, this.state.theme.fg("muted", line));
-    return lines;
+    return lines.map((line) => truncateToWidth(line, width));
   }
 }
 
