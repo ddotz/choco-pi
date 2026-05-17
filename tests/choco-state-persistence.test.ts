@@ -11,7 +11,7 @@ describe("choco-pi state persistence", () => {
     const source = autopilotIndexSource();
     const saveStateMatch = source.match(/async function saveState[\s\S]*?\n}\n/);
 
-    expect(saveStateMatch?.[0] ?? "").toContain("withStateLock");
+    expect(saveStateMatch?.[0] ?? "").toContain("withFileLock");
     expect(source).toContain("rename(");
     expect(source).toContain(".tmp");
   });

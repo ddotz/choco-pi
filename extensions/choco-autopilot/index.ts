@@ -39,6 +39,7 @@ import {
   type RuntimeState,
   type WorkMode,
 } from "./mode";
+import { registerAgentOrchestratorTool } from "./agent-orchestrator-tool";
 import { registerBranchSwitchGuardTool } from "./branch-switch-guard";
 import { registerParallelWorkPlanTool } from "./parallel-work-plan-tool";
 import { registerWorktreeManageTool } from "./worktree-manage-tool";
@@ -86,6 +87,7 @@ import { registerRuntimeReload } from "./runtime-reload";
 import { resolveEffectiveWorkMode, sessionIdFromContext, sessionScopedKey } from "./session-scope";
 import { installStructuralGate } from "./structural-gate";
 import { discoverSuperpowersSkillPath } from "./superpowers-dependency";
+import { withFileLock } from "./state-lock";
 import { CHOCO_PI_VERSION } from "./version";
 import { registerEffortCommand } from "./effort";
 import { verificationCommandFromInput } from "./verification-command";
@@ -227,29 +229,9 @@ async function loadState(): Promise<ChocoState> {
   }
 }
 
-const stateLocks = new Map<string, Promise<void>>();
-
-async function withStateLock<T>(path: string, operation: () => Promise<T>): Promise<T> {
-  const previous = stateLocks.get(path) ?? Promise.resolve();
-  let release: () => void = () => {};
-  const current = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const queued = previous.catch(() => undefined).then(() => current);
-  stateLocks.set(path, queued);
-
-  await previous.catch(() => undefined);
-  try {
-    return await operation();
-  } finally {
-    release();
-    if (stateLocks.get(path) === queued) stateLocks.delete(path);
-  }
-}
-
 async function saveState(state: ChocoState): Promise<void> {
   const path = statePath();
-  await withStateLock(path, async () => {
+  await withFileLock(path, async () => {
     await mkdir(join(agentDir(), "choco-pi"), { recursive: true });
     const tmpPath = `${path}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`;
     await writeFile(tmpPath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
@@ -576,6 +558,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
   registerBranchSwitchGuardTool(pi);
   registerParallelWorkPlanTool(pi);
   registerWorktreeManageTool(pi);
+  registerAgentOrchestratorTool(pi);
   const dogfoodCases = createActiveDogfoodCaseState();
   const webRepairStates = new Map<string, WebResearchRepairState>();
   const adoptionRepairStates = new Map<string, AdoptionAnalysisRepairState>();
