@@ -39,6 +39,7 @@ import {
   type RuntimeState,
   type WorkMode,
 } from "./mode";
+import { registerBranchSwitchGuardTool } from "./branch-switch-guard";
 import { registerParallelWorkPlanTool } from "./parallel-work-plan-tool";
 import { buildAutopilotSystemPrompt, classifyExecutionIntensity } from "./policy";
 import {
@@ -571,6 +572,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
   installDynamicSdd(pi);
   registerRuntimeReload(pi);
   registerSourceRegistryTool(pi);
+  registerBranchSwitchGuardTool(pi);
   registerParallelWorkPlanTool(pi);
   const dogfoodCases = createActiveDogfoodCaseState();
   const webRepairStates = new Map<string, WebResearchRepairState>();

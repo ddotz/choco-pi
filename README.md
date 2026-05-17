@@ -10,7 +10,7 @@ This README describes implemented behavior only. It is based on `package.json`, 
 
 ## Status
 
-- Current package version: `0.13.8`.
+- Current package version: `0.14.0`.
 - License field: `UNLICENSED`.
 - Package manager: `pnpm@10.29.3`.
 - Main peer runtime: `@earendil-works/pi-coding-agent`.
@@ -115,6 +115,7 @@ Execution intensity is a process-weight setting. The implemented values are `mic
 | `loop_transition` | `structural-gate.ts` | Record deliberate plan/todo boundary transitions. |
 | `structural_gate` | `structural-gate.ts` | Record final acceptance, runtime, failure-mode, verification, loop, and completion review. |
 | `source_registry` | `index.ts` | Manage external sources with list/add/watch/adopt/reject/due/changed/check actions. |
+| `branch_switch_guard` | `branch-switch-guard.ts` | Safely switch the current session cwd to a branch after dirty-state and worktree occupancy checks. |
 | `parallel_work_plan` | `parallel-work-plan-tool.ts` | Produce a collision-avoidance plan before writable parallel work. |
 | `reload_runtime` | `runtime-reload.ts` | Reload Pi runtime resources directly or through tmux self-input fallback. |
 | `todo` | `todo-widget.ts` | Manage session or project todo files. |

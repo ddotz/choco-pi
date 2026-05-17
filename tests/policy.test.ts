@@ -130,8 +130,9 @@ describe("choco autonomous PM policy", () => {
     expect(prompt).toContain("serialize shared files");
     expect(prompt).toContain("worktree per writable lane");
     expect(prompt).toContain("Single-session branch work");
+    expect(prompt).toContain("branch_switch_guard");
     expect(prompt).toContain("keep the current working directory as the work root");
-    expect(prompt).toContain("use git switch in-place");
+    expect(prompt).toContain("use branch_switch_guard before git switch");
     expect(prompt).toContain("detach that other clean worktree first");
   });
 

@@ -113,6 +113,7 @@ Execution intensity는 프로세스의 무게를 정하는 값입니다. 현재 
 | `loop_transition` | `structural-gate.ts` | plan/todo 경계를 넘을 때 의도적인 transition을 기록합니다. |
 | `structural_gate` | `structural-gate.ts` | 최종 acceptance, runtime, failure mode, verification, loop, completion review를 기록합니다. |
 | `source_registry` | `index.ts` | 외부 source를 list/add/watch/adopt/reject/due/changed/check 동작으로 관리합니다. |
+| `branch_switch_guard` | `branch-switch-guard.ts` | 현재 세션 cwd를 대상으로 dirty 상태와 worktree branch 점유를 확인한 뒤 안전하게 branch를 전환합니다. |
 | `parallel_work_plan` | `parallel-work-plan-tool.ts` | 쓰기 작업이 있는 병렬 작업 전에 충돌 방지 계획을 만듭니다. |
 | `reload_runtime` | `runtime-reload.ts` | Pi 런타임 리소스를 직접 reload하거나 tmux self-input fallback으로 reload합니다. |
 | `todo` | `todo-widget.ts` | 세션 또는 프로젝트 todo 파일을 관리합니다. |

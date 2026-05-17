@@ -413,9 +413,9 @@ export function formatParallelWorkPlan(plan: ParallelWorkAreaPlan): string {
 export function buildWorktreeGuidance(): string {
   return [
     "### Single-session branch work",
-    "- When the user says they will work on a feature branch or another single branch, keep the current working directory as the work root and use git switch in-place.",
+    "- When the user says they will work on a feature branch or another single branch, keep the current working directory as the work root and use branch_switch_guard before git switch.",
     "- Do not move the work basis to ~/.config/superpowers/worktrees or any other worktree unless the user explicitly asks for parallel, multi-session, or isolated work.",
-    "- If the requested branch is already checked out in another worktree, verify that worktree is clean, detach that other clean worktree first, then switch the current cwd to the branch.",
+    "- If the requested branch is already checked out in another worktree, use branch_switch_guard to verify that worktree is clean, detach that other clean worktree first, then switch the current cwd to the branch.",
     "- Footer/status cwd and branch should describe the actual Pi session cwd, not the last path inspected with a tool call or git -C command.",
     "### Parallel development collision avoidance",
     "- Before launching 2+ writable parallel agents/sessions, create a file/domain ownership map first; use the parallel_work_plan tool when available.",
