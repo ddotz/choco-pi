@@ -1,5 +1,6 @@
-import { basename, join } from "node:path";
+import { createHash } from "node:crypto";
 import { homedir } from "node:os";
+import { basename, join } from "node:path";
 import { normalizeSessionId } from "./session-scope";
 
 export interface SessionWorktreePlanInput {
@@ -38,11 +39,20 @@ export interface ParallelWorkItem {
   write: boolean;
 }
 
+export type ParallelScopeKind = "file" | "dir" | "glob" | "domain" | "repo-root" | "unknown";
+
+export interface NormalizedParallelScope {
+  kind: ParallelScopeKind;
+  value: string;
+  original: string;
+}
+
 export interface ParallelWorkConflict {
   type: "file" | "domain";
   scope: string;
   itemIds: string[];
   resolution: "same-lane-serial";
+  reason?: string;
 }
 
 export interface ParallelWorkLane {
@@ -80,7 +90,7 @@ export interface ParallelWorkAreaPlanInput {
   parallelStrategy?: ParallelStrategy;
 }
 
-function taskSlug(taskName: string | undefined): string {
+function taskSlugBase(taskName: string | undefined): string {
   const expanded = (taskName || "work")
     .toLowerCase()
     .replace(/멀티/g, " multi ")
@@ -92,7 +102,13 @@ function taskSlug(taskName: string | undefined): string {
   return unique.length ? unique.join("-") : "work";
 }
 
-function normalizePathScope(path: string): string | undefined {
+function taskSlug(taskName: string | undefined): string {
+  const normalized = (taskName || "work").trim() || "work";
+  const digest = createHash("sha1").update(normalized).digest("hex").slice(0, 8);
+  return `${taskSlugBase(taskName)}-${digest}`;
+}
+
+function normalizePathText(path: string): string | undefined {
   const normalized = path
     .trim()
     .replace(/^@/, "")
@@ -101,6 +117,85 @@ function normalizePathScope(path: string): string | undefined {
     .replace(/\/+/g, "/")
     .replace(/\/$/, "");
   return normalized || undefined;
+}
+
+function hasGlobSyntax(path: string): boolean {
+  return /[*?[\]{}]/.test(path);
+}
+
+function looksLikeFile(path: string): boolean {
+  const name = basename(path);
+  return name.includes(".") || /^[A-Z][A-Za-z0-9_-]*$/.test(name);
+}
+
+export function normalizePathScopeDetailed(path: string): NormalizedParallelScope | undefined {
+  const normalized = normalizePathText(path);
+  if (!normalized) return undefined;
+  if (normalized === "." || normalized === "/") return { kind: "repo-root", value: ".", original: path };
+  if (hasGlobSyntax(normalized)) return { kind: "glob", value: normalized, original: path };
+  return { kind: looksLikeFile(normalized) ? "file" : "dir", value: normalized, original: path };
+}
+
+function normalizePathScope(path: string): string | undefined {
+  return normalizePathScopeDetailed(path)?.value;
+}
+
+function isContainedPath(parent: string, child: string): boolean {
+  return child.startsWith(`${parent}/`);
+}
+
+function globLiteralPrefix(glob: string): string {
+  const firstGlob = glob.search(/[*?[\]{}]/);
+  const prefix = firstGlob === -1 ? glob : glob.slice(0, firstGlob);
+  const slash = prefix.lastIndexOf("/");
+  return slash === -1 ? "" : prefix.slice(0, slash + 1);
+}
+
+function globToRegExp(glob: string): RegExp {
+  let output = "^";
+  for (let index = 0; index < glob.length; index += 1) {
+    const char = glob[index];
+    const next = glob[index + 1];
+    if (char === "*" && next === "*") {
+      output += ".*";
+      index += 1;
+    } else if (char === "*") {
+      output += "[^/]*";
+    } else if (char === "?") {
+      output += "[^/]";
+    } else if ("\\^$+?.()|[]{}".includes(char)) {
+      output += `\\${char}`;
+    } else {
+      output += char;
+    }
+  }
+  return new RegExp(`${output}$`);
+}
+
+function prefixesCompatible(a: string, b: string): boolean {
+  if (!a || !b) return true;
+  return a.startsWith(b) || b.startsWith(a);
+}
+
+function globOverlaps(globScope: NormalizedParallelScope, other: NormalizedParallelScope): boolean {
+  const prefix = globLiteralPrefix(globScope.value);
+  if (other.kind === "glob") return prefixesCompatible(prefix, globLiteralPrefix(other.value));
+  return globToRegExp(globScope.value).test(other.value) || other.value.startsWith(prefix);
+}
+
+export function pathScopesOverlap(a: NormalizedParallelScope, b: NormalizedParallelScope): boolean {
+  if (a.kind === "repo-root" || b.kind === "repo-root") return true;
+  if (a.value === b.value) return true;
+  if (a.kind === "glob") return globOverlaps(a, b);
+  if (b.kind === "glob") return globOverlaps(b, a);
+  return isContainedPath(a.value, b.value) || isContainedPath(b.value, a.value);
+}
+
+export function formatConflictReason(a: NormalizedParallelScope, b: NormalizedParallelScope): string {
+  if (a.value === b.value) return "same writable path";
+  if (a.kind === "repo-root" || b.kind === "repo-root") return "repo-root writable scope overlaps every file";
+  if (a.kind === "glob" || b.kind === "glob") return "glob writable scope conservatively overlaps a file scope";
+  return "directory/file containment overlap";
 }
 
 function normalizeDomainScope(domain: string): string | undefined {
@@ -174,16 +269,45 @@ function collectScopeOwners(items: ParallelWorkItem[], key: "files" | "domains")
   return owners;
 }
 
-function buildConflicts(items: ParallelWorkItem[], key: "files" | "domains", type: "file" | "domain"): ParallelWorkConflict[] {
-  const owners = collectScopeOwners(items, key);
+function buildDomainConflicts(items: ParallelWorkItem[]): ParallelWorkConflict[] {
+  const owners = collectScopeOwners(items, "domains");
   return [...owners.entries()]
     .filter(([, itemIds]) => itemIds.length > 1)
     .map(([scope, itemIds]) => ({
-      type,
+      type: "domain" as const,
       scope,
       itemIds,
       resolution: "same-lane-serial" as const,
     }));
+}
+
+export function buildPathOverlapConflicts(items: ParallelWorkItem[]): ParallelWorkConflict[] {
+  const conflicts: ParallelWorkConflict[] = [];
+  for (let leftIndex = 0; leftIndex < items.length; leftIndex += 1) {
+    const left = items[leftIndex];
+    if (!left.write) continue;
+    for (let rightIndex = leftIndex + 1; rightIndex < items.length; rightIndex += 1) {
+      const right = items[rightIndex];
+      if (!right.write) continue;
+      for (const leftFile of left.files) {
+        const leftScope = normalizePathScopeDetailed(leftFile);
+        if (!leftScope) continue;
+        for (const rightFile of right.files) {
+          const rightScope = normalizePathScopeDetailed(rightFile);
+          if (!rightScope || !pathScopesOverlap(leftScope, rightScope)) continue;
+          const exact = leftScope.value === rightScope.value;
+          conflicts.push({
+            type: "file",
+            scope: exact ? leftScope.value : `${leftScope.value} ↔ ${rightScope.value}`,
+            itemIds: [left.id, right.id],
+            resolution: "same-lane-serial",
+            ...(exact ? {} : { reason: formatConflictReason(leftScope, rightScope) }),
+          });
+        }
+      }
+    }
+  }
+  return conflicts;
 }
 
 function unknownWritableItems(items: ParallelWorkItem[]): ParallelWorkItem[] {
@@ -282,8 +406,8 @@ export function planParallelWorkAreas(input: ParallelWorkAreaPlanInput): Paralle
   const items = normalizeItems(input.items);
   const itemById = new Map(items.map((item) => [item.id, item]));
   const conflicts = [
-    ...buildConflicts(items, "files", "file"),
-    ...buildConflicts(items, "domains", "domain"),
+    ...buildPathOverlapConflicts(items),
+    ...buildDomainConflicts(items),
     ...buildUnknownWritableConflict(items),
   ];
   const disjoint = new DisjointSet();
@@ -426,6 +550,7 @@ export function buildWorktreeGuidance(): string {
     "- Prefer a worktree per writable lane for parallel development, then merge only after lane-local verification and a final integration verification pass.",
     "### Multi-session worktree isolation",
     "- When the user asks for parallel or multi-session work, prefer isolated git worktrees instead of sharing one cwd.",
+    "- Use worktree_manage for plan/create/list/status/handoff/merge_ready/remove worktree lifecycle actions.",
     "- Default local worktree root: ~/.config/superpowers/worktrees/<project>/<session>-<task>.",
     "- Keep each session's todos and ledger scoped to that session; use project-shared todos only when explicitly requested.",
     "- Do not delete worktrees or branches without an explicit irreversible-action approval boundary.",

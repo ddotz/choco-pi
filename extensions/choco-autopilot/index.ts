@@ -41,6 +41,7 @@ import {
 } from "./mode";
 import { registerBranchSwitchGuardTool } from "./branch-switch-guard";
 import { registerParallelWorkPlanTool } from "./parallel-work-plan-tool";
+import { registerWorktreeManageTool } from "./worktree-manage-tool";
 import { buildAutopilotSystemPrompt, classifyExecutionIntensity } from "./policy";
 import {
   createExternalSource,
@@ -574,6 +575,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
   registerSourceRegistryTool(pi);
   registerBranchSwitchGuardTool(pi);
   registerParallelWorkPlanTool(pi);
+  registerWorktreeManageTool(pi);
   const dogfoodCases = createActiveDogfoodCaseState();
   const webRepairStates = new Map<string, WebResearchRepairState>();
   const adoptionRepairStates = new Map<string, AdoptionAnalysisRepairState>();

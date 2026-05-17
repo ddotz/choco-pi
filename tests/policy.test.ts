@@ -124,6 +124,7 @@ describe("choco autonomous PM policy", () => {
 
     expect(prompt).toContain("Parallel development collision avoidance");
     expect(prompt).toContain("parallel_work_plan");
+    expect(prompt).toContain("worktree_manage");
     expect(prompt).toContain("default hybrid uses worktrees for writable lanes");
     expect(prompt).toContain("spawned agents for read-only lanes");
     expect(prompt).toContain("one writable owner per file/domain");

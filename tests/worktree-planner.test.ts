@@ -11,8 +11,29 @@ describe("session worktree planner", () => {
     });
 
     expect(plan.projectName).toBe("choco-pi");
-    expect(plan.branchName).toBe("session/abc123/multi-session-todo");
-    expect(plan.path).toBe("/Users/hyuns/.config/superpowers/worktrees/choco-pi/abc123-multi-session-todo");
+    expect(plan.slug).toMatch(/^multi-session-todo-[a-f0-9]{8}$/);
+    expect(plan.branchName).toBe(`session/abc123/${plan.slug}`);
+    expect(plan.path).toBe(`/Users/hyuns/.config/superpowers/worktrees/choco-pi/abc123-${plan.slug}`);
+  });
+
+  it("adds a digest to prevent same-slug task names from colliding", () => {
+    const koreanPlan = planSessionWorktree({
+      repoRoot: "/Users/hyuns/code/choco-pi",
+      sessionId: "abc123",
+      taskName: "개발 리뷰 기술부채 정리",
+      homeDir: "/Users/hyuns",
+    });
+    const alternatePlan = planSessionWorktree({
+      repoRoot: "/Users/hyuns/code/choco-pi",
+      sessionId: "abc123",
+      taskName: "릴리스 준비 마무리",
+      homeDir: "/Users/hyuns",
+    });
+
+    expect(koreanPlan.slug).toMatch(/^work-[a-f0-9]{8}$/);
+    expect(alternatePlan.slug).toMatch(/^work-[a-f0-9]{8}$/);
+    expect(koreanPlan.branchName).not.toBe(alternatePlan.branchName);
+    expect(koreanPlan.path).not.toBe(alternatePlan.path);
   });
 
   it("groups overlapping writable file and domain scopes into one serialized lane", () => {
@@ -54,6 +75,76 @@ describe("session worktree planner", () => {
     expect(plan.firstWaveLaneIds).toContain(plan.lanes.find((lane) => lane.itemIds.includes("tests"))?.id);
     expect(plan.firstWaveLaneIds).not.toContain(docsLane?.id);
     expect(docsLane?.blockedByLaneIds).toEqual([coreLane?.id]);
+  });
+
+  it("serializes directory and child file writable ownership conflicts", () => {
+    const plan = planParallelWorkAreas({
+      items: [
+        { id: "runtime-dir", description: "Edit runtime directory", files: ["extensions/choco-autopilot"], domains: ["runtime"] },
+        { id: "runtime-file", description: "Edit runtime file", files: ["extensions/choco-autopilot/index.ts"], domains: ["runtime-file"] },
+      ],
+    });
+
+    const lane = plan.lanes.find((candidate) => candidate.itemIds.includes("runtime-dir"));
+
+    expect(lane?.itemIds).toEqual(expect.arrayContaining(["runtime-dir", "runtime-file"]));
+    expect(lane?.serial).toBe(true);
+    expect(plan.conflicts).toContainEqual(expect.objectContaining({
+      type: "file",
+      scope: "extensions/choco-autopilot ↔ extensions/choco-autopilot/index.ts",
+      itemIds: ["runtime-dir", "runtime-file"],
+      resolution: "same-lane-serial",
+    }));
+  });
+
+  it("serializes conservative glob and matching file writable conflicts", () => {
+    const plan = planParallelWorkAreas({
+      items: [
+        { id: "test-glob", description: "Edit all tests", files: ["tests/*.test.ts"] },
+        { id: "test-file", description: "Edit one test", files: ["tests/worktree-manage.test.ts"] },
+      ],
+    });
+
+    const lane = plan.lanes.find((candidate) => candidate.itemIds.includes("test-glob"));
+
+    expect(lane?.itemIds).toEqual(expect.arrayContaining(["test-glob", "test-file"]));
+    expect(plan.conflicts).toContainEqual(expect.objectContaining({
+      type: "file",
+      scope: "tests/*.test.ts ↔ tests/worktree-manage.test.ts",
+      itemIds: ["test-glob", "test-file"],
+      resolution: "same-lane-serial",
+    }));
+  });
+
+  it("serializes repo-root writable ownership against any file", () => {
+    const plan = planParallelWorkAreas({
+      items: [
+        { id: "root", description: "Edit the whole repo", files: ["."] },
+        { id: "package", description: "Edit package metadata", files: ["package.json"] },
+      ],
+    });
+
+    const lane = plan.lanes.find((candidate) => candidate.itemIds.includes("root"));
+
+    expect(lane?.itemIds).toEqual(expect.arrayContaining(["root", "package"]));
+    expect(plan.conflicts).toContainEqual(expect.objectContaining({
+      type: "file",
+      scope: ". ↔ package.json",
+      itemIds: ["root", "package"],
+      resolution: "same-lane-serial",
+    }));
+  });
+
+  it("keeps unrelated writable files parallel-safe", () => {
+    const plan = planParallelWorkAreas({
+      items: [
+        { id: "api", description: "Edit API", files: ["src/api.ts"] },
+        { id: "ui", description: "Edit UI", files: ["src/ui.tsx"] },
+      ],
+    });
+
+    expect(plan.lanes).toHaveLength(2);
+    expect(plan.conflicts).toEqual([]);
   });
 
   it("does not let read-only lanes steal writable ownership", () => {
