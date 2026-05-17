@@ -117,6 +117,7 @@ Execution intensity는 프로세스의 무게를 정하는 값입니다. 현재 
 | `parallel_work_plan` | `parallel-work-plan-tool.ts` | 쓰기 작업이 있는 병렬 작업 전에 충돌 방지 계획을 만듭니다. |
 | `worktree_manage` | `worktree-manage-tool.ts` | 격리 git worktree를 계획, 생성, 조회, 상태 확인, handoff, merge-ready 검사, clean-remove합니다. |
 | `agent_orchestrator` | `agent-orchestrator-tool.ts` | manifest 기반 병렬 agent run을 시작, dispatch, 상태 갱신, 요약, 종료합니다. |
+| `integration_verifier` | `integration-verifier-tool.ts` | manifest 기반 병렬 lane의 최종 통합 검증을 실행하고 완료 전 evidence를 제공합니다. |
 | `reload_runtime` | `runtime-reload.ts` | Pi 런타임 리소스를 직접 reload하거나 tmux self-input fallback으로 reload합니다. |
 | `todo` | `todo-widget.ts` | 세션 또는 프로젝트 todo 파일을 관리합니다. |
 | `grep`, `find`, `multi_grep` | `fff-search/index.ts` | FFF 기반으로 파일과 내용을 검색합니다. |

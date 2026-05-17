@@ -42,6 +42,12 @@ import {
 import { registerAgentOrchestratorTool } from "./agent-orchestrator-tool";
 import { registerBranchSwitchGuardTool } from "./branch-switch-guard";
 import { registerParallelWorkPlanTool } from "./parallel-work-plan-tool";
+import {
+  activeLaneContextFromEnv,
+  detectBashScopeViolations,
+  guardToolCallWriteScope,
+  snapshotGitChangedFiles,
+} from "./write-scope-guard";
 import { registerWorktreeManageTool } from "./worktree-manage-tool";
 import { buildAutopilotSystemPrompt, classifyExecutionIntensity } from "./policy";
 import {
@@ -81,6 +87,7 @@ import { installDynamicSdd } from "./dynamic-sdd";
 import { runGuardPipeline } from "./guard-orchestrator";
 import { discoverImNotAiSkillPath } from "./im-not-ai-dependency";
 import { discoverKamiSkillPath } from "./kami-dependency";
+import { registerIntegrationVerifierTool } from "./integration-verifier-tool";
 import { parseDogfoodMemoryMode, resolveDogfoodScope } from "./improvement-scope";
 import { guardReportQualityMessage, type ReportRepairState } from "./report-quality";
 import { registerRuntimeReload } from "./runtime-reload";
@@ -559,7 +566,9 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
   registerParallelWorkPlanTool(pi);
   registerWorktreeManageTool(pi);
   registerAgentOrchestratorTool(pi);
+  registerIntegrationVerifierTool(pi);
   const dogfoodCases = createActiveDogfoodCaseState();
+  const bashScopeSnapshots = new Map<string, string[]>();
   const webRepairStates = new Map<string, WebResearchRepairState>();
   const adoptionRepairStates = new Map<string, AdoptionAnalysisRepairState>();
   const codingRepairStates = new Map<string, CodingRepairState>();
@@ -573,12 +582,34 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
   pi.on("tool_call", async (event, ctx) => {
     const decision = classifyApprovalBoundaryToolCall(event.toolName, event.input);
     if (decision) return { block: true, reason: formatApprovalBoundaryBlock(decision) };
+    const activeLane = activeLaneContextFromEnv();
+    const scopeDecision = guardToolCallWriteScope(activeLane, event.toolName, event.input);
+    if (!scopeDecision.allowed) return { block: true, reason: scopeDecision.reason };
+    if (activeLane && event.toolName === "bash") {
+      const toolCallId = typeof (event as { toolCallId?: unknown }).toolCallId === "string" ? (event as { toolCallId: string }).toolCallId : "bash";
+      bashScopeSnapshots.set(toolCallId, await snapshotGitChangedFiles(ctx.cwd || process.cwd()));
+    }
     recordDogfoodToolCall(dogfoodCases, event.toolName);
     await updateLedgerForToolCall(ctx.cwd || process.cwd(), sessionIdFromContext(ctx), event.toolName, event.input);
     return undefined;
   });
 
   pi.on("tool_result", async (event, ctx) => {
+    const activeLane = activeLaneContextFromEnv();
+    if (activeLane && event.toolName === "bash") {
+      const toolCallId = typeof (event as { toolCallId?: unknown }).toolCallId === "string" ? (event as { toolCallId: string }).toolCallId : "bash";
+      const before = bashScopeSnapshots.get(toolCallId) ?? [];
+      bashScopeSnapshots.delete(toolCallId);
+      const after = await snapshotGitChangedFiles(ctx.cwd || process.cwd());
+      const decision = detectBashScopeViolations(activeLane, before, after);
+      if (!decision.allowed) {
+        await pi.sendMessage?.({
+          customType: "choco.write_scope_violation",
+          display: false,
+          content: decision.reason ?? "bash write scope violation",
+        }, { deliverAs: "followUp", triggerTurn: true });
+      }
+    }
     recordDogfoodToolResult(dogfoodCases, event);
     await updateLedgerForToolResult(ctx.cwd || process.cwd(), sessionIdFromContext(ctx), event.toolName, event.input, event.isError, event.content);
   });

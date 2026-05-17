@@ -10,7 +10,7 @@ This README describes implemented behavior only. It is based on `package.json`, 
 
 ## Status
 
-- Current package version: `0.14.2`.
+- Current package version: `0.14.3`.
 - License field: `UNLICENSED`.
 - Package manager: `pnpm@10.29.3`.
 - Main peer runtime: `@earendil-works/pi-coding-agent`.
@@ -119,6 +119,7 @@ Execution intensity is a process-weight setting. The implemented values are `mic
 | `parallel_work_plan` | `parallel-work-plan-tool.ts` | Produce a collision-avoidance plan before writable parallel work. |
 | `worktree_manage` | `worktree-manage-tool.ts` | Plan, create, list, inspect, hand off, merge-check, and clean-remove isolated git worktrees. |
 | `agent_orchestrator` | `agent-orchestrator-tool.ts` | Start, dispatch, update, summarize, and close manifest-backed parallel agent runs. |
+| `integration_verifier` | `integration-verifier-tool.ts` | Run final integration verification for manifest-backed parallel lanes before completion. |
 | `reload_runtime` | `runtime-reload.ts` | Reload Pi runtime resources directly or through tmux self-input fallback. |
 | `todo` | `todo-widget.ts` | Manage session or project todo files. |
 | `grep`, `find`, `multi_grep` | `fff-search/index.ts` | Search files and content through FFF-backed tools. |

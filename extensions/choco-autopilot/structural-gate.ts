@@ -1,3 +1,5 @@
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { StringEnum, Type, type AssistantMessage, type TextContent } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Container } from "@mariozechner/pi-tui";
@@ -449,6 +451,31 @@ export function createLoopTransitionTool(state: StructuralGateState): ToolDefini
   };
 }
 
+async function activeParallelManifestIntegrationBlock(cwd: string, review: StructuralGateReview): Promise<string | undefined> {
+  const evidence = `${review.verificationEvidence}\n${review.runtimeFit}\n${review.completionBoundary}`;
+  if (/integration_verifier|integration evidence|integration.*passed|통합.*검증/i.test(evidence)) return undefined;
+  let entries: string[] = [];
+  try {
+    entries = await readdir(join(cwd, ".pi", "agent-runs"));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    return "active parallel manifest check failed; run integration_verifier or resolve manifest state before completion";
+  }
+  for (const groupId of entries) {
+    try {
+      const raw = await readFile(join(cwd, ".pi", "agent-runs", groupId, "manifest.json"), "utf8");
+      const manifest = JSON.parse(raw) as { status?: string; lanes?: unknown[]; integrationEvidence?: string };
+      const active = manifest.status !== "integrated" && manifest.status !== "closed";
+      if (active && (manifest.lanes?.length ?? 0) > 1 && !manifest.integrationEvidence) {
+        return `active parallel manifest ${groupId} requires integration_verifier evidence before completion`;
+      }
+    } catch {
+      return `active parallel manifest ${groupId} could not be inspected; run integration_verifier or fix manifest state before completion`;
+    }
+  }
+  return undefined;
+}
+
 export function createStructuralGateTool(state: StructuralGateState): ToolDefinition<typeof StructuralGateParams, { ok: boolean; reason?: string }, unknown> {
   return {
     name: STRUCTURAL_GATE_TOOL_NAME,
@@ -464,7 +491,17 @@ export function createStructuralGateTool(state: StructuralGateState): ToolDefini
     parameters: StructuralGateParams,
     renderShell: "self",
     async execute(_toolCallId: string, params: StructuralGateReview, _signal: AbortSignal | undefined, _onUpdate: undefined, ctx: ExtensionContext) {
-      const result = recordStructuralGateReview(state, params, sessionIdFromContext(ctx));
+      const integrationBlock = params.readyToComplete ? await activeParallelManifestIntegrationBlock(ctx.cwd || process.cwd(), params) : undefined;
+      const result = integrationBlock ? { ok: false, reason: integrationBlock } : recordStructuralGateReview(state, params, sessionIdFromContext(ctx));
+      if (integrationBlock) {
+        const turn = getStructuralGateTurn(state, sessionIdFromContext(ctx));
+        if (turn) {
+          turn.required = true;
+          turn.review = params;
+          turn.passed = false;
+          turn.rejectionReason = integrationBlock;
+        }
+      }
       return {
         content: [{ type: "text", text: result.ok ? "Structural gate passed." : `Structural gate failed: ${result.reason}` }],
         details: { ok: result.ok, reason: result.reason },
