@@ -10,7 +10,7 @@ This README describes implemented behavior only. It is based on `package.json`, 
 
 ## Status
 
-- Current package version: `0.18.0`.
+- Current package version: `0.18.1`.
 - License field: `UNLICENSED`.
 - Package manager: `pnpm@10.29.3`.
 - Main peer runtime: `@earendil-works/pi-coding-agent`.
@@ -90,7 +90,7 @@ The implemented policy includes these defaults:
 | `micro-coding` | `structural_gate` | For small typo, wording, rename, or one-line edits. It avoids `spec_gate` ceremony while keeping completion safety. |
 | `single-branch` | `branch_switch_guard`, `structural_gate` | Branch names are validated before Git commands and dirty/occupied worktrees block unsafe switching. |
 | `coding` | `spec_gate`, `structural_gate` | Non-trivial implementation keeps Working Spec + final structural review. |
-| `report-research` | `spec_gate`, `report_research_gate`, `structural_gate` | Report requests require web-analysis-backed source collection by default, or an explicit no-external-research evidence boundary when the user forbids external research. |
+| `report-research` | `spec_gate`, `report_research_gate`, `structural_gate` | Report requests require an active evidence-scope decision: run right-sized web-analysis for current/external/source-backed claims, or record a no-external-research boundary when research is forbidden or unnecessary. |
 | `parallel-work` | `spec_gate`, `parallel_work_plan`, `agent_orchestrator`, `worktree_manage`, `integration_verifier`, `structural_gate` | Requires ownership planning, manifest orchestration, worktree lifecycle, and final integration evidence. |
 | `worktree-lane` | `agent_orchestrator`, `worktree_manage`, `write_scope_guard`, `structural_gate` | Active lane activation is blocked for planned/blocked/failed/verified/integrated/serial lanes and invalid writable worktree lanes. |
 | `integration` | `integration_verifier`, `structural_gate` | Verification commands are allowlisted and `pnpm --dir` must stay inside the integration cwd. |
@@ -106,7 +106,7 @@ Built-in work modes are defined in `extensions/choco-autopilot/mode.ts` and docu
 | --- | --- |
 | `default` | Root all-purpose policy baseline. It can apply specialized modes as temporary session-scoped overlays. |
 | `coding` | TDD-first implementation, debugging, refactoring, and coding quality guard. |
-| `report` | Evidence-led report writing with web-analysis-backed research by default, `report_research_gate` provenance, source confidence review, and report quality guard. |
+| `report` | Evidence-led report writing with active web-analysis scoping, `report_research_gate` provenance, source confidence review, and report quality guard. |
 | `design` | Product/UI design work with design quality guard. |
 | `web-analysis` | Retrieval-first external research with web research quality guard. |
 | `adoption-analysis` | External source/package/repo adoption review with adoption quality guard. |

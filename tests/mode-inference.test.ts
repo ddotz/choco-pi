@@ -3,6 +3,7 @@ import { inferPlannedWorkModes } from "../extensions/choco-autopilot/mode";
 
 describe("report mode inference", () => {
   it.each([
+    ["보고서 작성해줘", ["report"]],
     ["시장 분석 보고서 작성해줘", ["web-analysis", "report"]],
     ["AI 검색 시장 리포트 써줘", ["web-analysis", "report"]],
     ["첨부 자료만 기반으로 보고서 작성해줘", ["report"]],

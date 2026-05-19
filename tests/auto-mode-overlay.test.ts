@@ -65,7 +65,7 @@ describe("auto mode overlay", () => {
     expect(notify).toHaveBeenCalledWith("mode: default", "info");
   });
 
-  it("applies sequential web-analysis then report routing for generic report-writing turns", async () => {
+  it("keeps generic report-writing turns in report mode without automatic web-analysis overcollection", async () => {
     await useTempAgentDir();
     const { handlers, commands } = setupAutopilot();
     const beforeHandlers = handlers.get("before_agent_start")!;
@@ -75,11 +75,11 @@ describe("auto mode overlay", () => {
 
     expect(result.systemPrompt).toContain("Persistent work mode: default");
     expect(result.systemPrompt).toContain("Effective work mode for this turn: report");
-    expect(result.systemPrompt).toContain("Effective work mode sequence for this turn: web-analysis -> report");
-    expect(result.systemPrompt).toContain("Stage 1: web-analysis");
-    expect(result.systemPrompt).toContain("Stage 2: report");
-    expect(result.systemPrompt).toContain("Web Analysis Mode");
+    expect(result.systemPrompt).not.toContain("Effective work mode sequence for this turn: web-analysis -> report");
+    expect(result.systemPrompt).not.toContain("Web Analysis Mode");
     expect(result.systemPrompt).toContain("Report Mode");
+    expect(result.systemPrompt).toContain("Protocol: report-research");
+    expect(result.systemPrompt).toContain("report_research_gate");
 
     const notify = vi.fn();
     await commands.get("mode")!.handler("status" as never, { ...ctx("session-report"), ui: { notify } });

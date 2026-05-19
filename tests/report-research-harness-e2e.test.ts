@@ -70,7 +70,24 @@ const gateInput: ReportResearchGateInput = {
 };
 
 describe("report research harness E2E", () => {
-  it("routes a generic report through web-analysis -> report and report-research protocol", () => {
+  it("keeps a generic report in report mode while preserving report-research evidence boundary", () => {
+    const prompt = "보고서 작성해줘";
+    const route = routeAutonomyProtocol({ prompt, cwd: "/repo", sessionId: "s1", hasActiveManifest: false });
+    const skipped = runReportResearchGate({
+      ...gateInput,
+      objective: "Generic report",
+      externalSources: [],
+      noExternalResearchReason: "Active scoping found no external/current-fact claims in the prompt; use user-provided materials only until evidence gaps require research.",
+    });
+
+    expect(inferPlannedWorkModes(prompt)).toEqual(["report"]);
+    expect(route.protocolKind).toBe("report-research");
+    expect(route.requiredTools).toEqual(["spec_gate", "report_research_gate", "structural_gate"]);
+    expect(skipped.ok).toBe(true);
+    expect(skipped.externalResearchSkipped).toBe(true);
+  });
+
+  it("routes a market/current-fact report through web-analysis -> report and report-research protocol", () => {
     const prompt = "시장 진입 전략 보고서 작성해줘";
     const route = routeAutonomyProtocol({ prompt, cwd: "/repo", sessionId: "s1", hasActiveManifest: false });
     let protocol = createAutonomyProtocol({ kind: route.protocolKind, sessionId: "s1", cwd: "/repo", prompt, requiredTools: route.requiredTools, reason: route.reason });

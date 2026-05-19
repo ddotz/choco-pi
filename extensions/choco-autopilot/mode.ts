@@ -45,6 +45,10 @@ export function explicitNoExternalResearchRequested(input: string): boolean {
   return /첨부\s*자료만|제공\s*자료만|내\s*자료만|사용자\s*제공\s*자료만|외부\s*(?:리서치|조사|검색)\s*(?:금지|하지\s*마|하지\s*말|없이|제외)|웹\s*(?:검색|리서치|조사)\s*(?:하지\s*마|하지\s*말|없이|금지|제외)|검색\s*없이|리서치\s*없이|no\s+(?:web|external)\s+research|without\s+(?:web|external)\s+research|do\s+not\s+(?:search|browse)|don't\s+(?:search|browse)|provided\s+materials?\s+only|attached\s+materials?\s+only/i.test(input);
 }
 
+export function hasReportExternalResearchSignal(input: string): boolean {
+  return /https?:\/\/|\burl\b|외부\s*(?:리서치|조사|검색)|웹\s*(?:검색|리서치|조사)|리서치|자료\s*조사|조사\s*해서|뉴스|최신|현재|요즘|시장|산업|경쟁(?:사)?|트렌드|데이터|통계|source-backed|external|current|market|industry|competitor|competitive|trend|data/i.test(input);
+}
+
 export function inferPlannedWorkModes(input: string): WorkMode[] {
   const text = input.trim().toLowerCase();
   if (!text) return [];
@@ -55,7 +59,7 @@ export function inferPlannedWorkModes(input: string): WorkMode[] {
   const hasReport = hasReportIntent(text);
   const explicitNoExternalResearch = explicitNoExternalResearchRequested(text);
   const hasExternalResearchTarget = /https?:\/\/|\burl\b|웹|사이트|검색|리서치|뉴스|자료|external|source-backed/i.test(text);
-  if (hasReport && !explicitNoExternalResearch) return ["web-analysis", "report"];
+  if (hasReport && !explicitNoExternalResearch && hasReportExternalResearchSignal(text)) return ["web-analysis", "report"];
   if (hasReport) return ["report"];
 
   const hasCodingIntent = /코드\s*(작성|수정|구현)|구현\s*(해|하고|하라|하세요|해주세요|한다|할)|수정|버그|테스트|리팩터|리팩토|파일|함수|오타|class|api|build|lint|readme|\.md\b/i.test(text);

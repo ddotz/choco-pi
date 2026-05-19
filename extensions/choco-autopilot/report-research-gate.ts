@@ -155,7 +155,7 @@ export function runReportResearchGate(input: ReportResearchGateInput): ReportRes
       blockers.push("all external sources are low confidence; add stronger sources or mark the evidence gap instead.");
     }
   } else {
-    warnings.push("external research skipped by explicit user boundary; broad/current-fact High confidence should not be used.");
+    warnings.push("external research skipped by explicit user boundary or active scope decision; broad/current-fact High confidence should not be used.");
   }
 
   const ok = blockers.length === 0;

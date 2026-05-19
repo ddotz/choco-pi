@@ -72,7 +72,7 @@ Use `/mode` as the canonical work-mode command. Run `/mode` with no arguments to
 - **default**: implemented root all-purpose generalist mode and source baseline for specialized overlays.
 - **web-analysis**: implemented mode-scoped retrieval-first external research with source confidence scoring, critical review, and message-end quality guardrails.
 - **adoption-analysis**: implemented mode-scoped external source/package/repo adoption review with explicit adoption depth, fit/risk review, scope, tracking decision, and message-end quality guardrails. It does not replace default adoption capability. Use the `source_registry` tool for autonomous tracking and `watch` for relevant sources that are not ready to adopt.
-- **report**: implemented evidence-led report-writing mode with web-analysis-backed research by default, `report_research_gate` provenance, source confidence gating, section-first drafting, Kami-derived layout guidance, and im-not-ai-derived Korean polishing. If the user explicitly forbids external research, record the user-material evidence boundary and avoid broad High confidence.
+- **report**: implemented evidence-led report-writing mode with active web-analysis scoping, `report_research_gate` provenance, source confidence gating, section-first drafting, Kami-derived layout guidance, and im-not-ai-derived Korean polishing. Run right-sized web-analysis only when current/external/source-backed claims need it; if external research is forbidden or unnecessary, record the evidence boundary and avoid broad High confidence.
 - **coding**: implemented TDD-first engineering mode with systematic debugging, surgical changes, tight verification loops, and coding completion quality guardrails.
 - **design**: implemented product/UI design mode for UX critique, visual systems, design briefs, and browser-backed design QA.
 - In `default`, autopilot may apply an implemented mode as a temporary session-scoped effective overlay for the current turn without persistently changing `/mode`.
@@ -108,7 +108,7 @@ Required tools are completion contracts, not suggestions:
 - `micro-coding`: `structural_gate` only, for small typo/wording/rename/one-line edits where `spec_gate` would be ceremony.
 - `single-branch`: `branch_switch_guard` before branch completion.
 - `coding`: `spec_gate` for non-trivial implementation plus `structural_gate` before completion.
-- `report-research`: `spec_gate`, `report_research_gate`, and `structural_gate`. Generic report requests default to `web-analysis -> report`; explicit no-external-research requests still call `report_research_gate` with `noExternalResearchReason`.
+- `report-research`: `spec_gate`, `report_research_gate`, and `structural_gate`. Report requests keep the evidence gate, but generic report-writing stays report-only; current/external/source-backed reports route `web-analysis -> report`, and explicit or active no-external-research decisions still call `report_research_gate` with `noExternalResearchReason`.
 - `parallel-work`: `spec_gate`, `parallel_work_plan`, `agent_orchestrator`, `worktree_manage`, `integration_verifier`, and `structural_gate`.
 - `worktree-lane`: active lane/write guard state plus orchestrator/worktree protocol tools. Activation is blocked for planned/blocked/failed/verified/integrated/serial lanes and writable worktree lanes without a valid worktree path.
 - `integration`: `integration_verifier` before completion. Verification commands are allowlisted; `pnpm --dir` must remain inside the integration cwd.

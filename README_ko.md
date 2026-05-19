@@ -10,7 +10,7 @@
 
 ## 상태
 
-- 현재 패키지 버전: `0.18.0`.
+- 현재 패키지 버전: `0.18.1`.
 - 라이선스 필드: `UNLICENSED`.
 - 패키지 매니저: `pnpm@10.29.3`.
 - 주요 peer 런타임: `@earendil-works/pi-coding-agent`.
@@ -88,7 +88,7 @@ pi install /absolute/path/to/choco-pi
 | `micro-coding` | `structural_gate` | 오타, 문구, rename, 한 줄 수정 같은 작은 작업은 `spec_gate` ceremony 없이 completion safety만 유지합니다. |
 | `single-branch` | `branch_switch_guard`, `structural_gate` | Git 명령 전에 branch name을 검증하고 dirty/occupied worktree를 차단합니다. |
 | `coding` | `spec_gate`, `structural_gate` | 단순하지 않은 구현은 Working Spec과 최종 structural review를 유지합니다. |
-| `report-research` | `spec_gate`, `report_research_gate`, `structural_gate` | 보고서 요청은 기본적으로 web-analysis 기반 source collection이 필요하며, 사용자가 외부 리서치를 금지한 경우에는 명시적 evidence boundary를 기록합니다. |
+| `report-research` | `spec_gate`, `report_research_gate`, `structural_gate` | 보고서 요청은 능동적인 evidence-scope 결정을 요구합니다. 현재/외부/source-backed claim에는 필요한 만큼만 web-analysis를 실행하고, 리서치가 금지되었거나 불필요하면 no-external-research boundary를 기록합니다. |
 | `parallel-work` | `spec_gate`, `parallel_work_plan`, `agent_orchestrator`, `worktree_manage`, `integration_verifier`, `structural_gate` | ownership 계획, manifest orchestration, worktree lifecycle, 최종 integration evidence가 필요합니다. |
 | `worktree-lane` | `agent_orchestrator`, `worktree_manage`, `write_scope_guard`, `structural_gate` | planned/blocked/failed/verified/integrated/serial lane과 invalid writable worktree lane은 active lane으로 설정되지 않습니다. |
 | `integration` | `integration_verifier`, `structural_gate` | verification command는 allowlist 기반이며 `pnpm --dir`은 integration cwd 안에 있어야 합니다. |
@@ -104,7 +104,7 @@ pi install /absolute/path/to/choco-pi
 | --- | --- |
 | `default` | 모든 작업의 기본 정책입니다. 필요한 경우 specialized mode를 세션 한정 오버레이로 적용할 수 있습니다. |
 | `coding` | TDD-first 구현, 디버깅, 리팩터링, coding quality guard를 다룹니다. |
-| `report` | 기본 web-analysis 선행 리서치, `report_research_gate` provenance, source confidence review, report quality guard를 포함한 근거 중심 보고서 작성을 다룹니다. |
+| `report` | 능동적인 web-analysis 범위 결정, `report_research_gate` provenance, source confidence review, report quality guard를 포함한 근거 중심 보고서 작성을 다룹니다. |
 | `design` | 제품/UI 디자인 작업과 design quality guard를 다룹니다. |
 | `web-analysis` | 검색 우선 외부 조사와 web research quality guard를 다룹니다. |
 | `adoption-analysis` | 외부 source/package/repo 채택 검토와 adoption quality guard를 다룹니다. |

@@ -7,12 +7,14 @@ const REPORT_INTRO_LINES = [
 ] as const;
 
 const WEB_ANALYSIS_BACKED_REPORT_REQUIREMENT = [
-  "#### Web-analysis-backed report requirement",
-  "- Report mode must start with a web-analysis research stage before synthesis unless the user explicitly forbids external research.",
-  "- Use the web-analysis retrieval-first pipeline for source collection, source confidence scoring, provenance capture, and critical review before report drafting.",
+  "#### Active web-analysis scoping requirement",
+  "- Report mode must actively decide the smallest sufficient research scope before synthesis instead of running broad web-analysis unconditionally.",
+  "- Start web-analysis when the report needs current facts, market/industry/competitor context, URL/source extraction, explicit external research, or evidence gaps that user materials cannot support.",
+  "- Avoid automatic broad web-analysis when the prompt can be answered from user-provided material or a bounded internal brief; record that boundary in report_research_gate instead of overcollecting sources.",
+  "- When web-analysis is needed, use the retrieval-first pipeline for source collection, source confidence scoring, provenance capture, and critical review before report drafting.",
   "- Do not draft the final report body until the evidence ledger is complete enough to support the key claims.",
   "- Separate user-provided materials, external facts, inferences, recommendations, and open risks.",
-  "- If external research is explicitly forbidden, state the evidence boundary and do not claim broad market/current-fact confidence beyond the provided material.",
+  "- If external research is explicitly forbidden or actively deemed unnecessary, state the evidence boundary and do not claim broad market/current-fact confidence beyond the provided material.",
 ] as const;
 
 const SECTION_FIRST_REPORT_ASSEMBLY = [
@@ -29,7 +31,7 @@ const REPORT_GARDENING_PROCESS = [
   "1. Define the report objective, audience, decision context, required output format, and user-provided source material before drafting.",
   "2. Build a Report evidence ledger before synthesis. For every material claim, record claim text, source URL or user-material reference, publisher/owner, publication/update date when available, retrieval method, access quality, confidence, and whether it is fact, inference, recommendation, or open risk.",
   "3. No unsupported assumptions or unchecked citations. Do not cite a source unless the cited claim was actually checked. Do not invent statistics, dates, quotes, market facts, or source titles.",
-  "4. Prefer primary and official sources. Use external research only after source collection; use insane-search routing for blocked, WAF-protected, Korean platform, GitHub, YouTube, Reddit, X/Twitter, Naver, Medium, Substack, Stack Overflow, Coupang, and LinkedIn sources.",
+  "4. Prefer primary and official sources. Keep source collection right-sized to the report objective; use insane-search routing only for needed blocked, WAF-protected, Korean platform, GitHub, YouTube, Reddit, X/Twitter, Naver, Medium, Substack, Stack Overflow, Coupang, and LinkedIn sources.",
   "5. Confidence gate: High evidence can be used directly after provenance review; Medium evidence requires at least one independent double-check; Low evidence requires triple-check before use or must be marked as a gap/open risk.",
   "6. Partition the report into parts and sections, then run section-only drafting and review in C-level Korean report style: concise, decision-oriented, low-adjective, data-first, and direct. Keep each natural paragraph under 300 Korean characters unless preserving a direct quote or legal/technical excerpt requires otherwise.",
   "7. Run a logic gardening pass inside each section: map claim → evidence → inference → implication, then check conflicts, stale sources, single-source dependence, incentives, missing base rates, unsupported causal jumps, and formula-bound calculations.",
