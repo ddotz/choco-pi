@@ -10,7 +10,7 @@
 
 ## 상태
 
-- 현재 패키지 버전: `0.18.1`.
+- 현재 패키지 버전: `0.18.2`.
 - 라이선스 필드: `UNLICENSED`.
 - 패키지 매니저: `pnpm@10.29.3`.
 - 주요 peer 런타임: `@earendil-works/pi-coding-agent`.

@@ -13,6 +13,8 @@ describe("report mode inference", () => {
     ["do not search, write a report from my materials", ["report"]],
     ["no external research report please", ["report"]],
     ["시장 전망 글 써줘", ["web-analysis", "report"]],
+    ["회사 재무분석 보고서 작성해줘", ["web-analysis", "report"]],
+    ["첨부 재무제표만 기반으로 회사 재무분석 보고서 작성해줘", ["report"]],
     ["README 글자 하나 수정해줘", ["coding"]],
   ] as const)("infers %j -> %j", (prompt, expected) => {
     expect(inferPlannedWorkModes(prompt)).toEqual(expected);

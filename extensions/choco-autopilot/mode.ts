@@ -42,11 +42,11 @@ export function hasReportIntent(input: string): boolean {
 }
 
 export function explicitNoExternalResearchRequested(input: string): boolean {
-  return /첨부\s*자료만|제공\s*자료만|내\s*자료만|사용자\s*제공\s*자료만|외부\s*(?:리서치|조사|검색)\s*(?:금지|하지\s*마|하지\s*말|없이|제외)|웹\s*(?:검색|리서치|조사)\s*(?:하지\s*마|하지\s*말|없이|금지|제외)|검색\s*없이|리서치\s*없이|no\s+(?:web|external)\s+research|without\s+(?:web|external)\s+research|do\s+not\s+(?:search|browse)|don't\s+(?:search|browse)|provided\s+materials?\s+only|attached\s+materials?\s+only/i.test(input);
+  return /첨부\s*(?:자료|파일|문서|재무제표)만|제공\s*(?:자료|파일|문서|재무제표)만|내\s*자료만|사용자\s*제공\s*(?:자료|파일|문서|재무제표)만|외부\s*(?:리서치|조사|검색)\s*(?:금지|하지\s*마|하지\s*말|없이|제외)|웹\s*(?:검색|리서치|조사)\s*(?:하지\s*마|하지\s*말|없이|금지|제외)|검색\s*없이|리서치\s*없이|no\s+(?:web|external)\s+research|without\s+(?:web|external)\s+research|do\s+not\s+(?:search|browse)|don't\s+(?:search|browse)|provided\s+materials?\s+only|attached\s+materials?\s+only/i.test(input);
 }
 
 export function hasReportExternalResearchSignal(input: string): boolean {
-  return /https?:\/\/|\burl\b|외부\s*(?:리서치|조사|검색)|웹\s*(?:검색|리서치|조사)|리서치|자료\s*조사|조사\s*해서|뉴스|최신|현재|요즘|시장|산업|경쟁(?:사)?|트렌드|데이터|통계|source-backed|external|current|market|industry|competitor|competitive|trend|data/i.test(input);
+  return /https?:\/\/|\burl\b|외부\s*(?:리서치|조사|검색)|웹\s*(?:검색|리서치|조사)|리서치|자료\s*조사|조사\s*해서|뉴스|최신|현재|요즘|시장|산업|경쟁(?:사)?|트렌드|데이터|통계|재무(?:분석|제표)?|손익|매출|영업\s*이익|순이익|현금\s*흐름|공시|사업\s*보고서|분기\s*보고서|반기\s*보고서|실적|source-backed|external|current|market|industry|competitor|competitive|trend|data|financial\s*(?:analysis|statement|statements?)|earnings|filings?|annual\s+report|quarterly\s+report|10-k|10-q/i.test(input);
 }
 
 export function inferPlannedWorkModes(input: string): WorkMode[] {
