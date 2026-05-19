@@ -10,7 +10,7 @@ This README describes implemented behavior only. It is based on `package.json`, 
 
 ## Status
 
-- Current package version: `0.17.0`.
+- Current package version: `0.18.0`.
 - License field: `UNLICENSED`.
 - Package manager: `pnpm@10.29.3`.
 - Main peer runtime: `@earendil-works/pi-coding-agent`.
@@ -78,7 +78,7 @@ The implemented policy includes these defaults:
 - Mode isolation is mandatory for every work mode.
 - No mode may change default or any other mode as a side effect.
 - Completion claims require observable verification and a structural review when work is non-trivial.
-- Prompt intent is routed into an autonomy protocol when branch, micro-coding, coding, parallel, worktree-lane, integration, or approval-boundary behavior is needed.
+- Prompt intent is routed into an autonomy protocol when branch, micro-coding, coding, report-research, parallel, worktree-lane, integration, or approval-boundary behavior is needed.
 - Approval-boundary routing is execution-intent aware: PRDs, examples, non-goals, and do-not-deploy wording can mention deploy/publish without blocking the whole implementation turn.
 - Required protocol tools are tracked from tool results; `structural_gate` fails closed when completion is attempted before required tools are satisfied and repair prompts name the protocol kind plus the next required action.
 - Long-running parallel/worktree/integration protocols survive continuation prompts until the manifest is closed/integrated or the task is superseded.
@@ -90,6 +90,7 @@ The implemented policy includes these defaults:
 | `micro-coding` | `structural_gate` | For small typo, wording, rename, or one-line edits. It avoids `spec_gate` ceremony while keeping completion safety. |
 | `single-branch` | `branch_switch_guard`, `structural_gate` | Branch names are validated before Git commands and dirty/occupied worktrees block unsafe switching. |
 | `coding` | `spec_gate`, `structural_gate` | Non-trivial implementation keeps Working Spec + final structural review. |
+| `report-research` | `spec_gate`, `report_research_gate`, `structural_gate` | Report requests require web-analysis-backed source collection by default, or an explicit no-external-research evidence boundary when the user forbids external research. |
 | `parallel-work` | `spec_gate`, `parallel_work_plan`, `agent_orchestrator`, `worktree_manage`, `integration_verifier`, `structural_gate` | Requires ownership planning, manifest orchestration, worktree lifecycle, and final integration evidence. |
 | `worktree-lane` | `agent_orchestrator`, `worktree_manage`, `write_scope_guard`, `structural_gate` | Active lane activation is blocked for planned/blocked/failed/verified/integrated/serial lanes and invalid writable worktree lanes. |
 | `integration` | `integration_verifier`, `structural_gate` | Verification commands are allowlisted and `pnpm --dir` must stay inside the integration cwd. |
@@ -105,7 +106,7 @@ Built-in work modes are defined in `extensions/choco-autopilot/mode.ts` and docu
 | --- | --- |
 | `default` | Root all-purpose policy baseline. It can apply specialized modes as temporary session-scoped overlays. |
 | `coding` | TDD-first implementation, debugging, refactoring, and coding quality guard. |
-| `report` | Evidence-led report writing with report quality guard. |
+| `report` | Evidence-led report writing with web-analysis-backed research by default, `report_research_gate` provenance, source confidence review, and report quality guard. |
 | `design` | Product/UI design work with design quality guard. |
 | `web-analysis` | Retrieval-first external research with web research quality guard. |
 | `adoption-analysis` | External source/package/repo adoption review with adoption quality guard. |
@@ -133,6 +134,7 @@ Execution intensity is a process-weight setting. The implemented values are `mic
 | `spec_gate` | `dynamic-sdd.ts` | Start/list/clear a turn-local Working Spec, record Spec Deltas, and take snapshots. |
 | `loop_transition` | `structural-gate.ts` | Record deliberate plan/todo boundary transitions. |
 | `structural_gate` | `structural-gate.ts` | Record final acceptance, runtime, failure-mode, verification, loop, and completion review. |
+| `report_research_gate` | `report-research-gate.ts` | Record report objective, user materials, external source provenance, source confidence review, conflicts, evidence gaps, or explicit no-external-research boundary. |
 | `source_registry` | `index.ts` | Manage external sources with list/add/watch/adopt/reject/due/changed/check actions. |
 | `branch_switch_guard` | `branch-switch-guard.ts` | Safely switch the current session cwd to a branch after dirty-state and worktree occupancy checks. |
 | `parallel_work_plan` | `parallel-work-plan-tool.ts` | Produce a collision-avoidance plan before writable parallel work. |

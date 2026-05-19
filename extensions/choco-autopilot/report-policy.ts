@@ -6,6 +6,15 @@ const REPORT_INTRO_LINES = [
   "The output target is a concise C-level report, not a chatty article or generic research dump.",
 ] as const;
 
+const WEB_ANALYSIS_BACKED_REPORT_REQUIREMENT = [
+  "#### Web-analysis-backed report requirement",
+  "- Report mode must start with a web-analysis research stage before synthesis unless the user explicitly forbids external research.",
+  "- Use the web-analysis retrieval-first pipeline for source collection, source confidence scoring, provenance capture, and critical review before report drafting.",
+  "- Do not draft the final report body until the evidence ledger is complete enough to support the key claims.",
+  "- Separate user-provided materials, external facts, inferences, recommendations, and open risks.",
+  "- If external research is explicitly forbidden, state the evidence boundary and do not claim broad market/current-fact confidence beyond the provided material.",
+] as const;
+
 const SECTION_FIRST_REPORT_ASSEMBLY = [
   "#### Section-first report assembly",
   "- Before writing body text, partition the report into parts and sections before drafting; each part must have a purpose, evidence need, and expected conclusion.",
@@ -48,6 +57,8 @@ export function buildReportModeGuidance(): string {
     ...REPORT_INTRO_LINES,
     "",
     resourcePolicy,
+    "",
+    ...WEB_ANALYSIS_BACKED_REPORT_REQUIREMENT,
     "",
     ...SECTION_FIRST_REPORT_ASSEMBLY,
     "",

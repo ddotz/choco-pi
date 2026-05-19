@@ -319,19 +319,21 @@ function protocolRepairInstruction(reason: string): string | undefined {
       .split(",")
       .map((tool) => tool.trim())
       .filter(Boolean);
-    const nextAction = tools.includes("integration_verifier")
-      ? "Run integration_verifier for the active manifest, then rerun structural_gate."
-      : tools.includes("branch_switch_guard")
-        ? "Run branch_switch_guard for the requested branch, then rerun structural_gate."
-        : tools.includes("parallel_work_plan")
-          ? "Run parallel_work_plan to assign file/domain ownership, then continue the required tool sequence."
-          : tools.includes("agent_orchestrator")
-            ? "Run agent_orchestrator for the active manifest/lane workflow, then rerun structural_gate."
-            : tools.includes("worktree_manage")
-              ? "Run worktree_manage for required worktree lifecycle actions, then rerun structural_gate."
-              : tools.includes("spec_gate")
-                ? "Run spec_gate for the active non-trivial coding scope, then rerun structural_gate."
-                : `Run the missing required tool${tools.length > 1 ? "s" : ""}, then rerun structural_gate.`;
+    const nextAction = tools.includes("report_research_gate")
+      ? "Run web-analysis source collection, then call report_research_gate with user materials, external sources, source confidence review, conflicts, and evidence gaps. If spec_gate is still missing, run it, then rerun structural_gate."
+      : tools.includes("integration_verifier")
+        ? "Run integration_verifier for the active manifest, then rerun structural_gate."
+        : tools.includes("branch_switch_guard")
+          ? "Run branch_switch_guard for the requested branch, then rerun structural_gate."
+          : tools.includes("parallel_work_plan")
+            ? "Run parallel_work_plan to assign file/domain ownership, then continue the required tool sequence."
+            : tools.includes("agent_orchestrator")
+              ? "Run agent_orchestrator for the active manifest/lane workflow, then rerun structural_gate."
+              : tools.includes("worktree_manage")
+                ? "Run worktree_manage for required worktree lifecycle actions, then rerun structural_gate."
+                : tools.includes("spec_gate")
+                  ? "Run spec_gate for the active non-trivial coding scope, then rerun structural_gate."
+                  : `Run the missing required tool${tools.length > 1 ? "s" : ""}, then rerun structural_gate.`;
     return [
       "Autonomous protocol repair required.",
       protocolKind ? `Protocol: ${protocolKind}` : undefined,

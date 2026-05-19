@@ -65,7 +65,7 @@ describe("auto mode overlay", () => {
     expect(notify).toHaveBeenCalledWith("mode: default", "info");
   });
 
-  it("applies a report effective mode for report-writing turns without changing persistent mode", async () => {
+  it("applies sequential web-analysis then report routing for generic report-writing turns", async () => {
     await useTempAgentDir();
     const { handlers, commands } = setupAutopilot();
     const beforeHandlers = handlers.get("before_agent_start")!;
@@ -75,11 +75,30 @@ describe("auto mode overlay", () => {
 
     expect(result.systemPrompt).toContain("Persistent work mode: default");
     expect(result.systemPrompt).toContain("Effective work mode for this turn: report");
+    expect(result.systemPrompt).toContain("Effective work mode sequence for this turn: web-analysis -> report");
+    expect(result.systemPrompt).toContain("Stage 1: web-analysis");
+    expect(result.systemPrompt).toContain("Stage 2: report");
+    expect(result.systemPrompt).toContain("Web Analysis Mode");
     expect(result.systemPrompt).toContain("Report Mode");
 
     const notify = vi.fn();
     await commands.get("mode")!.handler("status" as never, { ...ctx("session-report"), ui: { notify } });
     expect(notify).toHaveBeenCalledWith("mode: default", "info");
+  });
+
+  it("keeps explicit no-external-research report turns in report mode only", async () => {
+    await useTempAgentDir();
+    const { handlers } = setupAutopilot();
+    const beforeHandlers = handlers.get("before_agent_start")!;
+    const before = beforeHandlers[beforeHandlers.length - 1]!;
+
+    const result = await before({ systemPrompt: "base", prompt: "첨부 자료만 기반으로 보고서 작성해줘. 외부 리서치 하지 마." }, ctx("session-report-boundary")) as { systemPrompt: string };
+
+    expect(result.systemPrompt).toContain("Persistent work mode: default");
+    expect(result.systemPrompt).toContain("Effective work mode for this turn: report");
+    expect(result.systemPrompt).not.toContain("Effective work mode sequence for this turn: web-analysis -> report");
+    expect(result.systemPrompt).not.toContain("Web Analysis Mode");
+    expect(result.systemPrompt).toContain("Report Mode");
   });
 
   it("applies sequential web-analysis then report routing for research-backed report turns", async () => {

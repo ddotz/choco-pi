@@ -9,6 +9,7 @@ export type AutonomyProtocolKind =
   | "parallel-work"
   | "worktree-lane"
   | "integration"
+  | "report-research"
   | "approval-boundary";
 
 export type AutonomyProtocolTaskStatus = "active" | "blocked" | "completed" | "superseded" | "abandoned";
@@ -286,6 +287,14 @@ export function protocolToolSatisfactionFromResult(
     if (ok === true) return make("satisfied", evidenceFrom(result) ?? `${toolName} ok`);
     if (ok === false) return make("blocked", evidenceFrom(result) ?? `${toolName} blocked`);
     if (failedByTool) return make("failed", evidenceFrom(event.content) ?? `${toolName} failed`);
+    return undefined;
+  }
+
+  if (toolName === "report_research_gate") {
+    const ok = okBoolean(result);
+    if (ok === true) return make("satisfied", evidenceFrom(result) ?? "report research gate passed");
+    if (ok === false) return make("blocked", evidenceFrom(result) ?? "report research gate blocked");
+    if (failedByTool) return make("failed", evidenceFrom(event.content) ?? "report research gate failed");
     return undefined;
   }
 

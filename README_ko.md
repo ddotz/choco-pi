@@ -10,7 +10,7 @@
 
 ## 상태
 
-- 현재 패키지 버전: `0.17.0`.
+- 현재 패키지 버전: `0.18.0`.
 - 라이선스 필드: `UNLICENSED`.
 - 패키지 매니저: `pnpm@10.29.3`.
 - 주요 peer 런타임: `@earendil-works/pi-coding-agent`.
@@ -76,7 +76,7 @@ pi install /absolute/path/to/choco-pi
 - 새 Pi 기능을 만들 때는 처음부터 구현하기 전에 `https://pi.dev/packages`를 확인합니다.
 - 작업 모드는 서로 격리되어야 하며, 한 모드가 다른 모드를 부작용으로 바꾸면 안 됩니다.
 - 단순하지 않은 작업을 완료했다고 말하려면 관찰 가능한 검증과 structural review가 필요합니다.
-- Branch, micro-coding, coding, parallel, worktree-lane, integration, approval-boundary 의도가 감지되면 runtime protocol을 생성합니다.
+- Branch, micro-coding, coding, report-research, parallel, worktree-lane, integration, approval-boundary 의도가 감지되면 runtime protocol을 생성합니다.
 - Approval-boundary routing은 실행 의도를 구분합니다. PRD, 예시, 비목표, “배포하지 말고” 같은 문구가 deploy/publish를 언급해도 구현 turn 전체를 차단하지 않습니다.
 - Required tool 결과는 자동 추적되며, 만족되지 않은 protocol은 `structural_gate`에서 fail-closed되고 repair prompt에는 protocol kind와 다음 required action이 표시됩니다.
 - 장기 parallel/worktree/integration protocol은 manifest가 closed/integrated되거나 작업이 supersede되기 전까지 continuation prompt에서 유지됩니다.
@@ -88,6 +88,7 @@ pi install /absolute/path/to/choco-pi
 | `micro-coding` | `structural_gate` | 오타, 문구, rename, 한 줄 수정 같은 작은 작업은 `spec_gate` ceremony 없이 completion safety만 유지합니다. |
 | `single-branch` | `branch_switch_guard`, `structural_gate` | Git 명령 전에 branch name을 검증하고 dirty/occupied worktree를 차단합니다. |
 | `coding` | `spec_gate`, `structural_gate` | 단순하지 않은 구현은 Working Spec과 최종 structural review를 유지합니다. |
+| `report-research` | `spec_gate`, `report_research_gate`, `structural_gate` | 보고서 요청은 기본적으로 web-analysis 기반 source collection이 필요하며, 사용자가 외부 리서치를 금지한 경우에는 명시적 evidence boundary를 기록합니다. |
 | `parallel-work` | `spec_gate`, `parallel_work_plan`, `agent_orchestrator`, `worktree_manage`, `integration_verifier`, `structural_gate` | ownership 계획, manifest orchestration, worktree lifecycle, 최종 integration evidence가 필요합니다. |
 | `worktree-lane` | `agent_orchestrator`, `worktree_manage`, `write_scope_guard`, `structural_gate` | planned/blocked/failed/verified/integrated/serial lane과 invalid writable worktree lane은 active lane으로 설정되지 않습니다. |
 | `integration` | `integration_verifier`, `structural_gate` | verification command는 allowlist 기반이며 `pnpm --dir`은 integration cwd 안에 있어야 합니다. |
@@ -103,7 +104,7 @@ pi install /absolute/path/to/choco-pi
 | --- | --- |
 | `default` | 모든 작업의 기본 정책입니다. 필요한 경우 specialized mode를 세션 한정 오버레이로 적용할 수 있습니다. |
 | `coding` | TDD-first 구현, 디버깅, 리팩터링, coding quality guard를 다룹니다. |
-| `report` | 근거 중심 보고서 작성과 report quality guard를 다룹니다. |
+| `report` | 기본 web-analysis 선행 리서치, `report_research_gate` provenance, source confidence review, report quality guard를 포함한 근거 중심 보고서 작성을 다룹니다. |
 | `design` | 제품/UI 디자인 작업과 design quality guard를 다룹니다. |
 | `web-analysis` | 검색 우선 외부 조사와 web research quality guard를 다룹니다. |
 | `adoption-analysis` | 외부 source/package/repo 채택 검토와 adoption quality guard를 다룹니다. |
@@ -131,6 +132,7 @@ Execution intensity는 프로세스의 무게를 정하는 값입니다. 현재 
 | `spec_gate` | `dynamic-sdd.ts` | 현재 턴의 Working Spec을 시작/조회/초기화하고, Spec Delta와 snapshot을 기록합니다. |
 | `loop_transition` | `structural-gate.ts` | plan/todo 경계를 넘을 때 의도적인 transition을 기록합니다. |
 | `structural_gate` | `structural-gate.ts` | 최종 acceptance, runtime, failure mode, verification, loop, completion review를 기록합니다. |
+| `report_research_gate` | `report-research-gate.ts` | 보고서 objective, 사용자 자료, 외부 source provenance, source confidence review, conflicts, evidence gaps, 또는 명시적 no-external-research boundary를 기록합니다. |
 | `source_registry` | `index.ts` | 외부 source를 list/add/watch/adopt/reject/due/changed/check 동작으로 관리합니다. |
 | `branch_switch_guard` | `branch-switch-guard.ts` | 현재 세션 cwd를 대상으로 dirty 상태와 worktree branch 점유를 확인한 뒤 안전하게 branch를 전환합니다. |
 | `parallel_work_plan` | `parallel-work-plan-tool.ts` | 쓰기 작업이 있는 병렬 작업 전에 충돌 방지 계획을 만듭니다. |

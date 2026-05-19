@@ -108,6 +108,30 @@ describe("autonomy protocol tool satisfaction tracking", () => {
     expect((await protocolFor(cwd)).satisfiedTools).toContain("integration_verifier");
   });
 
+  it("tracks report_research_gate satisfaction and blockers for report-research protocols", async () => {
+    const cwd = await useTempAgentDir();
+    const { handlers } = setupAutopilot();
+
+    await emitAll(handlers, "before_agent_start", { type: "before_agent_start", prompt: "시장 분석 보고서 작성해줘", systemPrompt: "base" }, cwd);
+    expect((await protocolFor(cwd)).kind).toBe("report-research");
+
+    await emitAll(handlers, "tool_result", {
+      type: "tool_result",
+      toolName: "report_research_gate",
+      details: { result: { ok: false, blockers: ["at least 2 external sources are required"] } },
+    }, cwd);
+    expect((await protocolFor(cwd)).blockedTools).toContainEqual(expect.objectContaining({ toolName: "report_research_gate", reason: expect.stringContaining("at least 2 external sources") }));
+
+    await emitAll(handlers, "tool_result", {
+      type: "tool_result",
+      toolName: "report_research_gate",
+      details: { result: { ok: true, externalResearchSkipped: true, evidenceSummary: "external research skipped: user provided materials only" } },
+    }, cwd);
+    const protocol = await protocolFor(cwd);
+    expect(protocol.satisfiedTools).toContain("report_research_gate");
+    expect(protocol.blockedTools).toEqual([]);
+  });
+
   it("ignores unknown tools for protocol satisfaction", async () => {
     const cwd = await useTempAgentDir();
     const { handlers } = setupAutopilot();

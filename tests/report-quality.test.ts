@@ -22,13 +22,30 @@ const completeReport = [
   "## Executive summary",
   "의사결정 요약입니다.",
   "## Evidence notes",
-  "- User material: project brief, retrieved 2026-05-11, full text.",
+  "- External source: https://example.com/official | publisher: Example Authority | published: 2026-05-01 | retrieved: 2026-05-19 | access quality: full-text | relevance: high | source confidence: high | used claim: market expansion.",
+  "- External source: https://example.org/data | publisher: Example Data Lab | updated: 2026-05-10 | retrieved: 2026-05-19 | access quality: full-text | relevance: high | source confidence: medium | used claim: distribution constraints.",
+  "- Source confidence review: sources were scored by relevance, recency, authority, independence, evidence quality, and access quality; no unresolved conflict changed the recommendation.",
   "## Main report",
   "Facts, analysis, recommendations, and open risks are separated.",
   "## Critical review",
   "Main caveat is single-source dependence; a new source could change the conclusion.",
   "## Confidence",
-  "High",
+  "Confidence: High",
+].join("\n");
+
+const noExternalBoundaryReport = [
+  "## Executive summary",
+  "제공 자료 기준의 의사결정 요약입니다.",
+  "## Evidence notes",
+  "- Evidence boundary: user-provided materials only; external research explicitly forbidden by user.",
+  "- User material: project brief, retrieved from prompt, access quality: full-text, source confidence: medium, used claim: internal priority.",
+  "- Source confidence review: no external source confidence matrix was built because the user forbade external research; conclusions are bounded to supplied material.",
+  "## Main report",
+  "Facts, analysis, recommendations, and open risks are separated.",
+  "## Critical review",
+  "Current market claims are intentionally not made because external research was forbidden.",
+  "## Confidence",
+  "Confidence: Medium",
 ].join("\n");
 
 describe("report quality guardrails", () => {
@@ -39,7 +56,7 @@ describe("report quality guardrails", () => {
   });
 
   it("flags report answers without evidence notes", () => {
-    const answer = completeReport.replace(/^## Evidence notes\n- .*\n/m, "");
+    const answer = completeReport.replace(/^## Evidence notes\n[\s\S]*?## Main report/m, "## Main report");
     const result = evaluateReportQuality("report", answer);
     expect(result.required).toBe(true);
     expect(result.passed).toBe(false);
@@ -54,14 +71,53 @@ describe("report quality guardrails", () => {
 
   it("flags hollow evidence notes without provenance or user-material references", () => {
     const answer = completeReport.replace(
-      /^## Evidence notes\n- .*\n/m,
-      "## Evidence notes\n확인했습니다.\n",
+      /^## Evidence notes\n[\s\S]*?## Main report/m,
+      "## Evidence notes\n확인했습니다.\n## Main report",
     );
     const result = evaluateReportQuality("report", answer);
     expect(result.issues).toContain("missing-evidence-notes");
+    expect(result.issues).toContain("missing-external-research");
   });
 
-  it("passes structured report answers", () => {
+  it("flags report answers without external research provenance unless a boundary is stated", () => {
+    const answer = completeReport.replace(
+      /^## Evidence notes\n[\s\S]*?## Main report/m,
+      "## Evidence notes\n- User material: project brief, retrieved from prompt, access quality: full-text, source confidence: medium.\n- Source confidence review: user material only.\n## Main report",
+    );
+    const result = evaluateReportQuality("report", answer);
+
+    expect(result.issues).toContain("missing-external-research");
+  });
+
+  it("flags report answers without a source confidence review", () => {
+    const answer = completeReport.replace(/- Source confidence review: .*\n/, "");
+    const result = evaluateReportQuality("report", answer);
+
+    expect(result.issues).toContain("missing-source-confidence-review");
+  });
+
+  it("allows explicit no-external-research boundary with non-High confidence", () => {
+    const result = evaluateReportQuality("report", noExternalBoundaryReport);
+
+    expect(result.issues).not.toContain("missing-external-research");
+    expect(result.issues).not.toContain("unsupported-high-confidence");
+    expect(result.passed).toBe(true);
+  });
+
+  it("blocks High confidence when external research is explicitly forbidden", () => {
+    const result = evaluateReportQuality("report", noExternalBoundaryReport.replace("Confidence: Medium", "Confidence: High"));
+
+    expect(result.issues).toContain("unsupported-high-confidence");
+  });
+
+  it("blocks High confidence when fewer than two external sources are cited", () => {
+    const answer = completeReport.replace(/- External source: https:\/\/example\.org\/data.*\n/, "");
+    const result = evaluateReportQuality("report", answer);
+
+    expect(result.issues).toContain("unsupported-high-confidence");
+  });
+
+  it("passes structured source-backed report answers", () => {
     const result = evaluateReportQuality("report", completeReport);
     expect(result.passed).toBe(true);
     expect(result.issues).toEqual([]);

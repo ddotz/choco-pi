@@ -45,6 +45,19 @@ describe("autonomy router", () => {
     expect(decision.requiredTools).toContain("integration_verifier");
   });
 
+  it("routes report requests to report-research protocol even without explicit external targets", () => {
+    const generic = routeAutonomyProtocol({ prompt: "시장 분석 보고서 작성해줘", cwd: "/repo", sessionId: "s1", hasActiveManifest: false });
+    const explicit = routeAutonomyProtocol({ prompt: "외부 리서치까지 해서 보고서 작성해줘", cwd: "/repo", sessionId: "s1", hasActiveManifest: false });
+    const noExternal = routeAutonomyProtocol({ prompt: "첨부 자료만 기반으로 보고서 작성해줘", cwd: "/repo", sessionId: "s1", hasActiveManifest: false });
+
+    for (const decision of [generic, explicit, noExternal]) {
+      expect(decision.protocolKind).toBe("report-research");
+      expect(decision.requiredTools).toEqual(["spec_gate", "report_research_gate", "structural_gate"]);
+    }
+    expect(generic.reason).toContain("web-analysis-backed external research");
+    expect(noExternal.reason).toContain("evidence boundary");
+  });
+
   it("does not route PRD/documentation mentions of deploy or publish as approval-boundary execution", () => {
     const decision = routeAutonomyProtocol({
       prompt: [

@@ -48,6 +48,36 @@ describe("choco autonomous PM policy", () => {
     expect(shouldAskUser({ kind: "contradictory-goal", reversible: true, hasReasonableDefault: false })).toBe(true);
   });
 
+  it("injects report-research required tool guidance into report-backed protocol turns", () => {
+    const prompt = buildAutopilotSystemPrompt({
+      workMode: "default",
+      effectiveWorkMode: "report",
+      modeSequence: ["web-analysis", "report"],
+      executionIntensity: "standard",
+      cwd: "/repo",
+      autonomyProtocol: {
+        version: 1,
+        id: "report-research-test",
+        kind: "report-research",
+        sessionId: "s1",
+        cwd: "/repo",
+        promptHash: "hash",
+        requiredTools: ["spec_gate", "report_research_gate", "structural_gate"],
+        satisfiedTools: [],
+        blockedTools: [],
+        reason: "report mode requires web-analysis-backed external research",
+        taskStatus: "active",
+        createdAt: "2026-05-19T00:00:00.000Z",
+        updatedAt: "2026-05-19T00:00:00.000Z",
+      },
+    });
+
+    expect(prompt).toContain("Effective work mode sequence for this turn: web-analysis -> report");
+    expect(prompt).toContain("Protocol: report-research");
+    expect(prompt).toContain("- report_research_gate");
+    expect(prompt).toContain("Run these mode stages in order");
+  });
+
   it("injects a non-negotiable structural gate that preserves autonomous PM discipline under long context", () => {
     const prompt = buildAutopilotSystemPrompt({
       workMode: "default",

@@ -1,6 +1,6 @@
 {
   "name": "choco-pi",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "private": true,
   "description": "Personal default-root all-purpose generalist layer for the pi coding agent.",
   "keywords": [

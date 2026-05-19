@@ -1,5 +1,6 @@
 import { classifyApprovalBoundaryCommand } from "./approval-boundary";
 import type { AutonomyProtocolKind, AutonomyProtocolTaskStatus } from "./autonomy-protocol";
+import { explicitNoExternalResearchRequested, hasReportIntent } from "./mode";
 
 export interface AutonomyRouterCurrentProtocol {
   id: string;
@@ -139,6 +140,7 @@ export function requiredToolsForProtocol(kind: AutonomyProtocolKind): string[] {
   if (kind === "parallel-work") return ["spec_gate", "parallel_work_plan", "agent_orchestrator", "worktree_manage", "integration_verifier", "structural_gate"];
   if (kind === "worktree-lane") return ["agent_orchestrator", "worktree_manage", "write_scope_guard", "structural_gate"];
   if (kind === "integration") return ["integration_verifier", "structural_gate"];
+  if (kind === "report-research") return ["spec_gate", "report_research_gate", "structural_gate"];
   return [];
 }
 
@@ -193,6 +195,15 @@ export function routeAutonomyProtocol(input: AutonomyRouterInput): AutonomyRoute
   const hardBoundary = approvalBoundaryForPrompt(prompt);
   if (hardBoundary) return decision("approval-boundary", `hard approval boundary detected: ${hardBoundary}`, hardBoundary);
 
+  if (hasReportIntent(prompt)) {
+    const noExternal = explicitNoExternalResearchRequested(prompt);
+    return decision(
+      "report-research",
+      noExternal
+        ? "report mode requires report_research_gate evidence boundary because external research was explicitly forbidden"
+        : "report mode requires web-analysis-backed external research",
+    );
+  }
   if (matchesAny(prompt, PARALLEL_PATTERNS)) return decision("parallel-work", "parallel or multi-session intent detected");
   if (input.hasActiveManifest && matchesAny(prompt, INTEGRATION_PATTERNS)) return decision("integration", "active manifest completion/integration intent detected");
   if (input.activeLaneId && (matchesAny(prompt, ACTION_PATTERNS) || isContinuationPrompt(prompt))) return decision("worktree-lane", `active lane ${input.activeLaneId} with implementation intent`);

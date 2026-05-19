@@ -110,6 +110,7 @@ import { registerIntegrationVerifierTool } from "./integration-verifier-tool";
 import { registerModeScaffoldTool } from "./mode-scaffold-tool";
 import { parseDogfoodMemoryMode, resolveDogfoodScope } from "./improvement-scope";
 import { guardReportQualityMessage, type ReportRepairState } from "./report-quality";
+import { registerReportResearchGateTool } from "./report-research-gate";
 import { registerRuntimeReload } from "./runtime-reload";
 import { registerSessionDashboardCommand } from "./session-dashboard";
 import { resolveEffectiveWorkMode, sessionIdFromContext, sessionScopedKey } from "./session-scope";
@@ -789,6 +790,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
   registerWorktreeManageTool(pi);
   registerAgentOrchestratorTool(pi, activeLaneStore);
   registerIntegrationVerifierTool(pi);
+  registerReportResearchGateTool(pi);
   registerModeScaffoldTool(pi);
   const dogfoodCases = createActiveDogfoodCaseState();
   const bashScopeSnapshots = new Map<string, string[]>();

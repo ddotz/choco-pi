@@ -37,6 +37,14 @@ export function parseExecutionIntensity(input: string): ExecutionIntensity | und
   return undefined;
 }
 
+export function hasReportIntent(input: string): boolean {
+  return /보고서|카드뉴스|요약문|리포트|white\s*paper|report|(?:^|[\s"'`“”‘’([{])글(?:\s*(?:작성|써|쓰기|초안|문서)|[\s"'`“”‘’)\]},.!?]|$)/i.test(input);
+}
+
+export function explicitNoExternalResearchRequested(input: string): boolean {
+  return /첨부\s*자료만|제공\s*자료만|내\s*자료만|사용자\s*제공\s*자료만|외부\s*(?:리서치|조사|검색)\s*(?:금지|하지\s*마|하지\s*말|없이|제외)|웹\s*(?:검색|리서치|조사)\s*(?:하지\s*마|하지\s*말|없이|금지|제외)|검색\s*없이|리서치\s*없이|no\s+(?:web|external)\s+research|without\s+(?:web|external)\s+research|do\s+not\s+(?:search|browse)|don't\s+(?:search|browse)|provided\s+materials?\s+only|attached\s+materials?\s+only/i.test(input);
+}
+
 export function inferPlannedWorkModes(input: string): WorkMode[] {
   const text = input.trim().toLowerCase();
   if (!text) return [];
@@ -44,9 +52,11 @@ export function inferPlannedWorkModes(input: string): WorkMode[] {
   const hasAdoptionIntent = /도입|채택|업데이트\s*체크|외부\s*(아이디어|링크|소스)|adopt|adoption/i.test(text);
   if (hasAdoptionIntent) return ["adoption-analysis"];
 
-  const hasReportIntent = /보고서|글|카드뉴스|요약문|리포트|white\s*paper|report/i.test(text);
+  const hasReport = hasReportIntent(text);
+  const explicitNoExternalResearch = explicitNoExternalResearchRequested(text);
   const hasExternalResearchTarget = /https?:\/\/|\burl\b|웹|사이트|검색|리서치|뉴스|자료|external|source-backed/i.test(text);
-  if (hasReportIntent && hasExternalResearchTarget) return ["web-analysis", "report"];
+  if (hasReport && !explicitNoExternalResearch) return ["web-analysis", "report"];
+  if (hasReport) return ["report"];
 
   const hasCodingIntent = /코드\s*(작성|수정|구현)|구현\s*(해|하고|하라|하세요|해주세요|한다|할)|수정|버그|테스트|리팩터|리팩토|파일|함수|오타|class|api|build|lint|readme|\.md\b/i.test(text);
   if (hasCodingIntent) return ["coding"];
@@ -56,7 +66,6 @@ export function inferPlannedWorkModes(input: string): WorkMode[] {
 
   if (hasExternalResearchTarget) return ["web-analysis"];
 
-  if (hasReportIntent) return ["report"];
   return [];
 }
 
