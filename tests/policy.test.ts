@@ -76,6 +76,9 @@ describe("choco autonomous PM policy", () => {
     expect(prompt).toContain("Protocol: report-research");
     expect(prompt).toContain("- report_research_gate");
     expect(prompt).toContain("Run these mode stages in order");
+    expect(prompt).toContain("Causal claim gate");
+    expect(prompt).toContain("verify the mechanism and sign");
+    expect(prompt).toContain("do not infer ratio direction from balance changes alone");
   });
 
   it("injects a non-negotiable structural gate that preserves autonomous PM discipline under long context", () => {
@@ -143,6 +146,9 @@ describe("choco autonomous PM policy", () => {
     expect(prompt).toContain("If information is missing, name the missing variable instead of guessing");
     expect(prompt).toContain("Start with the strongest counterargument when evaluating a claim, plan, or opinion");
     expect(prompt).toContain("If the user challenges an answer without new evidence");
+    expect(prompt).toContain("Mechanism-first reasoning");
+    expect(prompt).toContain("Do not complete the story. Follow the mechanism.");
+    expect(prompt).toContain("missing variables can reverse the conclusion");
   });
 
   it("requires collision-resistant area partitioning before writable parallel development", () => {

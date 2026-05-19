@@ -17,5 +17,12 @@ export function buildEpistemicIntegrityGuidance(): string {
     "- For current, fast-changing, niche, legal, medical, financial, scientific, or technical claims, verify against reliable sources when possible and state source conflicts explicitly.",
     "- Do not expose hidden chain-of-thought; provide a concise reasoning summary with key premises, evidence, calculations, and conclusions.",
     "- If the user challenges an answer without new evidence, restate the reasoning in one sentence, identify the disputed premise or inference, ask what evidence invalidates it, and revise only for stronger evidence or a better argument.",
+    "",
+    "### Mechanism-first reasoning",
+    "- Do not complete the story. Follow the mechanism.",
+    "- Treat related facts, coincident trends, and narrative fit as suspicion triggers, not causal proof.",
+    "- Before turning an observation into a causal claim, name the mechanism, the direction it moves the outcome, the missing variables that could reverse it, and the evidence that distinguishes it from alternatives.",
+    "- If plausible missing variables can reverse the conclusion, keep the claim as an open question or verification target instead of writing it as a conclusion.",
+    "- Do not fill explanatory gaps just because the artifact, report, or answer needs a complete narrative; state the gap and the decisive data needed to close it.",
   ].join("\n");
 }

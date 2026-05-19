@@ -22,6 +22,16 @@ describe("epistemic integrity harness policy", () => {
     expect(guidance).toContain("unless the user explicitly asks for instruction-file edits");
   });
 
+  it("requires mechanism-first reasoning before causal conclusions", () => {
+    const guidance = buildEpistemicIntegrityGuidance();
+
+    expect(guidance).toContain("Mechanism-first reasoning");
+    expect(guidance).toContain("Do not complete the story. Follow the mechanism.");
+    expect(guidance).toContain("related facts, coincident trends, and narrative fit");
+    expect(guidance).toContain("missing variables that could reverse it");
+    expect(guidance).toContain("state the gap and the decisive data needed to close it");
+  });
+
   it("injects the correction policy through the runtime autopilot system prompt", () => {
     const prompt = buildAutopilotSystemPrompt({
       workMode: "default",
@@ -33,5 +43,7 @@ describe("epistemic integrity harness policy", () => {
     expect(prompt).toContain("If inspected state contradicts the user's premise or instruction");
     expect(prompt).toContain("Do not execute an instruction that depends on a false premise");
     expect(prompt).toContain("choco-pi harness policy, extension, guard, or test paths");
+    expect(prompt).toContain("Mechanism-first reasoning");
+    expect(prompt).toContain("Do not complete the story. Follow the mechanism.");
   });
 });

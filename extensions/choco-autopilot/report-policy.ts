@@ -26,6 +26,15 @@ const SECTION_FIRST_REPORT_ASSEMBLY = [
   "- Formula-bound numbers must be calculated from the stated formula, not estimated. If a formula is available, show or retain the calculation basis in the ledger/notes and block completion when inputs are missing instead of guessing.",
 ] as const;
 
+const CAUSAL_CLAIM_GATE = [
+  "#### Causal claim gate",
+  "- Do not complete the report story by upgrading related facts into causation.",
+  "- Before any causal sentence, verify the mechanism and sign: how the proposed cause changes the outcome's numerator, denominator, state, behavior, or runtime path.",
+  "- Run a counterfactual check: if a plausible missing variable can make the same fact support the opposite conclusion, downgrade the sentence to an open risk or verification need.",
+  "- For financial or ratio analysis, do not infer ratio direction from balance changes alone; identify the cost basis, price, mix, timing, and formula inputs needed to determine direction.",
+  "- If the decisive data is missing, write the missing data request in the report instead of filling the explanatory gap with a plausible narrative.",
+] as const;
+
 const REPORT_GARDENING_PROCESS = [
   "#### Report gardening process",
   "1. Define the report objective, audience, decision context, required output format, and user-provided source material before drafting.",
@@ -63,6 +72,8 @@ export function buildReportModeGuidance(): string {
     ...WEB_ANALYSIS_BACKED_REPORT_REQUIREMENT,
     "",
     ...SECTION_FIRST_REPORT_ASSEMBLY,
+    "",
+    ...CAUSAL_CLAIM_GATE,
     "",
     ...REPORT_GARDENING_PROCESS,
     "",

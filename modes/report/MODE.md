@@ -34,6 +34,14 @@ Purpose:
 - Whole-report pass: review the complete report once more through critique, checking executive summary alignment, conclusion support, narrative flow, evidence gaps, and reader decision value.
 - Formula-bound numbers must be calculated from the stated formula, not estimated. If a formula is available, show or retain the calculation basis in the ledger/notes and block completion when inputs are missing instead of guessing.
 
+## Causal claim gate
+
+- Do not complete the report story by upgrading related facts into causation.
+- Before any causal sentence, verify the mechanism and sign: how the proposed cause changes the outcome's numerator, denominator, state, behavior, or runtime path.
+- Run a counterfactual check: if a plausible missing variable can make the same fact support the opposite conclusion, downgrade the sentence to an open risk or verification need.
+- For financial or ratio analysis, do not infer ratio direction from balance changes alone; identify the cost basis, price, mix, timing, and formula inputs needed to determine direction.
+- If the decisive data is missing, write the missing data request in the report instead of filling the explanatory gap with a plausible narrative.
+
 ## Report gardening process
 
 1. Define objective, audience, decision context, scope, output format, and user-provided materials.
