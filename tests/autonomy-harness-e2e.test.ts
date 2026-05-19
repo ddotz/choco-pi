@@ -1,9 +1,12 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import chocoAutopilot, { loadState } from "../extensions/choco-autopilot/index";
+import { updateAgentLaneStatus } from "../extensions/choco-autopilot/agent-run-manifest";
 import { autonomyProtocolKey } from "../extensions/choco-autopilot/autonomy-protocol";
+import { planParallelWorkAreas } from "../extensions/choco-autopilot/worktree-planner";
+import { createGitFixture } from "./helpers/git-fixture";
 
 type EventHandler = (event: Record<string, unknown>, ctx: Record<string, unknown>) => unknown | Promise<unknown>;
 
@@ -49,6 +52,28 @@ async function emitAll(handlers: Map<string, EventHandler[]>, eventName: string,
   for (const handler of handlers.get(eventName) ?? []) await handler(event, ctx(cwd));
 }
 
+async function emitToolCall(handlers: Map<string, EventHandler[]>, toolName: string, input: Record<string, unknown>, cwd: string): Promise<unknown[]> {
+  const results: unknown[] = [];
+  for (const handler of handlers.get("tool_call") ?? []) results.push(await handler({ type: "tool_call", toolCallId: `${toolName}-1`, toolName, input }, ctx(cwd)));
+  return results;
+}
+
+async function writeActiveManifest(cwd: string): Promise<void> {
+  const dir = join(cwd, ".pi", "agent-runs", "group-a");
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, "manifest.json"), JSON.stringify({
+    version: 1,
+    groupId: "group-a",
+    repoRoot: cwd,
+    baseRef: "main",
+    createdAt: "2026-05-17T00:00:00.000Z",
+    updatedAt: "2026-05-17T00:00:00.000Z",
+    parallelStrategy: "hybrid",
+    status: "running",
+    lanes: [],
+  }, null, 2));
+}
+
 const completeReview = {
   acceptanceFit: "Requested work is complete and matched to the latest prompt.",
   runtimeFit: "Runtime behavior is represented by tests and tool state.",
@@ -78,6 +103,69 @@ describe("autonomous harness e2e flows", () => {
     expect(protocol.taskStatus).toBe("completed");
   });
 
+  it("runs the parallel protocol through required tools and completed protocol", async () => {
+    const cwd = await useTempAgentDir();
+    const { handlers, tools } = setupAutopilot();
+
+    await emitAll(handlers, "before_agent_start", { type: "before_agent_start", prompt: "병렬로 나눠서 구현해줘", systemPrompt: "base" }, cwd);
+    for (const [toolName, details] of [
+      ["spec_gate", { result: { ok: true } }],
+      ["parallel_work_plan", { plan: { lanes: [] } }],
+      ["agent_orchestrator", { result: { ok: true, action: "start" } }],
+      ["worktree_manage", { result: { ok: true, action: "create" } }],
+      ["integration_verifier", { result: { ok: true, status: "passed" } }],
+    ] as Array<[string, Record<string, unknown>]>) {
+      await emitAll(handlers, "tool_result", { type: "tool_result", toolName, details }, cwd);
+    }
+    const passed = await tools.get("structural_gate")!.execute("gate-1", completeReview, undefined, undefined, ctx(cwd));
+    await emitAll(handlers, "tool_result", { type: "tool_result", toolName: "structural_gate", details: passed.details }, cwd);
+    const protocol = (await loadState()).autonomyProtocols[autonomyProtocolKey(cwd, "s1")];
+
+    expect(passed.details).toMatchObject({ ok: true });
+    expect(protocol.kind).toBe("parallel-work");
+    expect(protocol.taskStatus).toBe("completed");
+  });
+
+  it("continues an active manifest without resetting the parallel protocol", async () => {
+    const cwd = await useTempAgentDir();
+    await writeActiveManifest(cwd);
+    const { handlers } = setupAutopilot();
+
+    await emitAll(handlers, "before_agent_start", { type: "before_agent_start", prompt: "병렬로 나눠서 구현해줘", systemPrompt: "base" }, cwd);
+    await emitAll(handlers, "tool_result", { type: "tool_result", toolName: "spec_gate", details: { result: { ok: true } } }, cwd);
+    const first = (await loadState()).autonomyProtocols[autonomyProtocolKey(cwd, "s1")];
+    await emitAll(handlers, "before_agent_start", { type: "before_agent_start", prompt: "계속 진행해줘", systemPrompt: "base" }, cwd);
+    const resumed = (await loadState()).autonomyProtocols[autonomyProtocolKey(cwd, "s1")];
+
+    expect(resumed.id).toBe(first.id);
+    expect(resumed.kind).toBe("parallel-work");
+    expect(resumed.satisfiedTools).toContain("spec_gate");
+  });
+
+  it("blocks out-of-scope active lane writes and marks the protocol blocked", async () => {
+    await useTempAgentDir();
+    delete process.env.CHOCO_PI_ACTIVE_LANE_CONTEXT;
+    const fixture = await createGitFixture();
+    try {
+      const { handlers, tools } = setupAutopilot();
+      const plan = planParallelWorkAreas({ items: [{ id: "tests", description: "Own tests", files: ["tests/"] }] });
+      await tools.get("agent_orchestrator")!.execute("start", { action: "start", repoRoot: fixture.repoRoot, groupId: "group-a", baseRef: "main", plan }, undefined, undefined, ctx(fixture.repoRoot));
+      await updateAgentLaneStatus(fixture.repoRoot, "group-a", "lane-1", "created", { worktreePath: fixture.repoRoot, branchName: "main" });
+      await tools.get("agent_orchestrator")!.execute("activate", { action: "activate_lane", repoRoot: fixture.repoRoot, groupId: "group-a", laneId: "lane-1" }, undefined, undefined, ctx(fixture.repoRoot));
+      await emitAll(handlers, "before_agent_start", { type: "before_agent_start", prompt: "이 lane 이어서 해줘", systemPrompt: "base" }, fixture.repoRoot);
+
+      const blocked = await emitToolCall(handlers, "write", { path: "src/index.ts", content: "outside" }, fixture.repoRoot);
+      const protocol = (await loadState()).autonomyProtocols[autonomyProtocolKey(fixture.repoRoot, "s1")];
+
+      expect(blocked).toContainEqual(expect.objectContaining({ block: true, reason: expect.stringContaining("outside active lane write scope") }));
+      expect(protocol.kind).toBe("worktree-lane");
+      expect(protocol.taskStatus).toBe("blocked");
+      expect(protocol.blockedTools).toContainEqual(expect.objectContaining({ toolName: "write_scope_guard" }));
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("keeps approval-boundary protocols blocked instead of reporting ready completion", async () => {
     const cwd = await useTempAgentDir();
     const { handlers, tools } = setupAutopilot();
@@ -91,8 +179,12 @@ describe("autonomous harness e2e flows", () => {
       readyToComplete: false,
       outcome: "blocked",
     }, undefined, undefined, ctx(cwd));
+    await emitAll(handlers, "tool_result", { type: "tool_result", toolName: "structural_gate", details: blocked.details }, cwd);
+    const protocol = (await loadState()).autonomyProtocols[autonomyProtocolKey(cwd, "s1")];
 
     expect(ready.details).toMatchObject({ ok: false, reason: expect.stringContaining("approval-boundary") });
     expect(blocked.details).toMatchObject({ ok: true });
+    expect(protocol.taskStatus).toBe("blocked");
+    expect(protocol.blockedTools).toContainEqual(expect.objectContaining({ toolName: "approval-boundary" }));
   });
 });

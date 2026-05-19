@@ -111,9 +111,9 @@ Required tools are completion contracts, not suggestions:
 - `parallel-work`: `spec_gate`, `parallel_work_plan`, `agent_orchestrator`, `worktree_manage`, `integration_verifier`, and `structural_gate`.
 - `worktree-lane`: active lane/write guard state plus orchestrator/worktree protocol tools. Activation is blocked for planned/blocked/failed/verified/integrated/serial lanes and writable worktree lanes without a valid worktree path.
 - `integration`: `integration_verifier` before completion. Verification commands are allowlisted; `pnpm --dir` must remain inside the integration cwd.
-- `approval-boundary`: stop at the boundary with `readyToComplete=false`; do not execute publish/deploy/payment/secret/destructive/private-transfer actions.
+- `approval-boundary`: stop at the boundary with `readyToComplete=false`; do not execute publish/deploy/payment/secret/destructive/private-transfer actions. PRD/example/non-goal/do-not-deploy mentions of these boundaries are treated as references, not direct execution requests.
 
-If a required tool is missing or blocked, repair safely or report the concrete blocker. Repair prompts name the missing/blocked protocol tool and the next safe action. Do not claim completion until the protocol and structural gate both pass. Completed and superseded protocols are not shown as active in `/sessions`.
+If a required tool is missing or blocked, repair safely or report the concrete blocker. Repair prompts name the protocol kind, missing/blocked protocol tool, and the next safe action. Do not claim completion until the protocol and structural gate both pass. Completed and superseded protocols are not shown as active in `/sessions`.
 
 ## Structural Execution Gate
 

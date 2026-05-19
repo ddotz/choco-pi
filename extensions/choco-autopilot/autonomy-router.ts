@@ -121,6 +121,13 @@ const PROMPT_APPROVAL_PATTERNS: Array<{ kind: string; pattern: RegExp; command: 
   { kind: "irreversible", pattern: /reset\s+--hard|git\s+clean|force\s+push|강제\s*푸시|되돌릴\s*수\s*없/i, command: "git reset --hard" },
 ];
 
+const APPROVAL_REFERENCE_PATTERNS = [
+  /\bPRD\b|product\s+requirements?|requirements?\s+doc|기획서|요구사항|비목표|non[- ]?goals?/i,
+  /Acceptance\s+Criteria|Expected|Prompt:|예시|시나리오|approval[- ]boundary|hard\s+boundary/i,
+  /자동\s*(?:우회|실행\s*제외)/i,
+  /(?:배포|publish|deploy)(?:하지\s*(?:말|않)|\s*(?:없이|제외|금지))|(?:do\s+not|don't|without)\s+(?:deploy|publish)/i,
+];
+
 function matchesAny(prompt: string, patterns: RegExp[]): boolean {
   return patterns.some((pattern) => pattern.test(prompt));
 }
@@ -135,7 +142,12 @@ export function requiredToolsForProtocol(kind: AutonomyProtocolKind): string[] {
   return [];
 }
 
+function approvalBoundaryReferenceOnly(prompt: string): boolean {
+  return matchesAny(prompt, APPROVAL_REFERENCE_PATTERNS);
+}
+
 function approvalBoundaryForPrompt(prompt: string): string | undefined {
+  if (approvalBoundaryReferenceOnly(prompt)) return undefined;
   const direct = classifyApprovalBoundaryCommand(prompt);
   if (direct) return direct.kind;
   for (const candidate of PROMPT_APPROVAL_PATTERNS) {

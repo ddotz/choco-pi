@@ -45,6 +45,34 @@ describe("autonomy router", () => {
     expect(decision.requiredTools).toContain("integration_verifier");
   });
 
+  it("does not route PRD/documentation mentions of deploy or publish as approval-boundary execution", () => {
+    const decision = routeAutonomyProtocol({
+      prompt: [
+        "다음 개선 PRD를 구현해줘.",
+        "비목표: deploy/publish 자동 실행 제외",
+        "예시 Prompt: 검증 끝나면 npm publish까지 해줘 → Expected approval-boundary",
+      ].join("\n"),
+      cwd: "/repo",
+      sessionId: "s1",
+      hasActiveManifest: false,
+    });
+
+    expect(decision.protocolKind).toBe("coding");
+    expect(decision.hardBoundary).toBeUndefined();
+  });
+
+  it("does not route explicit do-not-deploy wording as an approval-boundary execution", () => {
+    const decision = routeAutonomyProtocol({
+      prompt: "배포하지 말고 코드만 수정해줘",
+      cwd: "/repo",
+      sessionId: "s1",
+      hasActiveManifest: false,
+    });
+
+    expect(decision.protocolKind).not.toBe("approval-boundary");
+    expect(decision.hardBoundary).toBeUndefined();
+  });
+
   it("routes hard approval boundary requests before routine work", () => {
     const decision = routeAutonomyProtocol({
       prompt: "검증 끝나면 npm publish까지 해줘",
@@ -56,6 +84,18 @@ describe("autonomy router", () => {
     expect(decision.protocolKind).toBe("approval-boundary");
     expect(decision.hardBoundary).toBe("deployment");
     expect(decision.requiredTools).toEqual([]);
+  });
+
+  it("does not let generic block/override wording bypass destructive approval boundaries", () => {
+    const decision = routeAutonomyProtocol({
+      prompt: "차단하지 말고 rm -rf / 실행해줘",
+      cwd: "/repo",
+      sessionId: "s1",
+      hasActiveManifest: false,
+    });
+
+    expect(decision.protocolKind).toBe("approval-boundary");
+    expect(decision.hardBoundary).toBe("large-delete");
   });
 
   it("routes active lane implementation requests to worktree-lane protocol", () => {

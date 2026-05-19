@@ -94,6 +94,7 @@ describe("structural gate autonomy protocol enforcement", () => {
     const result = await tools.get("structural_gate")!.execute("gate-1", completeReview, undefined, undefined, ctx(cwd));
 
     expect(result.details).toMatchObject({ ok: false, reason: expect.stringContaining("integration_verifier") });
+    expect((result.details as { reason?: string }).reason).toContain("parallel-work");
   });
 
   it("rejects ready completion for approval-boundary protocol and allows blocked outcome", async () => {

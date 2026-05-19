@@ -12,6 +12,14 @@ describe("structural gate autonomy repair prompts", () => {
     expect(prompt).toContain("rerun structural_gate");
   });
 
+  it("includes the protocol kind when the external block reason provides it", () => {
+    const prompt = repairPromptText("autonomous protocol parallel-work required tools missing: integration_verifier", "초안");
+
+    expect(prompt).toContain("Protocol: parallel-work");
+    expect(prompt).toContain("Missing required tools:");
+    expect(prompt).toContain("- integration_verifier");
+  });
+
   it("includes blocked protocol tool reasons and approval-boundary instructions", () => {
     const blocked = repairPromptText("autonomous protocol has blocked tools: branch_switch_guard (current cwd is dirty)", "");
     const approval = repairPromptText("approval-boundary protocol cannot complete before hard boundary: deployment", "");

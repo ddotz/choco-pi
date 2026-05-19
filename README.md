@@ -10,7 +10,7 @@ This README describes implemented behavior only. It is based on `package.json`, 
 
 ## Status
 
-- Current package version: `0.16.0`.
+- Current package version: `0.17.0`.
 - License field: `UNLICENSED`.
 - Package manager: `pnpm@10.29.3`.
 - Main peer runtime: `@earendil-works/pi-coding-agent`.
@@ -79,7 +79,8 @@ The implemented policy includes these defaults:
 - No mode may change default or any other mode as a side effect.
 - Completion claims require observable verification and a structural review when work is non-trivial.
 - Prompt intent is routed into an autonomy protocol when branch, micro-coding, coding, parallel, worktree-lane, integration, or approval-boundary behavior is needed.
-- Required protocol tools are tracked from tool results; `structural_gate` fails closed when completion is attempted before required tools are satisfied.
+- Approval-boundary routing is execution-intent aware: PRDs, examples, non-goals, and do-not-deploy wording can mention deploy/publish without blocking the whole implementation turn.
+- Required protocol tools are tracked from tool results; `structural_gate` fails closed when completion is attempted before required tools are satisfied and repair prompts name the protocol kind plus the next required action.
 - Long-running parallel/worktree/integration protocols survive continuation prompts until the manifest is closed/integrated or the task is superseded.
 
 ### Autonomous protocol runtime

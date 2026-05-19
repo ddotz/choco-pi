@@ -312,9 +312,10 @@ function hasToolCall(message: AssistantMessage): boolean {
 }
 
 function protocolRepairInstruction(reason: string): string | undefined {
-  const missingMatch = reason.match(/required autonomous protocol tools missing:\s*(.+)$/i);
+  const missingMatch = reason.match(/^(?:autonomous protocol\s+([a-z-]+)\s+required tools missing|required autonomous protocol tools missing):\s*(.+)$/i);
   if (missingMatch) {
-    const tools = missingMatch[1]
+    const protocolKind = missingMatch[1];
+    const tools = missingMatch[2]
       .split(",")
       .map((tool) => tool.trim())
       .filter(Boolean);
@@ -333,22 +334,25 @@ function protocolRepairInstruction(reason: string): string | undefined {
                 : `Run the missing required tool${tools.length > 1 ? "s" : ""}, then rerun structural_gate.`;
     return [
       "Autonomous protocol repair required.",
+      protocolKind ? `Protocol: ${protocolKind}` : undefined,
       "Missing required tools:",
       ...tools.map((tool) => `- ${tool}`),
       "Next action:",
       nextAction,
       "Do not claim completion until protocol is satisfied.",
-    ].join("\n");
+    ].filter(Boolean).join("\n");
   }
 
-  const blockedMatch = reason.match(/autonomous protocol has blocked tools:\s*(.+)$/i);
+  const blockedMatch = reason.match(/^(?:autonomous protocol\s+([a-z-]+)\s+has blocked tools|autonomous protocol has blocked tools):\s*(.+)$/i);
   if (blockedMatch) {
-    const blocked = blockedMatch[1].trim();
+    const protocolKind = blockedMatch[1];
+    const blocked = blockedMatch[2].trim();
     const branchAdvice = blocked.includes("branch_switch_guard")
       ? "For branch_switch_guard, report the blocker or repair the dirty cwd safely before retrying."
       : undefined;
     return [
       "Autonomous protocol repair required.",
+      protocolKind ? `Protocol: ${protocolKind}` : undefined,
       "Blocked protocol tools:",
       `- ${blocked}`,
       branchAdvice,
@@ -360,6 +364,7 @@ function protocolRepairInstruction(reason: string): string | undefined {
   if (/approval-boundary/i.test(reason)) {
     return [
       "Autonomous protocol repair required.",
+      "Protocol: approval-boundary",
       "Approval boundary detected.",
       "Next action:",
       "Stop before the hard boundary and rerun structural_gate with readyToComplete=false and outcome=blocked or outcome=deferred.",
@@ -573,7 +578,7 @@ export function createStructuralGateTool(
       if (block) recordStructuralGateExternalBlock(state, params, block, sessionId);
       return {
         content: [{ type: "text", text: result.ok ? "Structural gate passed." : `Structural gate failed: ${result.reason}` }],
-        details: { ok: result.ok, reason: result.reason },
+        details: { ok: result.ok, reason: result.reason, readyToComplete: params.readyToComplete, outcome: structuralOutcome(params) },
       };
     },
     renderCall() {

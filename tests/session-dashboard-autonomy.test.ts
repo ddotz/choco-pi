@@ -130,6 +130,51 @@ describe("/sessions autonomy visibility", () => {
     }
   });
 
+  it("shows repo-root active protocol and lane state from a repository subdirectory", async () => {
+    const fixture = await createGitFixture();
+    try {
+      await useTempAgentDir();
+      const { commands } = createPiExtensionFixture(chocoAutopilot);
+      const notify = vi.fn();
+      const subdir = join(fixture.repoRoot, "packages", "app");
+      await mkdir(subdir, { recursive: true });
+      const protocol = createAutonomyProtocol({
+        kind: "parallel-work",
+        sessionId: "s1",
+        cwd: fixture.repoRoot,
+        prompt: "병렬로 구현해줘",
+        requiredTools: ["spec_gate", "integration_verifier"],
+        reason: "parallel intent",
+      });
+
+      await updateState((state) => {
+        state.autonomyProtocols[autonomyProtocolKey(fixture.repoRoot, "s1")] = protocol;
+        state.activeLanes[sessionScopedKey(fixture.repoRoot, "s1")] = {
+          version: 1,
+          sessionId: "s1",
+          cwd: fixture.repoRoot,
+          groupId: "group-a",
+          laneId: "lane-1",
+          repoRoot: fixture.repoRoot,
+          ownedFiles: ["tests/"],
+          ownedDomains: [],
+          executionStrategy: "worktree",
+          readOnly: false,
+          activatedAt: "2026-05-17T00:00:00.000Z",
+        };
+      });
+
+      await commands.get("sessions")!.handler("", { cwd: subdir, ui: { notify }, sessionManager: { getSessionId: () => "s1" } });
+
+      const output = notify.mock.calls[0][0] as string;
+      expect(output).toContain("protocol: parallel-work");
+      expect(output).toContain("missing: spec_gate, integration_verifier");
+      expect(output).toContain("laneId: lane-1");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("shows autonomy none when no protocol exists", () => {
     const text = formatSessionDashboard({ sessionId: "s1", cwd: "/repo", autonomy: undefined });
 

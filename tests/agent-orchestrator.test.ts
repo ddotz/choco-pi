@@ -199,6 +199,30 @@ describe("agent orchestrator", () => {
     expect(activations).toEqual([]);
   });
 
+  it("blocks activation of blocked, failed, and integrated lanes", async () => {
+    const root = await tempRepoRoot();
+    const plan = planParallelWorkAreas({ items: [{ id: "review", description: "Review docs", files: ["README.md"], write: false }] });
+    await runAgentOrchestrator({ action: "start", repoRoot: root, groupId: "group-a", baseRef: "main", plan });
+    const { activations, store } = captureActiveLaneStore();
+
+    await updateAgentLaneStatus(root, "group-a", "lane-1", "blocked", { lastError: "scope violation" });
+    const blocked = await runAgentOrchestrator({ action: "activate_lane", repoRoot: root, groupId: "group-a", laneId: "lane-1" }, {}, store);
+    await updateAgentLaneStatus(root, "group-a", "lane-1", "failed", { lastError: "test failed" });
+    const failed = await runAgentOrchestrator({ action: "activate_lane", repoRoot: root, groupId: "group-a", laneId: "lane-1" }, {}, store);
+    await updateAgentLaneStatus(root, "group-a", "lane-1", "running");
+    await updateAgentLaneStatus(root, "group-a", "lane-1", "verified", { verificationEvidence: "done" });
+    await updateAgentLaneStatus(root, "group-a", "lane-1", "integrated");
+    const integrated = await runAgentOrchestrator({ action: "activate_lane", repoRoot: root, groupId: "group-a", laneId: "lane-1" }, {}, store);
+
+    expect(blocked.ok).toBe(false);
+    expect(blocked.blockers.join("\n")).toContain("blocked lane cannot be activated");
+    expect(failed.ok).toBe(false);
+    expect(failed.blockers.join("\n")).toContain("failed lane cannot be activated");
+    expect(integrated.ok).toBe(false);
+    expect(integrated.blockers.join("\n")).toContain("integrated lane cannot be activated");
+    expect(activations).toEqual([]);
+  });
+
   it("allows read-only spawn lanes even before dispatch", async () => {
     const root = await tempRepoRoot();
     const plan = planParallelWorkAreas({ items: [{ id: "review", description: "Review docs", files: ["README.md"], write: false }] });

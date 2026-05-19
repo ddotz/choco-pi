@@ -661,6 +661,16 @@ async function updateLedgerForToolCall(cwd: string, sessionId: string, toolName:
   });
 }
 
+async function blockAutonomyProtocolTool(cwd: string, sessionId: string, toolName: string, reason: string): Promise<void> {
+  await updateState((state) => {
+    const key = autonomyProtocolKey(cwd, sessionId);
+    const protocol = state.autonomyProtocols[key];
+    if (!protocol || !protocolIsActive(protocol) || !protocol.requiredTools.includes(toolName)) return;
+    state.autonomyProtocols[key] = markProtocolToolBlocked(protocol, toolName, reason);
+    state.autonomyProtocols = pruneAutonomyProtocols(state.autonomyProtocols);
+  });
+}
+
 async function updateAutonomyProtocolForToolResult(
   cwd: string,
   sessionId: string,
@@ -674,7 +684,18 @@ async function updateAutonomyProtocolForToolResult(
   await updateState((state) => {
     const key = autonomyProtocolKey(cwd, sessionId);
     const protocol = state.autonomyProtocols[key];
-    if (!protocol || !protocol.requiredTools.includes(toolName)) return;
+    if (!protocol || !protocolIsActive(protocol)) return;
+    const approvalBoundaryGate = protocol.kind === "approval-boundary" && toolName === "structural_gate";
+    if (!protocol.requiredTools.includes(toolName) && !approvalBoundaryGate) return;
+    if (approvalBoundaryGate && satisfaction.status === "satisfied") {
+      const outcome = typeof result?.outcome === "string" ? result.outcome : undefined;
+      if (result?.readyToComplete === false || outcome === "blocked" || outcome === "deferred") {
+        const reason = `stopped before hard boundary: ${protocol.hardBoundary ?? "unknown"}`;
+        state.autonomyProtocols[key] = markProtocolToolBlocked(protocol, "approval-boundary", reason);
+        state.autonomyProtocols = pruneAutonomyProtocols(state.autonomyProtocols);
+        return;
+      }
+    }
     let updated = satisfaction.status === "satisfied"
       ? markProtocolToolSatisfied(protocol, toolName, satisfaction.evidence)
       : markProtocolToolBlocked(protocol, toolName, satisfaction.evidence ?? `${toolName} ${satisfaction.status}`);
@@ -751,10 +772,10 @@ async function autonomyProtocolCompletionBlock(review: StructuralGateReview, ctx
   if (outcome !== "complete" || !review.readyToComplete) return undefined;
   const nonStructuralBlockedTools = protocol.blockedTools.filter((tool) => tool.toolName !== "structural_gate");
   if (nonStructuralBlockedTools.length > 0) {
-    return `autonomous protocol has blocked tools: ${nonStructuralBlockedTools.map((tool) => `${tool.toolName} (${tool.reason})`).join(", ")}`;
+    return `autonomous protocol ${protocol.kind} has blocked tools: ${nonStructuralBlockedTools.map((tool) => `${tool.toolName} (${tool.reason})`).join(", ")}`;
   }
   const missing = missingRequiredTools(protocol, { excludeTools: ["structural_gate"] });
-  return missing.length > 0 ? `required autonomous protocol tools missing: ${missing.join(", ")}` : undefined;
+  return missing.length > 0 ? `autonomous protocol ${protocol.kind} required tools missing: ${missing.join(", ")}` : undefined;
 }
 
 export default function chocoAutopilot(pi: ExtensionAPI) {
@@ -788,6 +809,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
     const scopeDecision = guardToolCallWriteScope(activeLane, event.toolName, event.input);
     if (!scopeDecision.allowed) {
       if (activeLane) await recordWriteScopeViolation(activeLane, scopeDecision.reason);
+      await blockAutonomyProtocolTool(ctx.cwd || process.cwd(), sessionIdFromContext(ctx), "write_scope_guard", scopeDecision.reason);
       return { block: true, reason: scopeDecision.reason };
     }
     if (activeLane && event.toolName === "bash") {

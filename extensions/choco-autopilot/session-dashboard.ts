@@ -148,9 +148,14 @@ async function dashboardState(readState: DashboardStateReader | undefined): Prom
   }
 }
 
-function activeLaneSummary(state: DashboardModeState | undefined, cwd: string, sessionId: string): SessionDashboardActiveLaneInput | undefined {
+function activeLaneSummary(state: DashboardModeState | undefined, cwd: string, sessionId: string, repoRoot: string): SessionDashboardActiveLaneInput | undefined {
   const lanes = state?.activeLanes ?? {};
-  return lanes[sessionScopedKey(cwd, sessionId)] ?? lanes[sessionId];
+  return lanes[sessionScopedKey(cwd, sessionId)] ?? lanes[sessionScopedKey(repoRoot, sessionId)] ?? lanes[sessionId];
+}
+
+function autonomyProtocolSummary(state: DashboardModeState | undefined, cwd: string, sessionId: string, repoRoot: string): Parameters<typeof summarizeAutonomyProtocol>[0] | undefined {
+  const protocols = state?.autonomyProtocols ?? {};
+  return protocols[autonomyProtocolKey(cwd, sessionId)] ?? protocols[autonomyProtocolKey(repoRoot, sessionId)];
 }
 
 export function registerSessionDashboardCommand(pi: Pick<ExtensionAPI, "registerCommand">, readState?: DashboardStateReader): void {
@@ -160,7 +165,8 @@ export function registerSessionDashboardCommand(pi: Pick<ExtensionAPI, "register
       const cwd = ctx.cwd || process.cwd();
       const sessionId = sessionIdFromContext(ctx as never);
       const state = await dashboardState(readState);
-      const protocol = state?.autonomyProtocols?.[autonomyProtocolKey(cwd, sessionId)];
+      const repoRoot = await manifestScanRoot(cwd);
+      const protocol = autonomyProtocolSummary(state, cwd, sessionId, repoRoot);
       const text = formatSessionDashboard({
         sessionId,
         cwd,
@@ -169,7 +175,7 @@ export function registerSessionDashboardCommand(pi: Pick<ExtensionAPI, "register
         todos: await todoSummary(cwd, sessionId),
         ledger: "see /ledger for detailed context ledger",
         autonomy: summarizeAutonomyProtocol(protocol),
-        activeLane: activeLaneSummary(state, cwd, sessionId),
+        activeLane: activeLaneSummary(state, cwd, sessionId, repoRoot),
         manifests: await manifestSummaries(cwd),
         worktrees: await worktreeSummaries(cwd),
       });

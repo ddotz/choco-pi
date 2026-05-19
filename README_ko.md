@@ -10,7 +10,7 @@
 
 ## 상태
 
-- 현재 패키지 버전: `0.16.0`.
+- 현재 패키지 버전: `0.17.0`.
 - 라이선스 필드: `UNLICENSED`.
 - 패키지 매니저: `pnpm@10.29.3`.
 - 주요 peer 런타임: `@earendil-works/pi-coding-agent`.
@@ -77,7 +77,8 @@ pi install /absolute/path/to/choco-pi
 - 작업 모드는 서로 격리되어야 하며, 한 모드가 다른 모드를 부작용으로 바꾸면 안 됩니다.
 - 단순하지 않은 작업을 완료했다고 말하려면 관찰 가능한 검증과 structural review가 필요합니다.
 - Branch, micro-coding, coding, parallel, worktree-lane, integration, approval-boundary 의도가 감지되면 runtime protocol을 생성합니다.
-- Required tool 결과는 자동 추적되며, 만족되지 않은 protocol은 `structural_gate`에서 fail-closed됩니다.
+- Approval-boundary routing은 실행 의도를 구분합니다. PRD, 예시, 비목표, “배포하지 말고” 같은 문구가 deploy/publish를 언급해도 구현 turn 전체를 차단하지 않습니다.
+- Required tool 결과는 자동 추적되며, 만족되지 않은 protocol은 `structural_gate`에서 fail-closed되고 repair prompt에는 protocol kind와 다음 required action이 표시됩니다.
 - 장기 parallel/worktree/integration protocol은 manifest가 closed/integrated되거나 작업이 supersede되기 전까지 continuation prompt에서 유지됩니다.
 
 ### Autonomous protocol runtime
