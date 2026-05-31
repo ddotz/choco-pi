@@ -6,6 +6,7 @@ import type { ExtensionAPI, ExtensionContext, ToolDefinition } from "@earendil-w
 import { Container } from "@mariozechner/pi-tui";
 import { Type, type Static } from "typebox";
 import { FALLBACK_SESSION_ID, normalizeSessionId, sessionIdFromContext } from "../session-identity";
+import { clearRequirementLockForSession, setRequirementLockForSession } from "./requirement-lock";
 
 export const SPEC_GATE_TOOL_NAME = "spec_gate";
 
@@ -312,11 +313,20 @@ export function recordSpecGateAction(state: DynamicSddState, params: SpecGateToo
   const input = params as Record<string, unknown>;
   if (!isSpecGateAction(input.action)) return failure(turn, "valid action is required");
 
-  if (input.action === "start") return startSpec(turn, input);
-  if (input.action === "delta") return recordDelta(turn, input);
+  if (input.action === "start") {
+    const result = startSpec(turn, input);
+    if (result.ok) setRequirementLockForSession(sessionId, result.state);
+    return result;
+  }
+  if (input.action === "delta") {
+    const result = recordDelta(turn, input);
+    if (result.ok) setRequirementLockForSession(sessionId, result.state);
+    return result;
+  }
   if (input.action === "snapshot") return snapshotSpec(turn, input);
   if (input.action === "clear") {
     startDynamicSddTurn(state, sessionId);
+    clearRequirementLockForSession(sessionId);
     return success(ensureTurn(state, sessionId), "Working Spec cleared.");
   }
 

@@ -1,5 +1,9 @@
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { AssistantMessage } from "@mariozechner/pi-ai";
 import { describe, expect, it, vi } from "vitest";
+import { execGit } from "../extensions/choco-autopilot/git-runtime";
 import chocoAutopilot from "../extensions/choco-autopilot/index";
 
 interface RegisteredTool {
@@ -196,6 +200,180 @@ describe("structural gate guard", () => {
     const result = await emitFirst(handlers, "message_end", { type: "message_end", message: assistantMessage("완료했습니다.") }) as { message: AssistantMessage };
     const replacementText = (result.message.content[0] as { type: "text"; text: string }).text;
     expect(replacementText).toBe("");
+  });
+
+  it("blocks completion when a Working Spec MUST requirement is unresolved", async () => {
+    const { tools } = setupAutopilot();
+    const context = ctx("requirement-lock-session");
+
+    await tools.get("spec_gate")!.execute(
+      "spec-1",
+      {
+        action: "start",
+        objective: "Ship export flow",
+        scope: ["export screen"],
+        acceptanceCriteria: ["CSV export works"],
+        testStrategy: ["vitest"],
+      },
+      undefined,
+      undefined,
+      context,
+    );
+
+    const gateResult = await tools.get("structural_gate")!.execute(
+      "gate-1",
+      {
+        acceptanceFit: "User asked for export flow and implementation is claimed complete.",
+        runtimeFit: "Tests were run for the changed behavior.",
+        failureModes: "Requirement lock should catch missing acceptance evidence.",
+        verificationEvidence: "pnpm run test passed.",
+        loopGovernance: "Step transitions stayed within the current plan and no new work was silently appended.",
+        completionBoundary: "Trying to stop after claimed completion.",
+        confidence: "High",
+        readyToComplete: true,
+      },
+      undefined,
+      undefined,
+      context,
+    );
+
+    expect(gateResult.details).toMatchObject({ ok: false, reason: expect.stringContaining("REQ-AC-001") });
+  });
+
+  it("blocks completion when the git diff removes an exported feature without Spec Delta", async () => {
+    const repo = await mkdtemp(join(tmpdir(), "choco-feature-delete-"));
+    try {
+      await execGit(repo, ["init"]);
+      await execGit(repo, ["config", "user.email", "test@example.com"]);
+      await execGit(repo, ["config", "user.name", "Test User"]);
+      await mkdir(join(repo, "src"));
+      await writeFile(join(repo, "src", "export.ts"), "export function csvExport() { return true; }\n", "utf8");
+      await execGit(repo, ["add", "."]);
+      await execGit(repo, ["commit", "-m", "seed"]);
+      await writeFile(join(repo, "src", "export.ts"), "export function otherExport() { return true; }\n", "utf8");
+
+      const { tools } = setupAutopilot();
+      const gateResult = await tools.get("structural_gate")!.execute(
+        "gate-1",
+        {
+          acceptanceFit: "User asked for export flow and implementation is claimed complete.",
+          runtimeFit: "Tests were run for the changed behavior.",
+          failureModes: "Feature deletion detector should catch removed exports.",
+          verificationEvidence: "pnpm run test passed.",
+          loopGovernance: "Step transitions stayed within the current plan and no new work was silently appended.",
+          completionBoundary: "Trying to stop after claimed completion.",
+          confidence: "High",
+          readyToComplete: true,
+        },
+        undefined,
+        undefined,
+        { cwd: repo },
+      );
+
+      expect(gateResult.details).toMatchObject({ ok: false, reason: expect.stringContaining("export-removal") });
+    } finally {
+      await rm(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("allows feature deletion when an accepted Spec Delta explains the removed symbol", async () => {
+    const repo = await mkdtemp(join(tmpdir(), "choco-feature-delta-"));
+    try {
+      await execGit(repo, ["init"]);
+      await execGit(repo, ["config", "user.email", "test@example.com"]);
+      await execGit(repo, ["config", "user.name", "Test User"]);
+      await mkdir(join(repo, "src"));
+      await writeFile(join(repo, "src", "export.ts"), "export function csvExport() { return true; }\n", "utf8");
+      await execGit(repo, ["add", "."]);
+      await execGit(repo, ["commit", "-m", "seed"]);
+      await writeFile(join(repo, "src", "export.ts"), "export function otherExport() { return true; }\n", "utf8");
+
+      const { tools } = setupAutopilot();
+      const context = { cwd: repo, sessionManager: { getSessionId: () => "feature-delta-session" } };
+      await tools.get("spec_gate")!.execute(
+        "spec-1",
+        {
+          action: "start",
+          objective: "Migrate export flow",
+          scope: ["export migration"],
+          acceptanceCriteria: ["Migration works"],
+          testStrategy: ["vitest"],
+        },
+        undefined,
+        undefined,
+        context,
+      );
+      await tools.get("spec_gate")!.execute(
+        "delta-1",
+        {
+          action: "delta",
+          delta: "Remove obsolete csvExport after migration to otherExport.",
+          deltaHandling: "in-scope",
+        },
+        undefined,
+        undefined,
+        context,
+      );
+
+      const gateResult = await tools.get("structural_gate")!.execute(
+        "gate-1",
+        {
+          acceptanceFit: "User asked for migration and the accepted delta explains the removed export.",
+          runtimeFit: "Tests cover the changed behavior.",
+          failureModes: "Spec Delta reconciles the feature deletion detector finding.",
+          verificationEvidence: "REQ-AC-001 Migration works verified by vitest.",
+          loopGovernance: "Step transitions stayed within the current plan and the feature deletion used an accepted Spec Delta.",
+          completionBoundary: "Requested outcome satisfied with no critical in-scope issue left.",
+          confidence: "High",
+          readyToComplete: true,
+        },
+        undefined,
+        undefined,
+        context,
+      );
+
+      expect(gateResult.details).toMatchObject({ ok: true });
+    } finally {
+      await rm(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("allows completion when Working Spec MUST requirement evidence is present", async () => {
+    const { tools } = setupAutopilot();
+    const context = ctx("requirement-lock-verified-session");
+
+    await tools.get("spec_gate")!.execute(
+      "spec-1",
+      {
+        action: "start",
+        objective: "Ship export flow",
+        scope: ["export screen"],
+        acceptanceCriteria: ["CSV export works"],
+        testStrategy: ["vitest"],
+      },
+      undefined,
+      undefined,
+      context,
+    );
+
+    const gateResult = await tools.get("structural_gate")!.execute(
+      "gate-1",
+      {
+        acceptanceFit: "User asked for export flow and implementation is complete.",
+        runtimeFit: "Tests cover the changed behavior.",
+        failureModes: "No critical in-scope issue remains.",
+        verificationEvidence: "REQ-AC-001 CSV export works verified by vitest.",
+        loopGovernance: "Step transitions stayed within the current plan and no new work was silently appended.",
+        completionBoundary: "Requested outcome satisfied with no critical in-scope issue left.",
+        confidence: "High",
+        readyToComplete: true,
+      },
+      undefined,
+      undefined,
+      context,
+    );
+
+    expect(gateResult.details).toMatchObject({ ok: true });
   });
 
   it("allows a non-trivial final answer after structural_gate passes with loop governance evidence", async () => {

@@ -5,7 +5,9 @@ import type { ExtensionAPI, ExtensionContext, ToolDefinition } from "@earendil-w
 import { Container } from "@mariozechner/pi-tui";
 import type { Static } from "typebox";
 import { FALLBACK_SESSION_ID, normalizeSessionId, sessionIdFromContext } from "../session-identity";
+import { featureDeletionCompletionBlock } from "./feature-deletion-detector";
 import { repoRoot as gitRepoRoot } from "./git-runtime";
+import { requirementLockCompletionBlockForSession, specDeltasForSession } from "./requirement-lock";
 import {
   clearRepairState,
   GUARD_REPAIR_STATUS_TEXT,
@@ -294,6 +296,13 @@ export function recordStructuralGateReview(state: StructuralGateState, review: S
     return { ok: false, reason };
   }
 
+  const requirementBlock = requirementLockCompletionBlockForSession(sessionId, review.verificationEvidence);
+  if (requirementBlock) {
+    turn.passed = false;
+    turn.rejectionReason = requirementBlock;
+    return { ok: false, reason: requirementBlock };
+  }
+
   turn.passed = true;
   turn.rejectionReason = undefined;
   clearRepairState(turn);
@@ -573,9 +582,12 @@ export function createStructuralGateTool(
     renderShell: "self",
     async execute(_toolCallId: string, params: StructuralGateReview, _signal: AbortSignal | undefined, _onUpdate: undefined, ctx: ExtensionContext) {
       const sessionId = sessionIdFromContext(ctx);
-      const integrationBlock = params.readyToComplete ? await activeParallelManifestIntegrationBlock(ctx.cwd || process.cwd(), params) : undefined;
-      const protocolBlock = integrationBlock ? undefined : await externalCheck?.(params, ctx);
-      const block = integrationBlock ?? protocolBlock;
+      const cwd = ctx.cwd || process.cwd();
+      const shouldComplete = params.readyToComplete && structuralOutcome(params) === "complete";
+      const integrationBlock = shouldComplete ? await activeParallelManifestIntegrationBlock(cwd, params) : undefined;
+      const featureDeletionBlock = integrationBlock || !shouldComplete ? undefined : await featureDeletionCompletionBlock(cwd, specDeltasForSession(sessionId));
+      const protocolBlock = integrationBlock || featureDeletionBlock ? undefined : await externalCheck?.(params, ctx);
+      const block = integrationBlock ?? featureDeletionBlock ?? protocolBlock;
       const result = block ? { ok: false, reason: block } : recordStructuralGateReview(state, params, sessionId);
       if (block) recordStructuralGateExternalBlock(state, params, block, sessionId);
       return {
