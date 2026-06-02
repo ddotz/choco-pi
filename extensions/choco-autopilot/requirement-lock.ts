@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { FALLBACK_SESSION_ID, normalizeSessionId } from "../session-identity";
 import type { DynamicSddTurnState, SpecDelta, WorkingSpec } from "./dynamic-sdd";
 
@@ -20,6 +23,7 @@ export interface RequirementLockItem {
 export interface RequirementLock {
   id: string;
   sessionKey: string;
+  cwdKey: string;
   specHash: string;
   items: RequirementLockItem[];
   createdAt: string;
@@ -35,6 +39,26 @@ function sessionKey(sessionId = FALLBACK_SESSION_ID): string {
 
 function stableHash(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 16);
+}
+
+function cwdKey(cwd?: string): string {
+  return cwd ? stableHash(cwd) : "no-cwd";
+}
+
+function lockKey(sessionId: string | undefined, cwd?: string): string {
+  return `${sessionKey(sessionId)}::${cwdKey(cwd)}`;
+}
+
+function agentDir(): string {
+  return process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent");
+}
+
+function requirementLockPersistenceEnabled(): boolean {
+  return Boolean(process.env.PI_CODING_AGENT_DIR) || process.env.NODE_ENV !== "test";
+}
+
+function persistedRequirementLockPath(sessionId: string | undefined, cwd?: string): string {
+  return join(agentDir(), "choco-pi", "requirement-lock", `${lockKey(sessionId, cwd)}.json`);
 }
 
 function normalizeText(value: string): string {
@@ -86,11 +110,13 @@ function removalDelta(delta: SpecDelta): boolean {
   return /\b(remove|delete|drop|exclude|deprecate)\b|삭제|제거|축소|제외|폐기/i.test(delta.description);
 }
 
-function reconcileStatus(delta: SpecDelta): RequirementLockItemStatus {
-  return removalDelta(delta) ? "removed-by-delta" : "deferred";
+function reconcileStatus(delta: SpecDelta): RequirementLockItemStatus | undefined {
+  if (removalDelta(delta)) return "removed-by-delta";
+  if (delta.handling === "in-scope") return undefined;
+  return "deferred";
 }
 
-export function deriveRequirementLock(sessionId: string | undefined, spec: WorkingSpec, now = new Date()): RequirementLock {
+export function deriveRequirementLock(sessionId: string | undefined, spec: WorkingSpec, now = new Date(), cwd?: string): RequirementLock {
   const session = sessionKey(sessionId);
   const createdAt = now.toISOString();
   const items: RequirementLockItem[] = [
@@ -100,9 +126,11 @@ export function deriveRequirementLock(sessionId: string | undefined, spec: Worki
   ];
 
   const specHash = stableHash({ objective: spec.objective, scope: spec.scope, acceptanceCriteria: spec.acceptanceCriteria });
+  const cwdHash = cwdKey(cwd);
   return {
-    id: `lock-${session}-${specHash}`,
+    id: `lock-${session}-${cwdHash}-${specHash}`,
     sessionKey: session,
+    cwdKey: cwdHash,
     specHash,
     items,
     createdAt,
@@ -112,6 +140,7 @@ export function deriveRequirementLock(sessionId: string | undefined, spec: Worki
 
 export function reconcileRequirementLockWithDelta(lock: RequirementLock, delta: SpecDelta, now = new Date()): RequirementLock {
   const status = reconcileStatus(delta);
+  if (!status) return { ...lock, updatedAt: now.toISOString() };
   const deltaId = stableHash({ description: delta.description, createdAt: delta.createdAt });
   return {
     ...lock,
@@ -128,11 +157,11 @@ export function reconcileRequirementLockWithDelta(lock: RequirementLock, delta: 
   };
 }
 
-export function requirementLockFromTurn(sessionId: string | undefined, turn: DynamicSddTurnState, now = new Date()): RequirementLock | undefined {
+export function requirementLockFromTurn(sessionId: string | undefined, turn: DynamicSddTurnState, now = new Date(), cwd?: string): RequirementLock | undefined {
   if (!turn.workingSpec) return undefined;
   return turn.deltas.reduce(
     (lock, delta) => reconcileRequirementLockWithDelta(lock, delta, now),
-    deriveRequirementLock(sessionId, turn.workingSpec, now),
+    deriveRequirementLock(sessionId, turn.workingSpec, now, cwd),
   );
 }
 
@@ -150,10 +179,10 @@ export function requirementLockCompletionBlock(lock: RequirementLock | undefined
   return `requirement lock unresolved: ${unresolved.map((lockItem) => `${lockItem.id} ${lockItem.text}`).join("; ")}`;
 }
 
-export function setRequirementLockForSession(sessionId: string | undefined, turn: DynamicSddTurnState): RequirementLock | undefined {
-  const key = sessionKey(sessionId);
+export function setRequirementLockForSession(sessionId: string | undefined, turn: DynamicSddTurnState, cwd?: string): RequirementLock | undefined {
+  const key = lockKey(sessionId, cwd);
   activeDeltas.set(key, [...turn.deltas]);
-  const lock = requirementLockFromTurn(sessionId, turn);
+  const lock = requirementLockFromTurn(sessionId, turn, new Date(), cwd);
   if (!lock) {
     activeLocks.delete(key);
     return undefined;
@@ -162,20 +191,62 @@ export function setRequirementLockForSession(sessionId: string | undefined, turn
   return lock;
 }
 
-export function clearRequirementLockForSession(sessionId: string | undefined): void {
-  const key = sessionKey(sessionId);
+export function clearRequirementLockForSession(sessionId: string | undefined, cwd?: string): void {
+  const key = lockKey(sessionId, cwd);
   activeLocks.delete(key);
   activeDeltas.delete(key);
 }
 
-export function requirementLockCompletionBlockForSession(sessionId: string | undefined, verificationEvidence: string): string | undefined {
-  return requirementLockCompletionBlock(activeLocks.get(sessionKey(sessionId)), verificationEvidence);
+export async function persistRequirementLockForSession(sessionId: string | undefined, turn: DynamicSddTurnState, cwd?: string): Promise<void> {
+  if (!requirementLockPersistenceEnabled()) return;
+  const path = persistedRequirementLockPath(sessionId, cwd);
+  const lock = requirementLockFromTurn(sessionId, turn, new Date(), cwd);
+  if (!lock) {
+    await rm(path, { force: true });
+    return;
+  }
+  await mkdir(join(path, ".."), { recursive: true });
+  await writeFile(path, `${JSON.stringify({ lock, deltas: turn.deltas }, null, 2)}\n`, "utf8");
 }
 
-export function specDeltasForSession(sessionId: string | undefined): SpecDelta[] {
-  return [...(activeDeltas.get(sessionKey(sessionId)) ?? [])];
+export async function clearPersistedRequirementLockForSession(sessionId: string | undefined, cwd?: string): Promise<void> {
+  if (!requirementLockPersistenceEnabled()) return;
+  await rm(persistedRequirementLockPath(sessionId, cwd), { force: true });
 }
 
-export function requirementLockForSession(sessionId: string | undefined): RequirementLock | undefined {
-  return activeLocks.get(sessionKey(sessionId));
+async function readPersistedRequirementLock(sessionId: string | undefined, cwd?: string): Promise<{ lock?: RequirementLock; deltas: SpecDelta[] } | undefined> {
+  if (!requirementLockPersistenceEnabled()) return undefined;
+  try {
+    const parsed = JSON.parse(await readFile(persistedRequirementLockPath(sessionId, cwd), "utf8")) as { lock?: RequirementLock; deltas?: SpecDelta[] };
+    return { lock: parsed.lock, deltas: Array.isArray(parsed.deltas) ? parsed.deltas : [] };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") await rm(persistedRequirementLockPath(sessionId, cwd), { force: true });
+    return undefined;
+  }
+}
+
+export function requirementLockCompletionBlockForSession(sessionId: string | undefined, verificationEvidence: string, cwd?: string): string | undefined {
+  return requirementLockCompletionBlock(activeLocks.get(lockKey(sessionId, cwd)), verificationEvidence);
+}
+
+export async function requirementLockCompletionBlockForSessionOrPersistence(sessionId: string | undefined, verificationEvidence: string, cwd?: string): Promise<string | undefined> {
+  const key = lockKey(sessionId, cwd);
+  const activeLock = activeLocks.get(key);
+  if (activeLock) return requirementLockCompletionBlock(activeLock, verificationEvidence);
+  const persisted = await readPersistedRequirementLock(sessionId, cwd);
+  return requirementLockCompletionBlock(persisted?.lock, verificationEvidence);
+}
+
+export function specDeltasForSession(sessionId: string | undefined, cwd?: string): SpecDelta[] {
+  return [...(activeDeltas.get(lockKey(sessionId, cwd)) ?? [])];
+}
+
+export async function specDeltasForSessionOrPersistence(sessionId: string | undefined, cwd?: string): Promise<SpecDelta[]> {
+  const key = lockKey(sessionId, cwd);
+  if (activeLocks.has(key)) return specDeltasForSession(sessionId, cwd);
+  return (await readPersistedRequirementLock(sessionId, cwd))?.deltas ?? [];
+}
+
+export function requirementLockForSession(sessionId: string | undefined, cwd?: string): RequirementLock | undefined {
+  return activeLocks.get(lockKey(sessionId, cwd));
 }

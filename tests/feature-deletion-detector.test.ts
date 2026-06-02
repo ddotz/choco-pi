@@ -14,6 +14,16 @@ describe("feature deletion detector", () => {
     ]);
   });
 
+  it("does not flag modified exports when the same symbol is re-added in the same file", () => {
+    const result = detectFeatureDeletionFromDiff({
+      changedFiles: ["extensions/choco-autopilot/version.ts"],
+      diffText: "--- a/extensions/choco-autopilot/version.ts\n+++ b/extensions/choco-autopilot/version.ts\n@@\n-export const CHOCO_PI_VERSION = \"0.18.2\" as const;\n+export const CHOCO_PI_VERSION = \"0.18.3\" as const;\n",
+      deltas: [],
+    });
+
+    expect(result.blockingChanges).toEqual([]);
+  });
+
   it("flags removed tests", () => {
     const result = detectFeatureDeletionFromDiff({
       changedFiles: ["tests/export.test.ts"],
@@ -45,6 +55,29 @@ describe("feature deletion detector", () => {
     });
 
     expect(result.blockingChanges).toEqual([expect.objectContaining({ changeKind: "gate-removal" })]);
+  });
+
+  it("flags large implementation deletions", () => {
+    const removedLines = Array.from({ length: 60 }, (_, index) => `-export const value${index} = ${index};`).join("\n");
+    const result = detectFeatureDeletionFromDiff({
+      changedFiles: ["src/large-module.ts"],
+      diffText: `--- a/src/large-module.ts\n+++ b/src/large-module.ts\n@@\n${removedLines}\n`,
+      deltas: [],
+    });
+
+    expect(result.blockingChanges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ changeKind: "large-deletion", filePath: "src/large-module.ts" }),
+    ]));
+  });
+
+  it("ignores placeholder and hidden-rendering fixture strings added in tests", () => {
+    const result = detectFeatureDeletionFromDiff({
+      changedFiles: ["tests/widget.test.ts"],
+      diffText: "--- a/tests/widget.test.ts\n+++ b/tests/widget.test.ts\n@@\n+// not implemented yet\n+return false && <Feature />\n",
+      deltas: [],
+    });
+
+    expect(result.blockingChanges).toEqual([]);
   });
 
   it("allows explained deletion when a Spec Delta names the removed symbol", () => {

@@ -3,6 +3,7 @@ import {
   deriveRequirementLock,
   reconcileRequirementLockWithDelta,
   requirementLockCompletionBlock,
+  requirementLockFromTurn,
 } from "../extensions/choco-autopilot/requirement-lock";
 
 const baseSpec = {
@@ -53,5 +54,36 @@ describe("requirement lock", () => {
     });
 
     expect(requirementLockCompletionBlock(lock, "base checks passed")).toContain("REQ-AC-001");
+  });
+
+  it("does not let in-scope deltas satisfy or defer an existing locked acceptance item", () => {
+    const lock = reconcileRequirementLockWithDelta(deriveRequirementLock("session-a", baseSpec), {
+      description: "Keep CSV export works in scope while adding audit logging.",
+      handling: "in-scope",
+      proposedChanges: { acceptanceCriteria: ["audit logging works"] },
+      createdAt: "2026-05-31T00:01:00.000Z",
+    });
+
+    expect(requirementLockCompletionBlock(lock, "base checks passed")).toContain("REQ-AC-001");
+  });
+
+  it("blocks in-scope acceptance criteria added by a Spec Delta until they are verified", () => {
+    const lock = requirementLockFromTurn("session-a", {
+      workingSpec: {
+        ...baseSpec,
+        acceptanceCriteria: ["CSV export works", "Admin export works"],
+      },
+      deltas: [
+        {
+          description: "Add admin export to the accepted scope.",
+          handling: "in-scope",
+          proposedChanges: { acceptanceCriteria: ["Admin export works"] },
+          createdAt: "2026-05-31T00:01:00.000Z",
+        },
+      ],
+      snapshots: [],
+    });
+
+    expect(requirementLockCompletionBlock(lock, "REQ-AC-001 CSV export works verified by vitest")).toContain("REQ-AC-002");
   });
 });

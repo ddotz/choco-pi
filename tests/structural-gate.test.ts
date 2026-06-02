@@ -5,6 +5,7 @@ import type { AssistantMessage } from "@mariozechner/pi-ai";
 import { describe, expect, it, vi } from "vitest";
 import { execGit } from "../extensions/choco-autopilot/git-runtime";
 import chocoAutopilot from "../extensions/choco-autopilot/index";
+import { clearRequirementLockForSession } from "../extensions/choco-autopilot/requirement-lock";
 
 interface RegisteredTool {
   name: string;
@@ -276,6 +277,46 @@ describe("structural gate guard", () => {
     }
   });
 
+  it("blocks completion when a clean feature branch commit removes an exported feature without Spec Delta", async () => {
+    const repo = await mkdtemp(join(tmpdir(), "choco-feature-branch-delete-"));
+    try {
+      await execGit(repo, ["init"]);
+      await execGit(repo, ["checkout", "-b", "main"]);
+      await execGit(repo, ["config", "user.email", "test@example.com"]);
+      await execGit(repo, ["config", "user.name", "Test User"]);
+      await mkdir(join(repo, "src"));
+      await writeFile(join(repo, "src", "export.ts"), "export function csvExport() { return true; }\n", "utf8");
+      await execGit(repo, ["add", "."]);
+      await execGit(repo, ["commit", "-m", "seed"]);
+      await execGit(repo, ["switch", "-c", "feature/remove-export"]);
+      await writeFile(join(repo, "src", "export.ts"), "export function otherExport() { return true; }\n", "utf8");
+      await execGit(repo, ["add", "."]);
+      await execGit(repo, ["commit", "-m", "remove csv export"]);
+
+      const { tools } = setupAutopilot();
+      const gateResult = await tools.get("structural_gate")!.execute(
+        "gate-1",
+        {
+          acceptanceFit: "User asked for export flow and implementation is claimed complete.",
+          runtimeFit: "Tests were run for the changed behavior.",
+          failureModes: "Feature deletion detector should catch committed branch export deletion.",
+          verificationEvidence: "pnpm run test passed.",
+          loopGovernance: "Step transitions stayed within the current plan and no new work was silently appended.",
+          completionBoundary: "Trying to stop after claimed completion.",
+          confidence: "High",
+          readyToComplete: true,
+        },
+        undefined,
+        undefined,
+        { cwd: repo },
+      );
+
+      expect(gateResult.details).toMatchObject({ ok: false, reason: expect.stringContaining("export-removal") });
+    } finally {
+      await rm(repo, { recursive: true, force: true });
+    }
+  });
+
   it("allows feature deletion when an accepted Spec Delta explains the removed symbol", async () => {
     const repo = await mkdtemp(join(tmpdir(), "choco-feature-delta-"));
     try {
@@ -335,6 +376,96 @@ describe("structural gate guard", () => {
       expect(gateResult.details).toMatchObject({ ok: true });
     } finally {
       await rm(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps requirement locks isolated by cwd for the same Pi session id", async () => {
+    const { tools } = setupAutopilot();
+    const sessionManager = { getSessionId: () => "requirement-lock-cwd-session" };
+
+    await tools.get("spec_gate")!.execute(
+      "spec-1",
+      {
+        action: "start",
+        objective: "Ship export flow in repo A",
+        scope: ["export screen"],
+        acceptanceCriteria: ["CSV export works"],
+        testStrategy: ["vitest"],
+      },
+      undefined,
+      undefined,
+      { cwd: "/repo-a", sessionManager },
+    );
+
+    const gateResult = await tools.get("structural_gate")!.execute(
+      "gate-1",
+      {
+        acceptanceFit: "Repo B work is unrelated to the repo A Working Spec.",
+        runtimeFit: "No runtime change was made in repo B.",
+        failureModes: "Requirement lock state must not leak across cwd boundaries.",
+        verificationEvidence: "Repo B checks passed.",
+        loopGovernance: "Step transitions stayed within the current plan and no new work was silently appended.",
+        completionBoundary: "Safe to complete unrelated repo B work.",
+        confidence: "High",
+        readyToComplete: true,
+      },
+      undefined,
+      undefined,
+      { cwd: "/repo-b", sessionManager },
+    );
+
+    expect(gateResult.details).toMatchObject({ ok: true });
+  });
+
+  it("reloads persisted requirement locks for the same session and cwd after runtime re-registration", async () => {
+    const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
+    const previousNodeEnv = process.env.NODE_ENV;
+    const agentDir = await mkdtemp(join(tmpdir(), "choco-pi-lock-persist-"));
+    process.env.PI_CODING_AGENT_DIR = agentDir;
+    process.env.NODE_ENV = "test";
+    try {
+      const firstRuntime = setupAutopilot();
+      const context = { cwd: "/repo", sessionManager: { getSessionId: () => "requirement-lock-persist-session" } };
+      await firstRuntime.tools.get("spec_gate")!.execute(
+        "spec-1",
+        {
+          action: "start",
+          objective: "Ship export flow",
+          scope: ["export screen"],
+          acceptanceCriteria: ["CSV export works"],
+          testStrategy: ["vitest"],
+        },
+        undefined,
+        undefined,
+        context,
+      );
+      clearRequirementLockForSession("requirement-lock-persist-session", "/repo");
+
+      const secondRuntime = setupAutopilot();
+      const gateResult = await secondRuntime.tools.get("structural_gate")!.execute(
+        "gate-1",
+        {
+          acceptanceFit: "Completion is claimed after runtime re-registration.",
+          runtimeFit: "The persisted Working Spec should still protect completion.",
+          failureModes: "Requirement lock persistence should catch missing acceptance evidence.",
+          verificationEvidence: "pnpm run test passed.",
+          loopGovernance: "Step transitions stayed within the current plan and no new work was silently appended.",
+          completionBoundary: "Trying to stop after claimed completion.",
+          confidence: "High",
+          readyToComplete: true,
+        },
+        undefined,
+        undefined,
+        context,
+      );
+
+      expect(gateResult.details).toMatchObject({ ok: false, reason: expect.stringContaining("REQ-AC-001") });
+    } finally {
+      if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+      else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
+      if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previousNodeEnv;
+      await rm(agentDir, { recursive: true, force: true });
     }
   });
 

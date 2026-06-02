@@ -6,7 +6,12 @@ import type { ExtensionAPI, ExtensionContext, ToolDefinition } from "@earendil-w
 import { Container } from "@mariozechner/pi-tui";
 import { Type, type Static } from "typebox";
 import { FALLBACK_SESSION_ID, normalizeSessionId, sessionIdFromContext } from "../session-identity";
-import { clearRequirementLockForSession, setRequirementLockForSession } from "./requirement-lock";
+import {
+  clearPersistedRequirementLockForSession,
+  clearRequirementLockForSession,
+  persistRequirementLockForSession,
+  setRequirementLockForSession,
+} from "./requirement-lock";
 
 export const SPEC_GATE_TOOL_NAME = "spec_gate";
 
@@ -308,25 +313,25 @@ function snapshotSpec(turn: DynamicSddTurnState, input: Record<string, unknown>)
   return success(turn, `Spec Snapshot recorded: ${label}\n${formatWorkingSpec(snapshot.spec)}`);
 }
 
-export function recordSpecGateAction(state: DynamicSddState, params: SpecGateToolInput, sessionId = FALLBACK_SESSION_ID): SpecGateResult {
+export function recordSpecGateAction(state: DynamicSddState, params: SpecGateToolInput, sessionId = FALLBACK_SESSION_ID, cwd?: string): SpecGateResult {
   const turn = ensureTurn(state, sessionId);
   const input = params as Record<string, unknown>;
   if (!isSpecGateAction(input.action)) return failure(turn, "valid action is required");
 
   if (input.action === "start") {
     const result = startSpec(turn, input);
-    if (result.ok) setRequirementLockForSession(sessionId, result.state);
+    if (result.ok) setRequirementLockForSession(sessionId, result.state, cwd);
     return result;
   }
   if (input.action === "delta") {
     const result = recordDelta(turn, input);
-    if (result.ok) setRequirementLockForSession(sessionId, result.state);
+    if (result.ok) setRequirementLockForSession(sessionId, result.state, cwd);
     return result;
   }
   if (input.action === "snapshot") return snapshotSpec(turn, input);
   if (input.action === "clear") {
     startDynamicSddTurn(state, sessionId);
-    clearRequirementLockForSession(sessionId);
+    clearRequirementLockForSession(sessionId, cwd);
     return success(ensureTurn(state, sessionId), "Working Spec cleared.");
   }
 
@@ -358,8 +363,10 @@ export function createSpecGateTool(state: DynamicSddState): ToolDefinition<typeo
           };
         }
       }
-      const result = recordSpecGateAction(state, params, sessionId);
+      const result = recordSpecGateAction(state, params, sessionId, ctx.cwd);
       await persistTurn(result.state, sessionId);
+      if (result.ok && (params.action === "start" || params.action === "delta")) await persistRequirementLockForSession(sessionId, result.state, ctx.cwd);
+      if (result.ok && params.action === "clear") await clearPersistedRequirementLockForSession(sessionId, ctx.cwd);
       return {
         content: [{ type: "text", text: result.text }],
         details: { ok: result.ok, reason: result.reason, state: result.state },

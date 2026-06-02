@@ -7,7 +7,11 @@ import type { Static } from "typebox";
 import { FALLBACK_SESSION_ID, normalizeSessionId, sessionIdFromContext } from "../session-identity";
 import { featureDeletionCompletionBlock } from "./feature-deletion-detector";
 import { repoRoot as gitRepoRoot } from "./git-runtime";
-import { requirementLockCompletionBlockForSession, specDeltasForSession } from "./requirement-lock";
+import {
+  requirementLockCompletionBlockForSession,
+  requirementLockCompletionBlockForSessionOrPersistence,
+  specDeltasForSessionOrPersistence,
+} from "./requirement-lock";
 import {
   clearRepairState,
   GUARD_REPAIR_STATUS_TEXT,
@@ -585,9 +589,13 @@ export function createStructuralGateTool(
       const cwd = ctx.cwd || process.cwd();
       const shouldComplete = params.readyToComplete && structuralOutcome(params) === "complete";
       const integrationBlock = shouldComplete ? await activeParallelManifestIntegrationBlock(cwd, params) : undefined;
-      const featureDeletionBlock = integrationBlock || !shouldComplete ? undefined : await featureDeletionCompletionBlock(cwd, specDeltasForSession(sessionId));
-      const protocolBlock = integrationBlock || featureDeletionBlock ? undefined : await externalCheck?.(params, ctx);
-      const block = integrationBlock ?? featureDeletionBlock ?? protocolBlock;
+      const deltas = shouldComplete && !integrationBlock ? await specDeltasForSessionOrPersistence(sessionId, cwd) : [];
+      const featureDeletionBlock = integrationBlock || !shouldComplete ? undefined : await featureDeletionCompletionBlock(cwd, deltas);
+      const requirementBlock = integrationBlock || featureDeletionBlock || !shouldComplete
+        ? undefined
+        : await requirementLockCompletionBlockForSessionOrPersistence(sessionId, params.verificationEvidence, cwd);
+      const protocolBlock = integrationBlock || featureDeletionBlock || requirementBlock ? undefined : await externalCheck?.(params, ctx);
+      const block = integrationBlock ?? featureDeletionBlock ?? requirementBlock ?? protocolBlock;
       const result = block ? { ok: false, reason: block } : recordStructuralGateReview(state, params, sessionId);
       if (block) recordStructuralGateExternalBlock(state, params, block, sessionId);
       return {
