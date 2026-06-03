@@ -107,7 +107,9 @@ import { discoverImNotAiSkillPath } from "./im-not-ai-dependency";
 import { discoverKamiSkillPath } from "./kami-dependency";
 import { currentBranch as gitCurrentBranch, repoRoot as gitRepoRoot } from "./git-runtime";
 import { registerIntegrationVerifierTool } from "./integration-verifier-tool";
+import { LEDGER_ADD_USAGE, normalizeLedgerAddKind, recordLedgerAdd } from "./ledger-command";
 import { registerModeScaffoldTool } from "./mode-scaffold-tool";
+import { formatIntensityStatus, formatModeStatus } from "./mode-status";
 import { parseDogfoodMemoryMode, resolveDogfoodScope } from "./improvement-scope";
 import { guardReportQualityMessage, type ReportRepairState } from "./report-quality";
 import { registerReportResearchGateTool } from "./report-research-gate";
@@ -116,6 +118,7 @@ import { registerSessionDashboardCommand } from "./session-dashboard";
 import { resolveEffectiveWorkMode, sessionIdFromContext, sessionScopedKey } from "./session-scope";
 import { installStructuralGate, type StructuralGateReview } from "./structural-gate";
 import { discoverSuperpowersSkillPath } from "./superpowers-dependency";
+import { registerUlwHarness } from "./ulw-harness-tool";
 import { withFileLock } from "./state-lock";
 import { CHOCO_PI_VERSION } from "./version";
 import { registerEffortCommand } from "./effort";
@@ -792,6 +795,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
   registerIntegrationVerifierTool(pi);
   registerReportResearchGateTool(pi);
   registerModeScaffoldTool(pi);
+  registerUlwHarness(pi);
   const dogfoodCases = createActiveDogfoodCaseState();
   const bashScopeSnapshots = new Map<string, string[]>();
   const webRepairStates = new Map<string, WebResearchRepairState>();
@@ -1171,7 +1175,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
       const [command, ...rest] = splitCommandArgs(trimmed);
 
       if (command === "status") {
-        ctx.ui.notify(`mode: ${state.runtime.workMode}`, "info");
+        ctx.ui.notify(formatModeStatus(state, sessionIdFromContext(ctx)), "info");
         return;
       }
 
@@ -1249,7 +1253,7 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
       const value = args.trim();
       if (!value || value === "status") {
         const state = await loadState();
-        ctx.ui.notify(`intensity: ${state.runtime.executionIntensity}`, "info");
+        ctx.ui.notify(formatIntensityStatus(state, sessionIdFromContext(ctx)), "info");
         return;
       }
 
@@ -1419,6 +1423,28 @@ export default function chocoAutopilot(pi: ExtensionAPI) {
           delete draft.ledgers[key];
         });
         ctx.ui.notify("Reset Context Ledger for this session/workspace.", "info");
+        return;
+      }
+
+      const [command, kind, ...textParts] = splitCommandArgs(args);
+      if (command === "add") {
+        const text = textParts.join(" ").trim();
+        if (!normalizeLedgerAddKind(kind) || !text) {
+          ctx.ui.notify(LEDGER_ADD_USAGE, "error");
+          return;
+        }
+        const result = await updateState((draft) => {
+          const ledger = getLedger(draft, cwd, sessionId);
+          const add = recordLedgerAdd(ledger, kind, text);
+          if (!add) return undefined;
+          draft.ledgers[key] = add.ledger;
+          return add;
+        });
+        if (!result) {
+          ctx.ui.notify(LEDGER_ADD_USAGE, "error");
+          return;
+        }
+        ctx.ui.notify(`Recorded ledger ${result.label}.`, "info");
         return;
       }
 

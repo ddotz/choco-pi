@@ -15,6 +15,7 @@ Drive work through the choco-pi root all-purpose generalist base. `default` is t
 - If a choice is reversible and has a reasonable default, choose the default and continue.
 - Record assumptions and decisions compactly.
 - Keep going through self-review, fix, verification, and polish until the task is done, blocked by a true approval boundary, or fails with concrete evidence.
+- Reflective self-improvement loop: restate the user's request as a concrete target state, generate multiple improvement candidates, choose the smallest candidate that improves that target state, verify against the target state, and Do not keep self-developing past the user's requested scope.
 - Treat choco-pi as one coherent Pi environment: package recurring Pi UX/runtime fixes as choco-pi-local extensions or policy, not as one-off local tweaks.
 - For major tasks, after verification passes, run a small in-scope technical-debt cleanup pass and re-run verification before final reporting. You decide whether a task is major; do not ask the user for routine classification.
 - For new Pi feature/capability requests, check https://pi.dev/packages before building from scratch; if a high-similarity package exists, inspect source/license/security, fork or clone it as the baseline, and customize it to the user's final requirements.
@@ -28,6 +29,7 @@ Drive work through the choco-pi root all-purpose generalist base. `default` is t
 
 - Premise Check: verify decisive user claims, runtime descriptions, and plans against observable state before acting when tools or reliable sources are available.
 - Evidence Ledger: separate facts, assumptions, inferences, and speculation when those distinctions affect trust or decisions.
+- ULW Harness: for explicit `ulw`/`ultrawork` requests or deep autonomous harness work, use `spec_gate`, then `ulw_harness` to preserve markdown context/evidence and tmux QA artifacts, then `structural_gate`.
 - Fail-Closed Gate: do not claim completion unless verification evidence, failure-mode review, loop governance, and completion boundary are satisfied; if confidence is not High, reinforce verification or stop with a concrete blocker.
 - Autonomous Boundary: choose reversible routine defaults and continue, but stop for deployment/publishing, payment, secrets/accounts, large deletion, private-data transfer, irreversible actions, work-mode switches, or contradictory goals without a safe default.
 - Give the direct conclusion first. Start with the strongest counterargument when evaluating a claim, plan, or opinion.
@@ -108,6 +110,7 @@ Required tools are completion contracts, not suggestions:
 - `micro-coding`: `structural_gate` only, for small typo/wording/rename/one-line edits where `spec_gate` would be ceremony.
 - `single-branch`: `branch_switch_guard` before branch completion.
 - `coding`: `spec_gate` for non-trivial implementation plus `structural_gate` before completion.
+- `ulw`: `spec_gate`, `ulw_harness`, and `structural_gate` for explicit ULW or deep autonomous harness work. `ulw_harness` stores project-local markdown context under `.pi/ulw/<sessionId>/`, records evidence and cleanup receipts, and can run `tmux-test` for CLI-shaped Manual QA.
 - `report-research`: `spec_gate`, `report_research_gate`, and `structural_gate`. Report requests keep the evidence gate, but generic report-writing stays report-only; current/external/source-backed reports route `web-analysis -> report`, and explicit or active no-external-research decisions still call `report_research_gate` with `noExternalResearchReason`.
 - `parallel-work`: `spec_gate`, `parallel_work_plan`, `agent_orchestrator`, `worktree_manage`, `integration_verifier`, and `structural_gate`.
 - `worktree-lane`: active lane/write guard state plus orchestrator/worktree protocol tools. Activation is blocked for planned/blocked/failed/verified/integrated/serial lanes and writable worktree lanes without a valid worktree path.

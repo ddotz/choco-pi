@@ -33,6 +33,54 @@ describe("autonomy router", () => {
     ]));
   });
 
+  it("routes explicit ULW requests to the ULW autonomous harness protocol", () => {
+    const decision = routeAutonomyProtocol({
+      prompt: "ulw 방식으로 끝까지 구현하고 tmux 검증까지 해줘",
+      cwd: "/repo",
+      sessionId: "s1",
+      hasActiveManifest: false,
+    });
+
+    expect(decision.protocolKind).toBe("ulw");
+    expect(decision.requiredTools).toEqual(["spec_gate", "ulw_harness", "structural_gate"]);
+  });
+
+  it("routes deep autonomous harness prompts to ULW without requiring LazyCodex syntax", () => {
+    const decision = routeAutonomyProtocol({
+      prompt: "완전 자율 하네스로 컨텍스트를 보존하고 tmux 검증까지 끝까지 진행해줘",
+      cwd: "/repo",
+      sessionId: "s1",
+      hasActiveManifest: false,
+    });
+
+    expect(decision.protocolKind).toBe("ulw");
+    expect(decision.requiredTools).toContain("ulw_harness");
+  });
+
+  it("routes high-confidence Korean autonomous prompts to ULW without the ulw keyword", () => {
+    const decision = routeAutonomyProtocol({
+      prompt: "알아서 끝까지 구현하고 검증까지 해줘",
+      cwd: "/repo",
+      sessionId: "s1",
+      hasActiveManifest: false,
+    });
+
+    expect(decision.protocolKind).toBe("ulw");
+    expect(decision.requiredTools).toContain("ulw_harness");
+  });
+
+  it("routes English deep autonomous harness prompts to ULW without LazyCodex syntax", () => {
+    const decision = routeAutonomyProtocol({
+      prompt: "complete autonomous harness, preserve context, tmux testing, evidence until completion",
+      cwd: "/repo",
+      sessionId: "s1",
+      hasActiveManifest: false,
+    });
+
+    expect(decision.protocolKind).toBe("ulw");
+    expect(decision.requiredTools).toContain("ulw_harness");
+  });
+
   it("routes active manifest completion requests to integration protocol", () => {
     const decision = routeAutonomyProtocol({
       prompt: "이제 마무리해",

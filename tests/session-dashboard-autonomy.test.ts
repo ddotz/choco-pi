@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import chocoAutopilot, { updateState } from "../extensions/choco-autopilot/index";
-import { autonomyProtocolKey, createAutonomyProtocol, markProtocolToolSatisfied } from "../extensions/choco-autopilot/autonomy-protocol";
+import { autonomyProtocolKey, createAutonomyProtocol, markProtocolToolBlocked, markProtocolToolSatisfied } from "../extensions/choco-autopilot/autonomy-protocol";
 import { formatSessionDashboard } from "../extensions/choco-autopilot/session-dashboard";
 import { sessionScopedKey } from "../extensions/choco-autopilot/session-scope";
 import { createGitFixture } from "./helpers/git-fixture";
@@ -52,6 +52,27 @@ describe("/sessions autonomy visibility", () => {
     expect(text).toContain("laneId: lane-1");
   });
 
+  it("formats ULW autonomy protocol state and missing harness tools", () => {
+    const text = formatSessionDashboard({
+      sessionId: "s1",
+      cwd: "/repo",
+      branch: "main",
+      mode: "default",
+      todos: "none",
+      ledger: "none",
+      autonomy: {
+        protocol: "ulw",
+        required: ["spec_gate", "ulw_harness", "structural_gate"],
+        satisfied: ["spec_gate"],
+        missing: ["ulw_harness", "structural_gate"],
+      },
+    });
+
+    expect(text).toContain("protocol: ulw");
+    expect(text).toContain("satisfied: spec_gate");
+    expect(text).toContain("missing: ulw_harness, structural_gate");
+  });
+
   it("shows persisted active protocol, missing tools, active lane, and actual mode", async () => {
     const cwd = await useTempAgentDir();
     const { commands } = createPiExtensionFixture(chocoAutopilot);
@@ -97,6 +118,34 @@ describe("/sessions autonomy visibility", () => {
     expect(output).toContain("missing: parallel_work_plan, integration_verifier");
     expect(output).toContain("active lane:");
     expect(output).toContain("groupId: group-a");
+  });
+
+  it("shows approval-boundary stopped state and hard boundary in /sessions", async () => {
+    const cwd = await useTempAgentDir();
+    const { commands } = createPiExtensionFixture(chocoAutopilot);
+    const notify = vi.fn();
+    const protocol = markProtocolToolBlocked(createAutonomyProtocol({
+      kind: "approval-boundary",
+      sessionId: "s1",
+      cwd,
+      prompt: "배포해줘",
+      requiredTools: [],
+      reason: "approval boundary detected",
+      hardBoundary: "deployment",
+    }), "approval-boundary", "stopped before hard boundary: deployment");
+
+    await updateState((state) => {
+      state.autonomyProtocols[autonomyProtocolKey(cwd, "s1")] = protocol;
+    });
+
+    await commands.get("sessions")!.handler("", { cwd, ui: { notify }, sessionManager: { getSessionId: () => "s1" } });
+
+    const output = notify.mock.calls[0][0] as string;
+    expect(output).toContain("protocol: approval-boundary");
+    expect(output).toContain("status: blocked");
+    expect(output).toContain("hard boundary: deployment");
+    expect(output).toContain("blocked: approval-boundary: stopped before hard boundary: deployment");
+    expect(output).not.toContain("status: completed");
   });
 
   it("shows repo-root manifests even when /sessions is run from a repository subdirectory", async () => {

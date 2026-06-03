@@ -103,7 +103,7 @@ export function classifyApprovalBoundaryCommand(command: string): ApprovalBounda
 
 export function classifyApprovalBoundaryToolCall(toolName: string, input: unknown): ApprovalBoundaryDecision | undefined {
   const command = normalizedCommand(input);
-  if (toolName === "bash" && command) return classifyApprovalBoundaryCommand(command);
+  if ((toolName === "bash" || toolName === "ulw_harness") && command) return classifyApprovalBoundaryCommand(command);
 
   if (toolName === "write" || toolName === "edit") {
     const path = normalizedPath(input);

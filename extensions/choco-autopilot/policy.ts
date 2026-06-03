@@ -124,6 +124,19 @@ function buildMarkdownArtifactRenderingGuidance(): string {
   ].join("\n");
 }
 
+function buildReflectiveSelfImprovementGuidance(): string {
+  return [
+    "### Reflective self-improvement loop",
+    "- Restate the user's requested outcome as a concrete target state before improving the framework or execution plan.",
+    "- Generate at least two plausible improvement candidates before editing, then compare them by user-fit, risk, verification cost, and scope control.",
+    "- Select the smallest candidate that best improves the target state; do not add extra components, modes, or capabilities just because they sound useful.",
+    "- Think like a careful human operator: question the first idea, name the tradeoff, choose deliberately, then verify the chosen path with evidence.",
+    "- Compare the result against the target state, not against effort spent or internal satisfaction after each implementation loop.",
+    "- Do not keep self-developing past the user's requested scope; optional discoveries become deferred follow-ups or a fresh loop only when newly steered.",
+    "- Stop only when the target state is met with High confidence, or report the concrete blocker that prevents it.",
+  ].join("\n");
+}
+
 function buildAutonomyProtocolGuidance(protocol: AutonomyProtocol | undefined): string {
   if (!protocol || protocol.kind === "none") return "";
   const lines = [
@@ -147,6 +160,15 @@ function buildAutonomyProtocolGuidance(protocol: AutonomyProtocol | undefined): 
   );
   if (protocol.kind === "approval-boundary") {
     lines.push("- Stop before the hard boundary; use readyToComplete=false with a blocked/deferred outcome at that boundary.");
+  }
+  if (protocol.kind === "ulw") {
+    lines.push(
+      "ULW protocol rules:",
+      "- Start with spec_gate before implementation or verification claims.",
+      "- Use ulw_harness to keep objective, criteria, plan, next actions, evidence, and cleanup receipts in project-local markdown.",
+      "- Use ulw_harness tmux-test when the criterion is CLI-shaped and needs a real terminal transcript.",
+      "- Do not treat tests alone as completion evidence; structural_gate may complete only after ULW harness evidence exists.",
+    );
   }
   return lines.join("\n");
 }
@@ -242,6 +264,8 @@ export function buildAutopilotSystemPrompt(options: AutopilotPromptOptions): str
     "- Deep: split responsibilities across PM, Architect, Worker, Reviewer, Verifier, and Polish roles before execution.",
     "- Do not ask the user for routine implementation choices. Choose defaults and move forward.",
     "- Before final response, perform critical self-review, fix discovered issues, and verify with observable evidence.",
+    "",
+    buildReflectiveSelfImprovementGuidance(),
     "",
     buildMarkdownArtifactRenderingGuidance(),
     "",

@@ -88,6 +88,7 @@ pi install /absolute/path/to/choco-pi
 | `micro-coding` | `structural_gate` | 오타, 문구, rename, 한 줄 수정 같은 작은 작업은 `spec_gate` ceremony 없이 completion safety만 유지합니다. |
 | `single-branch` | `branch_switch_guard`, `structural_gate` | Git 명령 전에 branch name을 검증하고 dirty/occupied worktree를 차단합니다. |
 | `coding` | `spec_gate`, `structural_gate` | 단순하지 않은 구현은 Working Spec과 최종 structural review를 유지합니다. |
+| `ulw` | `spec_gate`, `ulw_harness`, `structural_gate` | 명시적인 `ulw`/`ultrawork` 요청과 깊은 자율 하네스 프롬프트는 완료 전 markdown context, evidence, tmux QA artifact를 보존합니다. |
 | `report-research` | `spec_gate`, `report_research_gate`, `structural_gate` | 보고서 요청은 능동적인 evidence-scope 결정을 요구합니다. 현재/외부/source-backed claim에는 필요한 만큼만 web-analysis를 실행하고, 리서치가 금지되었거나 불필요하면 no-external-research boundary를 기록합니다. |
 | `parallel-work` | `spec_gate`, `parallel_work_plan`, `agent_orchestrator`, `worktree_manage`, `integration_verifier`, `structural_gate` | ownership 계획, manifest orchestration, worktree lifecycle, 최종 integration evidence가 필요합니다. |
 | `worktree-lane` | `agent_orchestrator`, `worktree_manage`, `write_scope_guard`, `structural_gate` | planned/blocked/failed/verified/integrated/serial lane과 invalid writable worktree lane은 active lane으로 설정되지 않습니다. |
@@ -132,6 +133,7 @@ Execution intensity는 프로세스의 무게를 정하는 값입니다. 현재 
 | `spec_gate` | `dynamic-sdd.ts` | 현재 턴의 Working Spec을 시작/조회/초기화하고, Spec Delta와 snapshot을 기록합니다. |
 | `loop_transition` | `structural-gate.ts` | plan/todo 경계를 넘을 때 의도적인 transition을 기록합니다. |
 | `structural_gate` | `structural-gate.ts` | 최종 acceptance, runtime, failure mode, verification, loop, completion review를 기록합니다. |
+| `ulw_harness` | `ulw-harness-tool.ts` | `.pi/ulw/<sessionId>/` 아래에 ULW markdown context를 시작/조회하고 evidence와 tmux-managed QA transcript를 기록합니다. |
 | `report_research_gate` | `report-research-gate.ts` | 보고서 objective, 사용자 자료, 외부 source provenance, source confidence review, conflicts, evidence gaps, 또는 명시적 no-external-research boundary를 기록합니다. |
 | `source_registry` | `index.ts` | 외부 source를 list/add/watch/adopt/reject/due/changed/check 동작으로 관리합니다. |
 | `branch_switch_guard` | `branch-switch-guard.ts` | 현재 세션 cwd를 대상으로 dirty 상태와 worktree branch 점유를 확인한 뒤 안전하게 branch를 전환합니다. |
@@ -149,13 +151,14 @@ Execution intensity는 프로세스의 무게를 정하는 값입니다. 현재 
 
 | Command | 동작 |
 | --- | --- |
-| `/mode` | selector를 열거나 `status`, `list`, `set`, `add`, `remove`로 mode를 관리합니다. |
-| `/sessions` | 현재 session, cwd, branch, mode, todo, autonomy protocol, active lane, manifest, worktree 상태를 표시합니다. |
-| `/intensity` | `micro`, `standard`, `deep` 값을 확인하거나 설정합니다. |
+| `/mode` | selector를 열거나 `status`, `list`, `set`, `add`, `remove`로 mode를 관리합니다. `status`는 persistent mode, 현재 session effective overlay, automatic overlay 여부, effective intensity를 함께 보여줍니다. |
+| `/sessions` | 현재 session, cwd, branch, mode, todo, compact ledger summary, autonomy protocol status/hard boundary, active lane, manifest, worktree 상태를 표시합니다. |
+| `/ulw` | ULW harness context를 시작하거나 조회합니다. `/ulw start <objective>`는 project-local markdown context를 만들고 `/ulw status`는 이를 보여줍니다. |
+| `/intensity` | `micro`, `standard`, `deep` 값을 확인하거나 설정합니다. `status`는 persistent intensity와 effective session intensity를 함께 보여줍니다. |
 | `/effort` | 지원되는 model effort level을 확인하거나 설정합니다. |
 | `/source` | source registry record를 관리합니다. |
 | `/memory` | memory를 조회하거나 durable memory candidate를 저장합니다. |
-| `/ledger` | 현재 cwd/session ledger를 조회하거나 reset합니다. |
+| `/ledger` | 현재 cwd/session ledger를 조회, reset, 또는 `add assumption|decision|blocker|risk|next-action <text>`로 구조화된 항목을 기록합니다. |
 | `/dogfood` | dogfood status, weekly report, latest report, queue length, case explanation을 표시합니다. |
 | `/update` | Pi update flow, choco-pi self-update, auto-update 상태 관리를 실행합니다. |
 | `/reload-runtime` | extensions, skills, prompts, themes를 reload합니다. |
@@ -186,9 +189,21 @@ Execution intensity는 프로세스의 무게를 정하는 값입니다. 현재 
 - `workModeRegistry`: built-in/custom work-mode metadata
 - `autoUpdate`: choco-pi auto-update 설정과 마지막 결과
 
-Autonomy protocol state는 agent start 시 최신 prompt, active manifest, active lane, 이전 protocol lifecycle 상태를 기준으로 생성되거나 재개됩니다. Tool result는 required tool satisfaction을 자동 갱신하며, blocked 또는 missing protocol tool은 ready completion을 `structural_gate`에서 차단합니다. Completed/superseded protocol은 active `/sessions` 요약에서 숨겨지고 최근 audit retention 기준으로 정리됩니다.
+Autonomy protocol state는 agent start 시 최신 prompt, active manifest, active lane, 이전 protocol lifecycle 상태를 기준으로 생성되거나 재개됩니다. Tool result는 required tool satisfaction을 자동 갱신하며, blocked 또는 missing protocol tool은 ready completion을 `structural_gate`에서 차단합니다. Active blocked protocol은 `/sessions`에서 status와 hard boundary를 드러내며, completed/superseded protocol은 active `/sessions` 요약에서 숨겨지고 최근 audit retention 기준으로 정리됩니다.
 
-Context ledger는 objective, assumptions, decisions, changed files, verifications, blockers, risks, next actions를 기록합니다. 현재 자동 ledger 업데이트는 write/edit path와 verification 성격의 `bash` result를 중심으로 저장합니다.
+Context ledger는 objective, assumptions, decisions, changed files, verifications, blockers, risks, next actions를 기록합니다. 자동 ledger 업데이트는 write/edit path와 verification 성격의 `bash` result를 저장합니다. `/ledger add`는 explicit assumption, decision, blocker, risk, next action을 기록하고, `/sessions`는 compact ledger summary를 보여줍니다.
+
+### ULW harness 저장소
+
+`ulw_harness` 도구는 현재 세션의 project-local markdown state를 저장합니다.
+
+```text
+<cwd>/.pi/ulw/<sessionId>/context.md
+<cwd>/.pi/ulw/<sessionId>/ledger.md
+<cwd>/.pi/ulw/<sessionId>/evidence/*.txt
+```
+
+`context.md`는 objective, criteria, plan, next action을 유지합니다. `ledger.md`는 start/evidence/tmux-test event와 cleanup receipt를 기록합니다. `tmux-test` evidence file에는 실제 tmux session에서 capture한 pane output이 들어갑니다.
 
 ### Todo 저장소
 

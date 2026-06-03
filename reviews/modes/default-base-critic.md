@@ -13,7 +13,7 @@ Scope: `modes/_base/MODE.md`, `modes/default/MODE.md`, `extensions/choco-autopil
 
 ## What currently works
 
-- Persistent mode remains unchanged when default auto-applies an overlay; `tests/auto-mode-overlay.test.ts` verifies web/report/coding inferred overlays while `/mode status` still reports `default`.
+- Persistent mode remains unchanged when default auto-applies an overlay; `tests/auto-mode-overlay.test.ts` verifies web/report/coding/design inferred overlays and `/mode status` now exposes `default -> effective` without changing the persistent mode.
 - Built-in mode registry status and instruction file paths are covered by `tests/work-mode-registry.test.ts`.
 - Base guardrails are centralized in `policy.ts`; specialized overlays are appended only through `buildModeOverlayGuidance(effectiveWorkMode)`.
 - The newly added hybrid parallel policy is reflected in `_base`, prompt, skill, README, and `parallel_work_plan` output.
@@ -45,7 +45,7 @@ Severity: Medium
 
 When default auto-applies an overlay, the user sees behavior changes but may not see the routing reason. This is acceptable for routine work, but can be confusing when a task is misclassified. There is session runtime state with `suggestedWorkMode` and `automaticMode`, but no concise user-facing diagnostic unless debugging.
 
-Recommended minimal fix: keep the default silent for normal work, but add a terse internal or `/mode status` extension display showing `default -> effective` and the inference reason. Avoid asking the user for routine routing approval.
+Recommended minimal fix: keep the default silent for normal work, while `/mode status` exposes `default -> effective` and automatic overlay state for diagnostics. Avoid asking the user for routine routing approval.
 
 ### C4 — Base policy is strong, but some enforcement is prompt-only
 
@@ -79,7 +79,7 @@ Recommended minimal fix: keep source of truth in TypeScript policy modules and m
 1. Refine `inferPlannedWorkMode()` to avoid mapping generic `분석` to `web-analysis` without external/current-info context.
 2. Add tests for local analysis prompts staying in `default`.
 3. Clarify prompt wording around temporary effective overlays vs persistent work mode.
-4. Add `/mode status` detail for effective overlay/reason if UI support is cheap.
+4. Keep `/mode status` diagnostics covered as the overlay display evolves.
 
 ## Deep research triggers
 

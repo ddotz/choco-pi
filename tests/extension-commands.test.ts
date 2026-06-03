@@ -2,11 +2,19 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import chocoAutopilot from "../extensions/choco-autopilot/index";
+import chocoAutopilot, { updateState } from "../extensions/choco-autopilot/index";
 import { registerEffortCommand } from "../extensions/choco-autopilot/effort";
 
 interface RegisteredCommand {
-  handler: (args: string, ctx: { ui: { notify: ReturnType<typeof vi.fn>; select?: ReturnType<typeof vi.fn> }; model?: unknown }) => Promise<void>;
+  handler: (
+    args: string,
+    ctx: {
+      cwd?: string;
+      ui: { notify: ReturnType<typeof vi.fn>; select?: ReturnType<typeof vi.fn> };
+      model?: unknown;
+      sessionManager?: { getSessionId: () => string };
+    },
+  ) => Promise<void>;
   getArgumentCompletions?: (prefix: string) => Array<{ value: string; label: string }> | null;
 }
 
@@ -86,6 +94,42 @@ describe("extension command names", () => {
     expect(notify).toHaveBeenLastCalledWith(expect.stringContaining("mode: web-analysis"), "info");
   });
 
+  it("reports effective session mode and automatic overlay in /mode status", async () => {
+    await useTempAgentDir();
+    const commands = registeredCommands();
+    const notify = vi.fn();
+
+    await updateState((state) => {
+      state.runtime = { workMode: "default", executionIntensity: "standard", updatedAt: "2026-06-03T00:00:00.000Z" };
+      state.sessions.s1 = {
+        effectiveWorkMode: "coding",
+        automaticMode: true,
+        executionIntensity: "deep",
+        updatedAt: "2026-06-03T00:00:01.000Z",
+      };
+    });
+
+    await commands.get("mode")!.handler("status", {
+      cwd: tempAgentDir,
+      ui: { notify },
+      sessionManager: { getSessionId: () => "s1" },
+    });
+
+    expect(notify).toHaveBeenCalledWith(
+      [
+        "mode: default -> coding",
+        "persistent: default",
+        "effective: coding",
+        "sequence: coding",
+        "intensity: standard -> deep (session)",
+        "session: s1",
+        "updated: 2026-06-03T00:00:01.000Z",
+        "automatic overlay: yes",
+      ].join("\n"),
+      "info",
+    );
+  });
+
   it("allows switching to implemented web-analysis mode without changing command names", async () => {
     await useTempAgentDir();
     const commands = registeredCommands();
@@ -111,6 +155,41 @@ describe("extension command names", () => {
     expect(notify).toHaveBeenCalledWith("mode: default", "info");
     expect(notify).toHaveBeenLastCalledWith(expect.stringContaining("mode: default"), "info");
     expect(notify.mock.calls.flat().join("\n")).not.toContain("planned but not implemented");
+  });
+
+  it("reports effective session intensity source in /intensity status", async () => {
+    await useTempAgentDir();
+    const commands = registeredCommands();
+    const notify = vi.fn();
+
+    await updateState((state) => {
+      state.runtime = { workMode: "default", executionIntensity: "standard", updatedAt: "2026-06-03T00:00:00.000Z" };
+      state.sessions.s1 = {
+        effectiveWorkMode: "report",
+        automaticMode: true,
+        executionIntensity: "deep",
+        updatedAt: "2026-06-03T00:00:01.000Z",
+      };
+    });
+
+    await commands.get("intensity")!.handler("status", {
+      cwd: tempAgentDir,
+      ui: { notify },
+      sessionManager: { getSessionId: () => "s1" },
+    });
+
+    expect(notify).toHaveBeenCalledWith(
+      [
+        "intensity: standard -> deep (session)",
+        "persistent: standard",
+        "effective: deep",
+        "effective mode: report",
+        "session: s1",
+        "updated: 2026-06-03T00:00:01.000Z",
+        "automatic overlay: yes",
+      ].join("\n"),
+      "info",
+    );
   });
 
   it("sets thinking effort with Claude-style explicit and alias values", async () => {

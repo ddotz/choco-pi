@@ -62,7 +62,13 @@ describe("auto mode overlay", () => {
 
     const notify = vi.fn();
     await commands.get("mode")!.handler("status" as never, { ...ctx("session-a"), ui: { notify } });
-    expect(notify).toHaveBeenCalledWith("mode: default", "info");
+    const status = notify.mock.calls[0][0] as string;
+    expect(status).toContain("mode: default -> web-analysis");
+    expect(status).toContain("persistent: default");
+    expect(status).toContain("effective: web-analysis");
+    expect(status).toContain("sequence: web-analysis");
+    expect(status).toContain("session: session-a");
+    expect(status).toContain("automatic overlay: yes");
   });
 
   it("keeps generic report-writing turns in report mode without automatic web-analysis overcollection", async () => {
@@ -83,7 +89,13 @@ describe("auto mode overlay", () => {
 
     const notify = vi.fn();
     await commands.get("mode")!.handler("status" as never, { ...ctx("session-report"), ui: { notify } });
-    expect(notify).toHaveBeenCalledWith("mode: default", "info");
+    const status = notify.mock.calls[0][0] as string;
+    expect(status).toContain("mode: default -> report");
+    expect(status).toContain("persistent: default");
+    expect(status).toContain("effective: report");
+    expect(status).toContain("sequence: report");
+    expect(status).toContain("session: session-report");
+    expect(status).toContain("automatic overlay: yes");
   });
 
   it("keeps explicit no-external-research report turns in report mode only", async () => {
@@ -119,7 +131,13 @@ describe("auto mode overlay", () => {
 
     const notify = vi.fn();
     await commands.get("mode")!.handler("status" as never, { ...ctx("session-sequential-report"), ui: { notify } });
-    expect(notify).toHaveBeenCalledWith("mode: default", "info");
+    const status = notify.mock.calls[0][0] as string;
+    expect(status).toContain("mode: default -> report");
+    expect(status).toContain("persistent: default");
+    expect(status).toContain("effective: report");
+    expect(status).toContain("sequence: web-analysis -> report");
+    expect(status).toContain("session: session-sequential-report");
+    expect(status).toContain("automatic overlay: yes");
   });
 
   it("applies a coding effective mode for implementation turns without changing persistent mode", async () => {
@@ -136,7 +154,13 @@ describe("auto mode overlay", () => {
 
     const notify = vi.fn();
     await commands.get("mode")!.handler("status" as never, { ...ctx("session-coding"), ui: { notify } });
-    expect(notify).toHaveBeenCalledWith("mode: default", "info");
+    const status = notify.mock.calls[0][0] as string;
+    expect(status).toContain("mode: default -> coding");
+    expect(status).toContain("persistent: default");
+    expect(status).toContain("effective: coding");
+    expect(status).toContain("sequence: coding");
+    expect(status).toContain("session: session-coding");
+    expect(status).toContain("automatic overlay: yes");
   });
 
   it("applies a design effective mode for design/UI/UX turns without changing persistent mode", async () => {
@@ -153,7 +177,13 @@ describe("auto mode overlay", () => {
 
     const notify = vi.fn();
     await commands.get("mode")!.handler("status" as never, { ...ctx("session-design"), ui: { notify } });
-    expect(notify).toHaveBeenCalledWith("mode: default", "info");
+    const status = notify.mock.calls[0][0] as string;
+    expect(status).toContain("mode: default -> design");
+    expect(status).toContain("persistent: default");
+    expect(status).toContain("effective: design");
+    expect(status).toContain("sequence: design");
+    expect(status).toContain("session: session-design");
+    expect(status).toContain("automatic overlay: yes");
   });
 
   it("keeps local implementation analysis in default instead of web-analysis", async () => {

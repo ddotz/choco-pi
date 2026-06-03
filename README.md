@@ -90,6 +90,7 @@ The implemented policy includes these defaults:
 | `micro-coding` | `structural_gate` | For small typo, wording, rename, or one-line edits. It avoids `spec_gate` ceremony while keeping completion safety. |
 | `single-branch` | `branch_switch_guard`, `structural_gate` | Branch names are validated before Git commands and dirty/occupied worktrees block unsafe switching. |
 | `coding` | `spec_gate`, `structural_gate` | Non-trivial implementation keeps Working Spec + final structural review. |
+| `ulw` | `spec_gate`, `ulw_harness`, `structural_gate` | Explicit `ulw`/`ultrawork` requests and deep autonomous harness prompts preserve markdown context, evidence, and tmux QA artifacts before completion. |
 | `report-research` | `spec_gate`, `report_research_gate`, `structural_gate` | Report requests require an active evidence-scope decision: run right-sized web-analysis for current/external/source-backed claims, or record a no-external-research boundary when research is forbidden or unnecessary. |
 | `parallel-work` | `spec_gate`, `parallel_work_plan`, `agent_orchestrator`, `worktree_manage`, `integration_verifier`, `structural_gate` | Requires ownership planning, manifest orchestration, worktree lifecycle, and final integration evidence. |
 | `worktree-lane` | `agent_orchestrator`, `worktree_manage`, `write_scope_guard`, `structural_gate` | Active lane activation is blocked for planned/blocked/failed/verified/integrated/serial lanes and invalid writable worktree lanes. |
@@ -134,6 +135,7 @@ Execution intensity is a process-weight setting. The implemented values are `mic
 | `spec_gate` | `dynamic-sdd.ts` | Start/list/clear a turn-local Working Spec, record Spec Deltas, and take snapshots. |
 | `loop_transition` | `structural-gate.ts` | Record deliberate plan/todo boundary transitions. |
 | `structural_gate` | `structural-gate.ts` | Record final acceptance, runtime, failure-mode, verification, loop, and completion review. |
+| `ulw_harness` | `ulw-harness-tool.ts` | Start/read ULW markdown context, record evidence, and capture tmux-managed QA transcripts under `.pi/ulw/<sessionId>/`. |
 | `report_research_gate` | `report-research-gate.ts` | Record report objective, user materials, external source provenance, source confidence review, conflicts, evidence gaps, or explicit no-external-research boundary. |
 | `source_registry` | `index.ts` | Manage external sources with list/add/watch/adopt/reject/due/changed/check actions. |
 | `branch_switch_guard` | `branch-switch-guard.ts` | Safely switch the current session cwd to a branch after dirty-state and worktree occupancy checks. |
@@ -151,13 +153,14 @@ Execution intensity is a process-weight setting. The implemented values are `mic
 
 | Command | Behavior |
 | --- | --- |
-| `/mode` | Open the selector or manage modes with `status`, `list`, `set`, `add`, and `remove`. |
-| `/sessions` | Show current session, cwd, branch, mode, todos, autonomy protocol, active lane, manifests, and worktrees. |
-| `/intensity` | Show or set `micro`, `standard`, or `deep`. |
+| `/mode` | Open the selector or manage modes with `status`, `list`, `set`, `add`, and `remove`; `status` shows persistent mode, effective session overlay, automatic overlay state, and effective intensity. |
+| `/sessions` | Show current session, cwd, branch, mode, todos, compact ledger summary, autonomy protocol status/hard boundary, active lane, manifests, and worktrees. |
+| `/ulw` | Start or inspect the ULW harness context; `/ulw start <objective>` creates project-local markdown context and `/ulw status` shows it. |
+| `/intensity` | Show or set `micro`, `standard`, or `deep`; `status` shows persistent intensity and effective session intensity. |
 | `/effort` | Show or set supported model effort levels. |
 | `/source` | Manage source registry records. |
 | `/memory` | List memories or save a durable memory candidate. |
-| `/ledger` | Show or reset the current cwd/session ledger. |
+| `/ledger` | Show, reset, or add structured current cwd/session ledger entries with `add assumption|decision|blocker|risk|next-action <text>`. |
 | `/dogfood` | Show dogfood status, weekly report, latest report, queue length, or case explanation. |
 | `/update` | Run Pi update flows, run choco-pi self-update, or manage auto-update status. |
 | `/reload-runtime` | Reload extensions, skills, prompts, and themes. |
@@ -188,9 +191,21 @@ The current state schema version is `5`. The state object stores:
 - `workModeRegistry`: built-in and custom work-mode metadata;
 - `autoUpdate`: choco-pi auto-update settings and the last result.
 
-The autonomy protocol state is created or resumed at agent start from the latest prompt, active manifests, active lanes, and previous protocol lifecycle status. Tool results update satisfaction automatically; blocked required tools or missing protocol tools prevent ready completion through `structural_gate`. Completed and superseded protocols are hidden from the active `/sessions` summary and pruned by recent-audit retention.
+The autonomy protocol state is created or resumed at agent start from the latest prompt, active manifests, active lanes, and previous protocol lifecycle status. Tool results update satisfaction automatically; blocked required tools or missing protocol tools prevent ready completion through `structural_gate`. Active blocked protocols expose their status and hard boundary in `/sessions`; completed and superseded protocols are hidden from the active `/sessions` summary and pruned by recent-audit retention.
 
-The context ledger tracks objective, assumptions, decisions, changed files, verifications, blockers, risks, and next actions. Automatic ledger updates currently record write/edit paths and verification-like `bash` results.
+The context ledger tracks objective, assumptions, decisions, changed files, verifications, blockers, risks, and next actions. Automatic ledger updates record write/edit paths and verification-like `bash` results; `/ledger add` records explicit assumptions, decisions, blockers, risks, and next actions, and `/sessions` shows a compact ledger summary.
+
+### ULW harness storage
+
+The `ulw_harness` tool stores project-local markdown state for the current session:
+
+```text
+<cwd>/.pi/ulw/<sessionId>/context.md
+<cwd>/.pi/ulw/<sessionId>/ledger.md
+<cwd>/.pi/ulw/<sessionId>/evidence/*.txt
+```
+
+`context.md` keeps objective, criteria, plan, and next actions. `ledger.md` records start/evidence/tmux-test events with cleanup receipts. `tmux-test` evidence files contain captured pane output from a real tmux session.
 
 ### Todo storage
 

@@ -35,4 +35,14 @@ describe("language and tone documentation", () => {
       expect(content, file).toContain("No mode may change default or any other mode as a side effect");
     }
   });
+
+  it("documents the reflective self-improvement loop in user-facing policy entry points", () => {
+    for (const file of ["prompts/autopilot.md", "skills/choco-autopilot/SKILL.md"]) {
+      const content = readFileSync(join(process.cwd(), file), "utf8");
+      expect(content, file).toContain("Reflective self-improvement loop");
+      expect(content, file).toContain("target state");
+      expect(content, file).toContain("improvement candidates");
+      expect(content, file).toContain("Do not keep self-developing past the user's requested scope");
+    }
+  });
 });

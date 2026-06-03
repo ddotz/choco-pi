@@ -3,4 +3,6 @@ dist/
 coverage/
 .DS_Store
 .pi/
+.omo/
+.serena/
 *.log

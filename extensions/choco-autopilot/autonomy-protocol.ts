@@ -9,6 +9,7 @@ export type AutonomyProtocolKind =
   | "parallel-work"
   | "worktree-lane"
   | "integration"
+  | "ulw"
   | "report-research"
   | "approval-boundary";
 
@@ -298,6 +299,18 @@ export function protocolToolSatisfactionFromResult(
     return undefined;
   }
 
+  if (toolName === "ulw_harness") {
+    const ok = okBoolean(result);
+    const action = typeof result?.action === "string" ? result.action : undefined;
+    if (ok === true && action === "record") return make("satisfied", evidenceFrom(event.content) ?? "ulw_harness evidence recorded");
+    if (ok === true && action === "tmux-test" && typeof result?.evidencePath === "string") return make("satisfied", result.evidencePath);
+    if (ok === true && action === "tmux-test") return make("blocked", "ulw_harness tmux-test result lacks evidence path");
+    if (ok === true) return make("ignored", `ulw_harness ${action ?? "result"} is context-only; record evidence or run tmux-test before completion`);
+    if (ok === false) return make("blocked", evidenceFrom(result) ?? "ulw_harness blocked");
+    if (failedByTool) return make("failed", evidenceFrom(event.content) ?? "ulw_harness failed");
+    return undefined;
+  }
+
   if (toolName === "structural_gate" || toolName === "spec_gate") {
     const ok = okBoolean(result);
     if (ok === true) return make("satisfied", `${toolName} ok`);
@@ -315,6 +328,8 @@ export function protocolToolSatisfactionFromResult(
 
 export function summarizeAutonomyProtocol(protocol: AutonomyProtocol | undefined): {
   protocol: AutonomyProtocolKind | "none";
+  status?: AutonomyProtocolTaskStatus;
+  hardBoundary?: string;
   required: string[];
   satisfied: string[];
   missing: string[];
@@ -324,6 +339,8 @@ export function summarizeAutonomyProtocol(protocol: AutonomyProtocol | undefined
   if (!normalized || normalized.kind === "none" || !protocolIsActive(normalized)) return { protocol: "none", required: [], satisfied: [], missing: [], blocked: [] };
   return {
     protocol: normalized.kind,
+    status: normalized.taskStatus,
+    hardBoundary: normalized.hardBoundary,
     required: normalized.requiredTools,
     satisfied: normalized.satisfiedTools,
     missing: missingRequiredTools(normalized),

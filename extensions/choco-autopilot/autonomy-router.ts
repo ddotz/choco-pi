@@ -92,6 +92,33 @@ const NON_TRIVIAL_DEEP_PATTERNS = [
   /refactor/i,
 ];
 
+const ULW_EXPLICIT_PATTERNS = [
+  /\bulw\b/i,
+  /\bulw-loop\b/i,
+  /\bultrawork\b/i,
+  /울트라워크/,
+];
+
+const ULW_AUTONOMOUS_PATTERNS = [
+  /완전\s*자율/,
+  /알아서/,
+  /끝까지/,
+  /완료까지/,
+  /검증까지/,
+  /하네스/,
+  /컨텍스트/,
+  /\bautonomous\b/i,
+  /\bharness\b/i,
+  /preserv(?:e|ing)\s+context/i,
+  /\bcontext\b/i,
+  /\btmux\b/i,
+  /검증/,
+  /\bevidence\b/i,
+  /evidence[- ]?led/i,
+  /manual[- ]?qa/i,
+  /(?:to|until)\s+completion/i,
+];
+
 const ACTION_PATTERNS = [
   /구현/,
   /수정/,
@@ -140,6 +167,7 @@ export function requiredToolsForProtocol(kind: AutonomyProtocolKind): string[] {
   if (kind === "parallel-work") return ["spec_gate", "parallel_work_plan", "agent_orchestrator", "worktree_manage", "integration_verifier", "structural_gate"];
   if (kind === "worktree-lane") return ["agent_orchestrator", "worktree_manage", "write_scope_guard", "structural_gate"];
   if (kind === "integration") return ["integration_verifier", "structural_gate"];
+  if (kind === "ulw") return ["spec_gate", "ulw_harness", "structural_gate"];
   if (kind === "report-research") return ["spec_gate", "report_research_gate", "structural_gate"];
   return [];
 }
@@ -188,12 +216,21 @@ function isMicroCodingPrompt(prompt: string): boolean {
   return matchesAny(text, MICRO_CODING_PATTERNS) || matchesAny(text, ACTION_PATTERNS);
 }
 
+function isUlwPrompt(prompt: string): boolean {
+  if (matchesAny(prompt, ULW_EXPLICIT_PATTERNS)) return true;
+  const signalCount = ULW_AUTONOMOUS_PATTERNS.filter((pattern) => pattern.test(prompt)).length;
+  const delegatedEndToEnd = /알아서|자율|autonomous/i.test(prompt) && /끝까지|완료까지|검증까지|until\s+completion/i.test(prompt);
+  return (signalCount >= 4 || delegatedEndToEnd) && matchesAny(prompt, ACTION_PATTERNS);
+}
+
 export function routeAutonomyProtocol(input: AutonomyRouterInput): AutonomyRouterDecision {
   const prompt = input.prompt.trim();
   if (!prompt) return decision("none", "empty prompt");
 
   const hardBoundary = approvalBoundaryForPrompt(prompt);
   if (hardBoundary) return decision("approval-boundary", `hard approval boundary detected: ${hardBoundary}`, hardBoundary);
+
+  if (isUlwPrompt(prompt)) return decision("ulw", "ULW autonomous harness intent detected");
 
   if (hasReportIntent(prompt)) {
     const noExternal = explicitNoExternalResearchRequested(prompt);

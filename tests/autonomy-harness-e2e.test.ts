@@ -126,6 +126,66 @@ describe("autonomous harness e2e flows", () => {
     expect(protocol.taskStatus).toBe("completed");
   });
 
+  it("runs the ULW protocol only after markdown harness evidence is recorded", async () => {
+    const cwd = await useTempAgentDir();
+    const { handlers, tools } = setupAutopilot();
+
+    await emitAll(handlers, "before_agent_start", { type: "before_agent_start", prompt: "ulw 방식으로 끝까지 구현하고 검증해줘", systemPrompt: "base" }, cwd);
+    await emitAll(handlers, "tool_result", { type: "tool_result", toolName: "spec_gate", details: { result: { ok: true } } }, cwd);
+    const missingHarness = await tools.get("structural_gate")!.execute("gate-0", completeReview, undefined, undefined, ctx(cwd));
+
+    const harness = await tools.get("ulw_harness")!.execute("ulw-1", {
+      action: "start",
+      objective: "ULW e2e",
+      successCriteria: ["markdown evidence exists"],
+      plan: ["record harness state"],
+      nextActions: ["run structural gate"],
+    }, undefined, undefined, ctx(cwd));
+    await emitAll(handlers, "tool_result", { type: "tool_result", toolName: "ulw_harness", details: harness.details }, cwd);
+    const startOnly = await tools.get("structural_gate")!.execute("gate-1", completeReview, undefined, undefined, ctx(cwd));
+
+    const status = await tools.get("ulw_harness")!.execute("ulw-status", { action: "status" }, undefined, undefined, ctx(cwd));
+    await emitAll(handlers, "tool_result", { type: "tool_result", toolName: "ulw_harness", details: status.details }, cwd);
+    const statusOnly = await tools.get("structural_gate")!.execute("gate-2", completeReview, undefined, undefined, ctx(cwd));
+
+    const record = await tools.get("ulw_harness")!.execute("ulw-record", {
+      action: "record",
+      evidence: "Targeted ULW harness tests passed.",
+      cleanup: "No tmux sessions left running.",
+    }, undefined, undefined, ctx(cwd));
+    await emitAll(handlers, "tool_result", { type: "tool_result", toolName: "ulw_harness", details: record.details }, cwd);
+    const passed = await tools.get("structural_gate")!.execute("gate-1", completeReview, undefined, undefined, ctx(cwd));
+    await emitAll(handlers, "tool_result", { type: "tool_result", toolName: "structural_gate", details: passed.details }, cwd);
+    const protocol = (await loadState()).autonomyProtocols[autonomyProtocolKey(cwd, "s1")];
+
+    expect(missingHarness.details).toMatchObject({ ok: false, reason: expect.stringContaining("ulw_harness") });
+    expect(startOnly.details).toMatchObject({ ok: false, reason: expect.stringContaining("ulw_harness") });
+    expect(statusOnly.details).toMatchObject({ ok: false, reason: expect.stringContaining("ulw_harness") });
+    expect(passed.details).toMatchObject({ ok: true });
+    expect(protocol.kind).toBe("ulw");
+    expect(protocol.taskStatus).toBe("completed");
+  });
+
+  it("lets successful ULW tmux evidence satisfy the harness requirement", async () => {
+    const cwd = await useTempAgentDir();
+    const { handlers, tools } = setupAutopilot();
+
+    await emitAll(handlers, "before_agent_start", { type: "before_agent_start", prompt: "ulw 방식으로 tmux evidence까지 검증해줘", systemPrompt: "base" }, cwd);
+    await emitAll(handlers, "tool_result", { type: "tool_result", toolName: "spec_gate", details: { result: { ok: true } } }, cwd);
+    await emitAll(handlers, "tool_result", {
+      type: "tool_result",
+      toolName: "ulw_harness",
+      details: { result: { ok: true, action: "tmux-test", evidencePath: "/repo/.pi/ulw/s1/evidence/tmux.txt" } },
+    }, cwd);
+    const passed = await tools.get("structural_gate")!.execute("gate-tmux", completeReview, undefined, undefined, ctx(cwd));
+    await emitAll(handlers, "tool_result", { type: "tool_result", toolName: "structural_gate", details: passed.details }, cwd);
+    const protocol = (await loadState()).autonomyProtocols[autonomyProtocolKey(cwd, "s1")];
+
+    expect(passed.details).toMatchObject({ ok: true });
+    expect(protocol.satisfiedTools).toContain("ulw_harness");
+    expect(protocol.taskStatus).toBe("completed");
+  });
+
   it("continues an active manifest without resetting the parallel protocol", async () => {
     const cwd = await useTempAgentDir();
     await writeActiveManifest(cwd);

@@ -151,6 +151,22 @@ describe("choco autonomous PM policy", () => {
     expect(prompt).toContain("missing variables can reverse the conclusion");
   });
 
+  it("injects reflective self-improvement guidance for high-quality goal achievement", () => {
+    const prompt = buildAutopilotSystemPrompt({
+      workMode: "default",
+      executionIntensity: "deep",
+      cwd: "/repo",
+    });
+
+    expect(prompt).toContain("Reflective self-improvement loop");
+    expect(prompt).toContain("Restate the user's requested outcome as a concrete target state");
+    expect(prompt).toContain("Generate at least two plausible improvement candidates before editing");
+    expect(prompt).toContain("Select the smallest candidate that best improves the target state");
+    expect(prompt).toContain("Compare the result against the target state, not against effort spent");
+    expect(prompt).toContain("Do not keep self-developing past the user's requested scope");
+    expect(prompt).toContain("Stop only when the target state is met with High confidence");
+  });
+
   it("requires collision-resistant area partitioning before writable parallel development", () => {
     const prompt = buildAutopilotSystemPrompt({
       workMode: "default",

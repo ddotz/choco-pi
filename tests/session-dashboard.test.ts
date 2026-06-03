@@ -3,7 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import chocoAutopilot, { updateState } from "../extensions/choco-autopilot/index";
+import {
+  createEmptyLedger,
+  recordAssumption,
+  recordChangedFile,
+  recordDecision,
+  recordVerification,
+} from "../extensions/choco-autopilot/context-ledger";
 import { formatSessionDashboard } from "../extensions/choco-autopilot/session-dashboard";
+import { sessionScopedKey } from "../extensions/choco-autopilot/session-scope";
 import { createPiExtensionFixture } from "./helpers/pi-extension-fixture";
 
 describe("session dashboard", () => {
@@ -85,6 +93,45 @@ describe("session dashboard", () => {
       expect(notify).toHaveBeenCalledWith(expect.stringContaining("todos: 1 active / 1 pending / 1 done"), "info");
     } finally {
       await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("shows a compact context ledger summary in /sessions", async () => {
+    const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
+    const agentDir = await mkdtemp(join(tmpdir(), "choco-pi-sessions-ledger-"));
+    process.env.PI_CODING_AGENT_DIR = agentDir;
+    try {
+      const { commands } = createPiExtensionFixture(chocoAutopilot);
+      const notify = vi.fn();
+      const ledger = recordVerification(
+        recordChangedFile(
+          recordAssumption(
+            recordDecision(createEmptyLedger("Improve visible session state"), "Expose compact ledger state in /sessions"),
+            "User needs current session context without opening /ledger",
+          ),
+          "extensions/choco-autopilot/session-dashboard.ts",
+        ),
+        "pnpm run test",
+        "passed",
+        "targeted session dashboard tests passed",
+      );
+      await updateState((state) => {
+        state.ledgers[sessionScopedKey(agentDir, "s1")] = ledger;
+      });
+
+      await commands.get("sessions")!.handler("", { cwd: agentDir, ui: { notify }, sessionManager: { getSessionId: () => "s1" } });
+
+      const output = notify.mock.calls.at(-1)?.[0] as string;
+      expect(output).toContain("ledger: Objective: Improve visible session state");
+      expect(output).toContain("Assumptions: User needs current session context without opening /ledger");
+      expect(output).toContain("Decisions: Expose compact ledger state in /sessions");
+      expect(output).toContain("Changed files: 1");
+      expect(output).toContain("Verification: passed pnpm run test");
+      expect(output).not.toContain("see /ledger for detailed context ledger");
+    } finally {
+      if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+      else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
+      await rm(agentDir, { recursive: true, force: true });
     }
   });
 });

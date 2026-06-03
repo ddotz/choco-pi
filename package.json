@@ -16,6 +16,7 @@
       "extensions/choco-autopilot/index.ts",
       "extensions/input-newline/index.ts",
       "extensions/todo-widget.ts",
+      "extensions/headroom/index.ts",
       "extensions/choco-footer/index.ts",
       "extensions/choco-header/index.ts",
       "extensions/fff-search/index.ts",

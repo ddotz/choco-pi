@@ -4,10 +4,13 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import { currentBranch, listWorktrees, repoRoot as gitRepoRoot, statusSummary } from "./git-runtime";
 import { summarizeAgentRunManifest, type AgentRunManifest } from "./agent-run-manifest";
 import { autonomyProtocolKey, summarizeAutonomyProtocol, type AutonomyProtocolKind } from "./autonomy-protocol";
+import type { ContextLedger, LedgerVerification } from "./context-ledger";
 import { sessionIdFromContext, sessionScopedKey } from "./session-scope";
 
 export interface SessionDashboardAutonomyInput {
   protocol: AutonomyProtocolKind | "none";
+  status?: string;
+  hardBoundary?: string;
   required?: string[];
   satisfied?: string[];
   missing?: string[];
@@ -49,6 +52,8 @@ export function formatSessionDashboard(input: SessionDashboardInput): string {
     `ledger: ${input.ledger ?? "none"}`,
     "autonomy:",
     `- protocol: ${autonomy.protocol}`,
+    ...(autonomy.status ? [`- status: ${autonomy.status}`] : []),
+    ...(autonomy.hardBoundary ? [`- hard boundary: ${autonomy.hardBoundary}`] : []),
     `- required: ${formatList(autonomy.required)}`,
     `- satisfied: ${formatList(autonomy.satisfied)}`,
     `- missing: ${formatList(autonomy.missing)}`,
@@ -120,6 +125,7 @@ async function worktreeSummaries(cwd: string): Promise<string[]> {
 interface DashboardModeState {
   runtime?: { workMode?: string; executionIntensity?: string };
   sessions?: Record<string, { effectiveWorkMode?: string; executionIntensity?: string }>;
+  ledgers?: Record<string, ContextLedger | undefined>;
   autonomyProtocols?: Record<string, Parameters<typeof summarizeAutonomyProtocol>[0]>;
   activeLanes?: Record<string, { groupId: string; laneId: string; readOnly: boolean; sessionId?: string; cwd?: string }>;
 }
@@ -158,6 +164,33 @@ function autonomyProtocolSummary(state: DashboardModeState | undefined, cwd: str
   return protocols[autonomyProtocolKey(cwd, sessionId)] ?? protocols[autonomyProtocolKey(repoRoot, sessionId)];
 }
 
+function lastValue(values: readonly string[] | undefined): string | undefined {
+  return values?.filter((value) => value.trim()).at(-1);
+}
+
+function formatVerification(verification: LedgerVerification | undefined): string | undefined {
+  if (!verification) return undefined;
+  const evidence = verification.evidence ? ` - ${verification.evidence}` : "";
+  return `${verification.status} ${verification.command}${evidence}`;
+}
+
+function compactLedgerSummary(state: DashboardModeState | undefined, cwd: string, sessionId: string, repoRoot: string): string {
+  const ledgers = state?.ledgers ?? {};
+  const ledger = ledgers[sessionScopedKey(cwd, sessionId)] ?? ledgers[sessionScopedKey(repoRoot, sessionId)] ?? ledgers[sessionId];
+  if (!ledger) return "none";
+
+  return [
+    `Objective: ${ledger.objective}`,
+    `Assumptions: ${lastValue(ledger.assumptions) ?? "none"}`,
+    `Decisions: ${lastValue(ledger.decisions) ?? "none"}`,
+    `Changed files: ${ledger.changedFiles.length}`,
+    `Verification: ${formatVerification(ledger.verifications.at(-1)) ?? "none"}`,
+    ledger.blockers.length ? `Blockers: ${lastValue(ledger.blockers)}` : undefined,
+    ledger.risks.length ? `Risks: ${lastValue(ledger.risks)}` : undefined,
+    ledger.nextActions.length ? `Next actions: ${lastValue(ledger.nextActions)}` : undefined,
+  ].filter((line): line is string => Boolean(line)).join(" | ");
+}
+
 export function registerSessionDashboardCommand(pi: Pick<ExtensionAPI, "registerCommand">, readState?: DashboardStateReader): void {
   pi.registerCommand("sessions", {
     description: "Show session, branch, todo, ledger, manifest, and worktree status",
@@ -173,7 +206,7 @@ export function registerSessionDashboardCommand(pi: Pick<ExtensionAPI, "register
         branch: await currentBranch(cwd).catch(() => null),
         mode: await modeSummary(readState, sessionId),
         todos: await todoSummary(cwd, sessionId),
-        ledger: "see /ledger for detailed context ledger",
+        ledger: compactLedgerSummary(state, cwd, sessionId, repoRoot),
         autonomy: summarizeAutonomyProtocol(protocol),
         activeLane: activeLaneSummary(state, cwd, sessionId, repoRoot),
         manifests: await manifestSummaries(cwd),
